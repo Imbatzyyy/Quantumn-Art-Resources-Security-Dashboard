@@ -364,8 +364,22 @@ svg { flex: 0 0 auto; }
 .login-heading p { margin-bottom: 0; color: #66758a; line-height: 1.55; }
 .field-label { display: grid; gap: .5rem; margin-bottom: 1.05rem; color: #27364a; font-size: .82rem; font-weight: 750; }
 .password-label-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.password-label-row a { color: #1e63c7; font-size: .76rem; font-weight: 800; text-decoration: none; }
+.password-label-row a {
+  min-height: 28px;
+  padding: .3rem .2rem;
+  display: inline-flex;
+  align-items: center;
+  color: #1e63c7;
+  border-radius: 7px;
+  font-size: .76rem;
+  font-weight: 800;
+  text-decoration: none;
+}
 .password-label-row a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.password-label-row a:focus-visible, .password-field button:focus-visible {
+  outline: 3px solid rgba(34,103,216,.24);
+  outline-offset: 2px;
+}
 .login-input {
   min-height: 52px;
   display: flex;

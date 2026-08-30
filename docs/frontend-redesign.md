@@ -150,6 +150,16 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Added private HR Request Center failure coverage proving that sensitive subject and detail fields are preserved when the protected submission fails, allowing correction or retry without data loss.
 - Increased the deterministic frontend suite from 53 to 59 passing tests across eleven files without contacting Supabase, Netlify, Resend, or any other production service.
 
+## Phase 13 rendered responsive and sign-in accessibility QA
+
+- Ran both distinct sign-in experiences in a real browser at 390×844, 768×900, and 1440×900 viewports.
+- Verified that the Admin and Employee layouts have no horizontal overflow at any tested breakpoint and that their primary fields and actions remain inside the visible content width.
+- Increased the Employee recovery-link target from 15 pixels to 28 pixels high while preserving the compact premium visual treatment.
+- Replaced the interactive link nested inside the password label with valid separate semantics, so both portals expose the field name as exactly `Password` to assistive technology.
+- Added explicit visible-focus treatment for the recovery link and password-visibility control.
+- Extended the route regression test to preserve the visual keyboard order from work email, to recovery, to password.
+- Re-ran the rendered matrix after the fix and observed no browser warnings or errors. Local Supabase configuration remained absent, so authentication continued to fail closed and no production session or data was used.
+
 ## Verification gates passed
 
 ```bash
@@ -160,7 +170,7 @@ npm run build
 git diff --check
 ```
 
-The automated suite contains 59 passing tests across eleven files. The earlier local browser smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 12, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
+The automated suite contains 59 passing tests across eleven files. The local browser smoke and responsive checks cover `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`, with the two sign-in routes additionally checked at 390, 768, and 1440 pixel widths. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final responsive browser matrix reported no horizontal overflow, console warnings, or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 13, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -174,7 +184,7 @@ The automated suite contains 59 passing tests across eleven files. The earlier l
 
 ## Recommended next continuation
 
-1. Add responsive visual-regression coverage and rendered color-contrast checks for the two portal shells and their highest-risk workflows.
+1. Add repeatable screenshot comparison and rendered color-contrast automation for the two portal shells and their highest-risk workflows.
 2. Generate database types from the Supabase schema and apply them to table and RPC calls without changing the schema.
 3. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
 4. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.

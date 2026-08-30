@@ -176,9 +176,9 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
             </span>
           </label>}
 
-          {!mfaChallenge && <label className="field-label" htmlFor={`${portal}-password`}>
+          {!mfaChallenge && <div className="field-label">
             <span className="password-label-row">
-              <span>Password</span>
+              <label htmlFor={`${portal}-password`}>Password</label>
               {!isAdmin && <Link to="/employee/forgot-password">Forgot password?</Link>}
             </span>
             <span className="login-input password-field">
@@ -201,7 +201,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </span>
-          </label>}
+          </div>}
 
           {mfaChallenge && (
             <label className="field-label" htmlFor={`${portal}-authenticator-code`}>

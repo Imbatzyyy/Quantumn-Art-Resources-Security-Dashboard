@@ -37,11 +37,22 @@ describe('public authentication routes', () => {
     expect(screen.queryByText(/Open the employee portal/i)).not.toBeInTheDocument()
   })
 
-  it('renders employee sign-in with a private recovery link and no admin discovery link', async () => {
+  it('renders employee sign-in with a private recovery link, logical focus order, and no admin discovery link', async () => {
+    const user = userEvent.setup()
     renderRoute('/employee/login')
     expect(await screen.findByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute('href', '/employee/forgot-password')
+    const email = screen.getByLabelText('Work email')
+    const recovery = screen.getByRole('link', { name: 'Forgot password?' })
+    const password = screen.getByLabelText('Password', { selector: 'input' })
+    expect(recovery).toHaveAttribute('href', '/employee/forgot-password')
     expect(screen.queryByText(/admin portal/i)).not.toBeInTheDocument()
+
+    await user.tab()
+    expect(email).toHaveFocus()
+    await user.tab()
+    expect(recovery).toHaveFocus()
+    await user.tab()
+    expect(password).toHaveFocus()
   })
 
   it('keeps recovery and invitation routes readable when Supabase is unavailable', async () => {
