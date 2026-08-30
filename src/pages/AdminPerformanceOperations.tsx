@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { CalendarCheck, CalendarDays, Check, FileText, Plus, Star, Target, TrendingUp } from 'lucide-react'
+import { CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, FileText, Flag, Layers3, Plus, Rocket, ShieldCheck, Sparkles, Star, Target, TrendingUp } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableShell } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, statusTone } from '../utils/format.js'
@@ -23,6 +23,16 @@ export default function AdminPerformanceOperations() {
   const [cycleForm, setCycleForm] = useState<PerformanceCycleInput>({ title: 'Quarterly Performance Cycle', period: `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`, status: 'Active', startDate: '', endDate: '' })
   const [goalForm, setGoalForm] = useState<GoalInput>({ employeeId: defaultEmployee, title: '', description: '', category: 'Growth', progress: 0, status: 'Active', dueDate: '' })
   if (!data) return null
+  const cycleStatuses = [
+    { value: 'Draft', description: 'Private planning', icon: FileText },
+    { value: 'Active', description: 'Reviews in progress', icon: Rocket },
+    { value: 'Review', description: 'Calibration stage', icon: Star },
+    { value: 'Closed', description: 'Cycle completed', icon: CheckCircle2 },
+  ]
+  const selectedStatusIndex = cycleStatuses.findIndex((item) => item.value === cycleForm.status)
+  const cycleWindowDays = cycleForm.startDate && cycleForm.endDate
+    ? Math.max(0, Math.round((new Date(`${cycleForm.endDate}T00:00:00`).getTime() - new Date(`${cycleForm.startDate}T00:00:00`).getTime()) / 86400000) + 1)
+    : null
 
   const openReview = (review?: PerformanceRecord) => setReviewForm(review ? { ...review, comments: review.comments ?? '', cycleId: review.cycleId ?? '' } : { employeeId: defaultEmployee, cycleId: defaultCycle?.id ?? '', period: defaultCycle?.period ?? `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`, score: 80, goalProgress: 80, quality: 80, productivity: 80, teamwork: 80, comments: '' })
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
@@ -41,7 +51,66 @@ export default function AdminPerformanceOperations() {
     <section className="panel"><div className="panel-header"><div><h2>Review records</h2><p>Employees retrieve only Published records through RLS.</p></div></div>{data.performance.length ? <TableShell><thead><tr><th>Employee</th><th>Period</th><th>Score</th><th>Goal progress</th><th>Rating</th><th>Status / Action</th></tr></thead><tbody>{data.performance.map((review) => <tr key={review.id}><td><strong>{personName(data, review.employeeId)}</strong><small className="table-subtitle">{review.employeeId}</small></td><td>{review.period}</td><td><strong>{review.score}/100</strong></td><td>{review.goalProgress}%</td><td>{review.rating}</td><td><div className="table-actions"><Badge tone={statusTone(review.status)}>{review.status}</Badge><button className="mini-button" onClick={() => openReview(review)}>Edit</button>{review.status === 'Draft' && <button className="mini-button approve" onClick={() => void publishPerformance(review.id)}><Check />Publish</button>}</div></td></tr>)}</tbody></TableShell> : <EmptyState icon={Star} title="No performance reviews" text="Create a draft, review it, then publish it to the employee." />}</section>
     <section className="panel"><div className="panel-header"><div><h2>Employee goals</h2><p>Shared progress values for coaching conversations</p></div></div><div className="goal-admin-grid">{data.goals.map((goal) => <article key={goal.id}><div><Badge tone={statusTone(goal.status)}>{goal.status}</Badge><h3>{goal.title}</h3><p>{personName(data, goal.employeeId)} · {goal.category} · Due {formatDate(goal.dueDate)}</p></div><strong>{goal.progress}%</strong><ProgressBar value={goal.progress} label="Progress" /></article>)}</div></section>
     {reviewForm && <Modal title="Save performance review draft" onClose={() => setReviewForm(null)} size="large"><form className="form-grid" onSubmit={submitReview}><label>Employee<select value={reviewForm.employeeId} onChange={(event) => setReviewForm({ ...reviewForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></label><label>Cycle<select value={reviewForm.cycleId} onChange={(event) => { const cycle = data.performanceCycles.find((item) => item.id === Number(event.target.value)); setReviewForm({ ...reviewForm, cycleId: event.target.value, period: cycle?.period ?? reviewForm.period }) }}><option value="">No cycle</option>{data.performanceCycles.map((item) => <option value={item.id} key={item.id}>{item.period} · {item.status}</option>)}</select></label><label className="span-2">Review period<input value={reviewForm.period} onChange={(event) => setReviewForm({ ...reviewForm, period: event.target.value })} required /></label>{reviewMetrics.map(([key, label]) => <label key={key}>{label}<input type="number" min={0} max={100} value={reviewForm[key]} onChange={(event) => setReviewForm({ ...reviewForm, [key]: Number(event.target.value) })} required /></label>)}<label className="span-2">Comments<textarea rows={4} maxLength={1000} value={reviewForm.comments} onChange={(event) => setReviewForm({ ...reviewForm, comments: event.target.value })} /></label><p className="form-note span-2">Saving creates a private draft. Use Publish only after the review is complete and approved for employee disclosure.</p><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setReviewForm(null)}>Cancel</button><button className="button button-primary">Save private draft</button></div></form></Modal>}
-    {showCycle && <Modal title="Create performance cycle" onClose={() => setShowCycle(false)}><form className="form-grid" onSubmit={submitCycle}><label className="span-2">Cycle title<input value={cycleForm.title} onChange={(event) => setCycleForm({ ...cycleForm, title: event.target.value })} required /></label><label>Period label<input value={cycleForm.period} onChange={(event) => setCycleForm({ ...cycleForm, period: event.target.value })} required /></label><label>Status<select value={cycleForm.status} onChange={(event) => setCycleForm({ ...cycleForm, status: event.target.value })}><option>Draft</option><option>Active</option><option>Review</option><option>Closed</option></select></label><label>Start date<input type="date" value={cycleForm.startDate} onChange={(event) => setCycleForm({ ...cycleForm, startDate: event.target.value })} /></label><label>End date<input type="date" value={cycleForm.endDate} onChange={(event) => setCycleForm({ ...cycleForm, endDate: event.target.value })} /></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowCycle(false)}>Cancel</button><button className="button button-primary">Create cycle</button></div></form></Modal>}
+    {showCycle && <Modal title="Create performance cycle" onClose={() => setShowCycle(false)} size="large">
+      <form className="performance-cycle-shell" onSubmit={submitCycle}>
+        <section className="performance-cycle-intro">
+          <span className="performance-cycle-intro-icon"><CalendarCheck aria-hidden="true" /></span>
+          <div><small>Performance program design</small><h3>Build a focused review cycle with a clear cadence</h3><p>Define the cycle identity, select its operating stage, and establish a review window before employees and managers participate.</p></div>
+          <span className="performance-cycle-state"><Sparkles aria-hidden="true" />Live blueprint</span>
+        </section>
+
+        <div className="performance-cycle-content">
+          <section className="performance-cycle-fields" aria-labelledby="performance-cycle-fields-title">
+            <header className="performance-cycle-heading"><span><Layers3 aria-hidden="true" /></span><div><h4 id="performance-cycle-fields-title">Cycle foundations</h4><p>Create a recognizable review program with an unambiguous reporting period.</p></div></header>
+
+            <label className="performance-cycle-field">Cycle title
+              <span className="performance-cycle-input"><Flag aria-hidden="true" /><input aria-label="Cycle title" value={cycleForm.title} onChange={(event) => setCycleForm({ ...cycleForm, title: event.target.value })} placeholder="e.g. Quarterly Performance Cycle" required /></span>
+              <small>Use a name managers and employees will immediately recognize.</small>
+            </label>
+
+            <label className="performance-cycle-field">Period label
+              <span className="performance-cycle-input"><CalendarDays aria-hidden="true" /><input aria-label="Period label" value={cycleForm.period} onChange={(event) => setCycleForm({ ...cycleForm, period: event.target.value })} placeholder="e.g. Q3 2026" required /></span>
+              <small>This reporting label must be unique in the performance register.</small>
+            </label>
+
+            <fieldset className="performance-status-picker">
+              <legend>Starting status</legend>
+              <div>{cycleStatuses.map(({ value, description, icon: Icon }) => <label className={cycleForm.status === value ? `active status-${value.toLowerCase()}` : ''} key={value}><input aria-label={value} type="radio" name="performance-cycle-status" value={value} checked={cycleForm.status === value} onChange={(event) => setCycleForm({ ...cycleForm, status: event.target.value })} /><span><Icon aria-hidden="true" /></span><div><strong>{value}</strong><small>{description}</small></div></label>)}</div>
+            </fieldset>
+
+            <div className="performance-cycle-date-grid">
+              <label className="performance-cycle-field">Start date <em>Optional</em>
+                <span className="performance-cycle-input"><CalendarClock aria-hidden="true" /><input aria-label="Start date" type="date" value={cycleForm.startDate} onChange={(event) => setCycleForm({ ...cycleForm, startDate: event.target.value })} /></span>
+              </label>
+              <label className="performance-cycle-field">End date <em>Optional</em>
+                <span className="performance-cycle-input"><CalendarCheck aria-hidden="true" /><input aria-label="End date" type="date" min={cycleForm.startDate || undefined} value={cycleForm.endDate} onChange={(event) => setCycleForm({ ...cycleForm, endDate: event.target.value })} /></span>
+              </label>
+            </div>
+          </section>
+
+          <aside className="performance-cycle-preview" aria-labelledby="performance-cycle-preview-title">
+            <header><div><small>Cycle blueprint</small><h4 id="performance-cycle-preview-title">Program readiness</h4></div><span><TrendingUp aria-hidden="true" /></span></header>
+            <section className="performance-cycle-identity">
+              <span><CalendarCheck aria-hidden="true" /></span>
+              <div><small>{cycleForm.period.trim() || 'Reporting period'}</small><h5>{cycleForm.title.trim() || 'Untitled performance cycle'}</h5><p>Starts in <strong>{cycleForm.status}</strong></p></div>
+            </section>
+
+            <div className="performance-cycle-timeline" aria-label="Performance cycle stages">
+              {cycleStatuses.map(({ value, description, icon: Icon }, index) => <article className={index < selectedStatusIndex ? 'complete' : index === selectedStatusIndex ? 'current' : ''} key={value}><span><Icon aria-hidden="true" /></span><div><strong>{value}</strong><small>{description}</small></div>{index < cycleStatuses.length - 1 && <i aria-hidden="true" />}</article>)}
+            </div>
+
+            <dl className="performance-cycle-window"><div><dt>Start</dt><dd>{cycleForm.startDate ? formatDate(cycleForm.startDate) : 'Open date'}</dd></div><div><dt>End</dt><dd>{cycleForm.endDate ? formatDate(cycleForm.endDate) : 'Open date'}</dd></div><div><dt>Window</dt><dd>{cycleWindowDays ? `${cycleWindowDays} days` : 'Flexible'}</dd></div></dl>
+
+            <div className="performance-cycle-assurance"><ShieldCheck aria-hidden="true" /><div><strong>Governed performance workflow</strong><p>Only authorized HR administrators can create cycles. Draft cycles remain private; non-draft cycles become visible to active HRMS users through Supabase RLS.</p></div></div>
+          </aside>
+        </div>
+
+        <footer className="performance-cycle-footer">
+          <div><CalendarCheck aria-hidden="true" /><p><strong>Ready to establish the cycle.</strong> Confirm the unique period, starting stage, and optional review dates before creation.</p></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCycle(false)}>Cancel</button><button className="button button-primary"><Plus aria-hidden="true" />Create cycle</button></div>
+        </footer>
+      </form>
+    </Modal>}
     {showGoal && <Modal title="Assign employee goal" onClose={() => setShowGoal(false)}><form className="form-grid" onSubmit={submitGoal}><label className="span-2">Employee<select value={goalForm.employeeId} onChange={(event) => setGoalForm({ ...goalForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></label><label className="span-2">Goal title<input value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} required /></label><label>Category<input value={goalForm.category} onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })} required /></label><label>Due date<input type="date" value={goalForm.dueDate} onChange={(event) => setGoalForm({ ...goalForm, dueDate: event.target.value })} required /></label><label className="span-2">Description<textarea rows={4} value={goalForm.description} onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })} /></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowGoal(false)}>Cancel</button><button className="button button-primary">Assign goal</button></div></form></Modal>}
   </div>
 }

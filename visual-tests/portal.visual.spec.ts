@@ -130,6 +130,26 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'publish-hr-document-dark-desktop.png')
   })
 
+  test('premium performance cycle planning', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New cycle' }).click()
+    await expect(page.getByRole('dialog', { name: 'Create performance cycle' })).toBeVisible()
+    await capture(page, 'create-performance-cycle-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New cycle' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Create performance cycle' })
+    await dialog.getByLabel('Cycle title').fill('Year-End Leadership Review')
+    await dialog.getByLabel('Period label').fill('H2 2026')
+    await dialog.getByRole('radio', { name: 'Review' }).click()
+    await dialog.getByLabel('Start date').fill('2026-10-01')
+    await dialog.getByLabel('End date').fill('2026-12-15')
+    await expect(dialog.getByText('76 days')).toBeVisible()
+    await capture(page, 'create-performance-cycle-dark-desktop.png')
+  })
+
   test('premium payroll draft review', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
@@ -274,6 +294,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'publish-hr-document-mobile.png')
+  })
+
+  test('performance cycle planning dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New cycle' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Create performance cycle' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'create-performance-cycle-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {

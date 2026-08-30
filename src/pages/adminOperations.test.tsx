@@ -195,7 +195,7 @@ describe('core administrator operation boundaries', () => {
     await user.type(within(dialog).getByLabelText('Cycle title'), 'Year-End Review')
     await user.clear(within(dialog).getByLabelText('Period label'))
     await user.type(within(dialog).getByLabelText('Period label'), 'H2 2026')
-    await user.selectOptions(within(dialog).getByLabelText('Status'), 'Draft')
+    await user.click(within(dialog).getByRole('radio', { name: 'Draft' }))
     fireEvent.submit(dialog.querySelector('form')!)
 
     await waitFor(() => expect(createPerformanceCycle).toHaveBeenCalledWith({
