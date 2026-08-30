@@ -3,10 +3,12 @@ dist/
 coverage/
 test-results/
 playwright-report/
+playwright-report-authenticated/
 blob-report/
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 .netlify/
 .DS_Store
 npm-debug.log*

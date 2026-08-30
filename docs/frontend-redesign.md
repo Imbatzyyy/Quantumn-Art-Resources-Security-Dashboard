@@ -185,6 +185,20 @@ The two portals share accessibility, typography, spacing, and component-quality 
 
 The rendered gate runs ten Playwright scenarios and compares 17 approved screenshots. Use `npm run test:visual` for normal verification. Use `npm run test:visual:update` only for intentional UI changes, then visually inspect every changed baseline before accepting it.
 
+## Phase 16 authenticated role-isolation QA boundary
+
+- Added a separate authenticated Playwright suite for the real Admin and Employee login routes, Supabase profile restoration, portal navigation, role redirects, synchronized Employee profile identity, and clean sign-out.
+- Kept the journeys read-oriented: they do not create employees, submit HR requests, clock attendance, update profiles, change alerts, or perform another HR workflow mutation.
+- Added a fail-closed target policy that permits only localhost or HTTPS Netlify deploy/branch preview hostname shapes and rejects the custom production domain and primary Netlify production sites.
+- Restricted identities to the two different fictional `@quantum.test` accounts, required the explicit `fictional-classroom-only` classification, and required 12-or-more-character classroom passwords.
+- Kept credentials in an ignored `.env.e2e` file, with a safe committed `.env.e2e.example` containing no passwords.
+- Deliberately refused to store or automate a TOTP seed. An MFA challenge stops the run and requires an account-owner-approved QA factor.
+- Added browser-console and HTTP 5xx evidence collection to both authenticated journeys, with local screenshots, video, and traces retained only on failure.
+- Added ten deterministic safety-policy tests covering allowed local/preview targets and rejection of production targets, HTTP remotes, wrong classification, non-fictional/shared identities, short passwords, and missing configuration.
+- Confirmed that the authenticated configuration discovers exactly two journeys and fails closed before launching Chromium while credentials or an isolated preview are unavailable.
+
+The authenticated run is intentionally not part of `npm run check`. Follow [authenticated-e2e.md](authenticated-e2e.md) and run `npm run test:e2e` only after an isolated preview and its separate fictional Supabase test project have been prepared.
+
 ## Verification gates passed
 
 ```bash
@@ -196,7 +210,7 @@ npm run build
 git diff --check
 ```
 
-The automated suite contains 67 passing tests across twelve files. The local browser smoke and responsive checks cover `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`, with the two sign-in routes additionally checked at 390, 768, and 1440 pixel widths. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final responsive browser matrix reported no horizontal overflow, console warnings, or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 14, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
+The automated suite contains 77 passing tests across thirteen files, plus ten rendered Playwright scenarios comparing 17 approved screenshots. The local browser smoke and responsive checks cover `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`, with the two sign-in routes additionally checked at 390, 768, and 1440 pixel widths. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final responsive browser matrix reported no horizontal overflow, console warnings, or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 14, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -210,8 +224,9 @@ The automated suite contains 67 passing tests across twelve files. The local bro
 
 ## Recommended next continuation
 
-1. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
-2. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
+1. Create an isolated Netlify deploy preview connected to a separate Supabase test project with the fictional classroom accounts.
+2. Run the prepared authenticated QA harness and review its evidence.
+3. Verify the preview’s Netlify Functions, Supabase RLS behavior, and security headers, then merge to `main` only after approval.
 
 ## Security boundary
 

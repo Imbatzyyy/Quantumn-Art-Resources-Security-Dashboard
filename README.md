@@ -44,6 +44,8 @@ npm run preview
 
 `npm run test:visual` renders fictional, in-memory Admin and Employee states in Chromium. It compares approved desktop/mobile light and dark screenshots, checks horizontal overflow, and runs axe’s rendered WCAG color-contrast rule without contacting Supabase or another production service. When an intentional UI change is visually reviewed, update the approved images with `npm run test:visual:update` and inspect the changed PNG files before committing them.
 
+Authenticated role-isolation QA is deliberately separate from `npm run check` because it requires an isolated Netlify deploy/branch preview, a separate fictional Supabase test project, and the two local-only classroom passwords. See [docs/authenticated-e2e.md](docs/authenticated-e2e.md). The harness rejects production hostnames and non-`@quantum.test` identities before opening a browser.
+
 ## Repository safety
 
 Only production source, migrations, tests, documentation, and required brand assets belong in version control. Local Netlify state, environment files, generated builds, deployment archives, Supabase CLI cache, temporary documents, legacy XAMPP code, SQL dumps, uploaded demo data, and generated OWASP ZAP reports are excluded by `.gitignore`.
