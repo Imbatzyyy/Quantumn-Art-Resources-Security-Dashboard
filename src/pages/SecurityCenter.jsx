@@ -18,7 +18,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react'
-import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.jsx'
+import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.tsx'
 import { useHrms } from '../state/useHrms.js'
 import { statusTone } from '../utils/format.js'
 import { downloadCsv } from '../utils/downloads.js'

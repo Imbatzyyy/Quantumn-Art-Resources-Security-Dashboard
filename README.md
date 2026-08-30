@@ -1,4 +1,4 @@
-# Quantum HRMS — Supabase-only React application
+# Quantum HRMS — React 19 + TypeScript + Supabase
 
 This repository contains the stable React/Vite production baseline of Quantum HRMS. The former XAMPP/PHP prototype remains available only in the local historical workspace and is intentionally excluded from version control so the repository represents the active Netlify and Supabase architecture.
 
@@ -32,8 +32,10 @@ The application does not bundle login credentials. Create fictional Supabase Aut
 ## Verification
 
 ```bash
+npm run typecheck
 npm run lint
 npm run build
+npm run check
 npm run preview
 ```
 
@@ -43,12 +45,14 @@ Only production source, migrations, tests, documentation, and required brand ass
 
 Never commit real Supabase secret/service-role keys, Resend API keys, administrator credentials, employee temporary passwords, access tokens, or report evidence containing private request data. Copy `.env.example` locally and configure real values through Netlify environment variables.
 
-This baseline intentionally remains React 19 with JavaScript. The planned TypeScript migration and new Admin/Employee visual redesign should be developed on a separate branch after this stable checkpoint.
+The application is undergoing a progressive TypeScript migration. The application entry point, route protection, HRMS context contract, shared UI primitives, portal shell, and Vite configuration are typed. Existing feature modules remain compatible JavaScript/JSX until they are migrated and verified one workflow at a time.
+
+The Admin and Employee experiences intentionally use different visual systems: Admin is a dense enterprise operations console; Employee is a calmer, personal self-service workspace. See [docs/frontend-redesign.md](docs/frontend-redesign.md) for the current checkpoint and safe continuation order.
 
 ## Architecture
 
 ```text
-React pages and components
+React 19 TypeScript shell + feature modules
           |
      HRMS context
           |

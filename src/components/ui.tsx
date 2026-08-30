@@ -1,10 +1,51 @@
+import type { ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { X } from 'lucide-react'
 
-export function Badge({ children, tone = 'neutral' }) {
+interface BadgeProps {
+  children: ReactNode
+  tone?: string
+}
+
+interface StatCardProps {
+  label: string
+  value: ReactNode
+  detail?: ReactNode
+  icon: LucideIcon
+  tone?: string
+}
+
+interface EmptyStateProps {
+  icon: LucideIcon
+  title: string
+  text: string
+}
+
+interface ModalProps {
+  title: string
+  children: ReactNode
+  onClose: () => void
+  size?: 'normal' | 'large' | 'wide'
+  dismissible?: boolean
+}
+
+interface ProgressBarProps {
+  value: number
+  label: string
+}
+
+interface SectionHeadingProps {
+  eyebrow?: string
+  title: string
+  description?: string
+  actions?: ReactNode
+}
+
+export function Badge({ children, tone = 'neutral' }: BadgeProps) {
   return <span className={`badge badge-${tone}`}>{children}</span>
 }
 
-export function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
+export function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }: StatCardProps) {
   return (
     <article className={`stat-card tone-${tone}`}>
       <div className="stat-icon"><Icon size={22} aria-hidden="true" /></div>
@@ -17,7 +58,7 @@ export function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
   )
 }
 
-export function EmptyState({ icon: Icon, title, text }) {
+export function EmptyState({ icon: Icon, title, text }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <Icon size={28} aria-hidden="true" />
@@ -27,7 +68,7 @@ export function EmptyState({ icon: Icon, title, text }) {
   )
 }
 
-export function Modal({ title, children, onClose, size = 'normal', dismissible = true }) {
+export function Modal({ title, children, onClose, size = 'normal', dismissible = true }: ModalProps) {
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={dismissible ? onClose : undefined}>
       <section
@@ -47,7 +88,7 @@ export function Modal({ title, children, onClose, size = 'normal', dismissible =
   )
 }
 
-export function ProgressBar({ value, label }) {
+export function ProgressBar({ value, label }: ProgressBarProps) {
   return (
     <div className="progress-block">
       <div><span>{label}</span><strong>{value}%</strong></div>
@@ -56,7 +97,7 @@ export function ProgressBar({ value, label }) {
   )
 }
 
-export function SectionHeading({ eyebrow, title, description, actions }) {
+export function SectionHeading({ eyebrow, title, description, actions }: SectionHeadingProps) {
   return (
     <div className="section-heading">
       <div>
@@ -69,6 +110,6 @@ export function SectionHeading({ eyebrow, title, description, actions }) {
   )
 }
 
-export function TableShell({ children }) {
+export function TableShell({ children }: { children: ReactNode }) {
   return <div className="table-shell"><table>{children}</table></div>
 }

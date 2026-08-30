@@ -4,7 +4,7 @@ import {
   Filter, Fingerprint, Gauge, Globe2, Laptop, LockKeyhole, RefreshCw, Search,
   ShieldAlert, ShieldCheck, ShieldEllipsis, Upload, Users, XCircle,
 } from 'lucide-react'
-import { Badge, EmptyState, Modal, SectionHeading, StatCard } from '../components/ui.jsx'
+import { Badge, EmptyState, Modal, SectionHeading, StatCard } from '../components/ui.tsx'
 import { useHrms } from '../state/useHrms.js'
 import { downloadCsv } from '../utils/downloads.js'
 import { statusTone } from '../utils/format.js'

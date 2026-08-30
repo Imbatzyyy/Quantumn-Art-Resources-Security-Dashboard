@@ -15,7 +15,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.jsx'
+import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.tsx'
 import { useHrms } from '../state/useHrms.js'
 import { statusTone } from '../utils/format.js'
 

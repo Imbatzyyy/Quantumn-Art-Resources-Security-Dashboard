@@ -30,7 +30,7 @@ import {
   WalletCards,
   XCircle,
 } from 'lucide-react'
-import PortalLayout from '../components/PortalLayout.jsx'
+import PortalLayout from '../components/PortalLayout.tsx'
 import FirstLoginPasswordSetup from '../components/FirstLoginPasswordSetup.jsx'
 import {
   Badge,
@@ -40,7 +40,7 @@ import {
   SectionHeading,
   StatCard,
   TableShell,
-} from '../components/ui.jsx'
+} from '../components/ui.tsx'
 import { useHrms } from '../state/useHrms.js'
 import { downloadCsv, inclusiveDays } from '../utils/downloads.js'
 import { formatDate, formatDateTime, formatMoney, statusTone } from '../utils/format.js'
@@ -124,22 +124,22 @@ function MyDay({ onNavigate }) {
   }
 
   return (
-    <div className="page-stack">
-      <section className="welcome-banner premium-welcome employee-welcome">
-        <div><span className="eyebrow">{new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })}</span><h1>Good day, {user.preferredName || user.firstName}.</h1><p>{schedule ? `${schedule.workMode} · ${schedule.shiftStart}–${schedule.shiftEnd} · ${schedule.location}` : 'No work schedule has been assigned for today.'}</p></div>
-        <div className="hero-actions"><button className="button button-light" onClick={clockNow} disabled={Boolean(attendance?.clockOut) || schedule?.workMode === 'Rest Day'}><Clock3 size={18} />{attendance?.clockIn && !attendance?.clockOut ? 'Clock out' : attendance?.clockOut ? 'Day complete' : 'Clock in'}</button><button className="button hero-ghost-button" onClick={() => onNavigate('inbox')}><Inbox size={18} />{actionCount} actions</button></div>
+    <div className="page-stack employee-dashboard">
+      <section className="employee-day-hero">
+        <div className="employee-day-copy"><span className="employee-date-pill"><CalendarDays />{new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })}</span><span className="eyebrow">Your workday, clearly organized</span><h1>Good day, {user.preferredName || user.firstName}.</h1><p>Everything you need for today—without digging through HR menus.</p><div className="employee-schedule-line"><span><BriefcaseBusiness />{schedule?.workMode || 'Schedule pending'}</span><span><Clock3 />{schedule ? `${schedule.shiftStart}–${schedule.shiftEnd}` : 'No shift assigned'}</span><span><MapPin />{schedule?.location || 'Contact HR'}</span></div></div>
+        <div className="employee-day-card"><div className={`day-status ${attendance?.clockIn && !attendance?.clockOut ? 'is-working' : ''}`}><span><Clock3 /></span><div><small>Today’s attendance</small><strong>{attendance?.clockIn && !attendance?.clockOut ? 'You are clocked in' : attendance?.clockOut ? 'Workday complete' : 'Ready when you are'}</strong><p>{attendance?.clockIn ? `Started ${attendance.clockIn}${attendance.clockOut ? ` · Ended ${attendance.clockOut}` : ''}` : 'Your attendance record updates securely.'}</p></div></div><button className="button employee-clock-button" onClick={clockNow} disabled={Boolean(attendance?.clockOut) || schedule?.workMode === 'Rest Day'}><Clock3 size={18} />{attendance?.clockIn && !attendance?.clockOut ? 'Clock out' : attendance?.clockOut ? 'Day complete' : 'Clock in securely'}</button><button className="employee-inbox-link" onClick={() => onNavigate('inbox')}><Inbox size={17} /><span>{actionCount} action{actionCount === 1 ? '' : 's'} need attention</span></button></div>
       </section>
 
-      <div className="stats-grid stats-grid-4">
+      <div className="stats-grid stats-grid-4 employee-metric-grid">
         <StatCard icon={Clock3} label="Attendance" value={attendance?.status ?? 'Not started'} detail={attendance?.clockIn ? `In ${attendance.clockIn}${attendance.clockOut ? ` · Out ${attendance.clockOut}` : ''}` : 'Secure time record'} tone="blue" />
         <StatCard icon={CalendarDays} label="Leave available" value={`${availableLeave(leaves)} days`} detail={`${leaves.filter((item) => item.status === 'Pending').length} pending`} tone="green" />
         <StatCard icon={FileCheck2} label="Open requests" value={requests.filter((item) => openRequestStatuses.includes(item.status)).length} detail="Shared with HR" tone="amber" />
         <StatCard icon={Bell} label="Unread updates" value={unread.length} detail={`${requiredDocuments.length} acknowledgement${requiredDocuments.length === 1 ? '' : 's'} due`} tone="purple" />
       </div>
 
-      <div className="content-grid dashboard-grid">
-        <section className="panel">
-          <div className="panel-header"><div><h2>What needs your attention</h2><p>Prioritized actions from your Supabase records</p></div><Badge tone={actionCount ? 'warning' : 'success'}>{actionCount ? `${actionCount} open` : 'All clear'}</Badge></div>
+      <div className="content-grid dashboard-grid employee-home-grid">
+        <section className="panel employee-attention-panel">
+          <div className="panel-header"><div><span className="panel-kicker">Personal action list</span><h2>What needs your attention</h2><p>Only the requests and updates relevant to you.</p></div><Badge tone={actionCount ? 'warning' : 'success'}>{actionCount ? `${actionCount} open` : 'All clear'}</Badge></div>
           <div className="action-list">
             {needsInfo.map((item) => <button key={`request-${item.id}`} onClick={() => onNavigate('requests')}><span className="action-icon tone-amber"><MessageSquareText /></span><div><strong>HR needs more information</strong><p>{item.subject}</p></div><Badge tone="warning">Respond</Badge></button>)}
             {requiredDocuments.map((item) => <button key={`document-${item.id}`} onClick={() => onNavigate('documents')}><span className="action-icon tone-blue"><BookOpenCheck /></span><div><strong>Acknowledge a policy</strong><p>{item.title} · Version {item.version}</p></div><Badge tone="info">Review</Badge></button>)}
@@ -147,10 +147,10 @@ function MyDay({ onNavigate }) {
             {actionCount === 0 && <EmptyState icon={CheckCircle2} title="You are up to date" text="New HR actions, decisions, and policy acknowledgements will appear here." />}
           </div>
         </section>
-        <section className="panel"><div className="panel-header"><div><h2>Quick actions</h2><p>Complete common tasks</p></div><Sparkles /></div><div className="employee-quick-links premium-quick-links"><button onClick={() => onNavigate('leave')}><CalendarDays /><span><strong>Request leave</strong><small>Submit and track</small></span></button><button onClick={() => onNavigate('requests')}><FileCheck2 /><span><strong>Ask HR</strong><small>One request center</small></span></button><button onClick={() => onNavigate('pay')}><ReceiptText /><span><strong>Open payslip</strong><small>Private pay details</small></span></button><button onClick={() => onNavigate('documents')}><FolderLock /><span><strong>Documents</strong><small>Policies and records</small></span></button></div></section>
+        <section className="panel employee-quick-panel"><div className="panel-header"><div><span className="panel-kicker">Self-service</span><h2>Quick actions</h2><p>Common tasks in one tap</p></div><Sparkles /></div><div className="employee-quick-links premium-quick-links"><button onClick={() => onNavigate('leave')}><CalendarDays /><span><strong>Request leave</strong><small>Submit and track</small></span></button><button onClick={() => onNavigate('requests')}><FileCheck2 /><span><strong>Ask HR</strong><small>Private request center</small></span></button><button onClick={() => onNavigate('pay')}><ReceiptText /><span><strong>Open payslip</strong><small>Private pay details</small></span></button><button onClick={() => onNavigate('documents')}><FolderLock /><span><strong>Documents</strong><small>Policies and records</small></span></button></div></section>
       </div>
 
-      <section className="panel"><div className="panel-header"><div><h2>Company updates</h2><p>Recent announcements from HR</p></div></div><div className="announcement-list horizontal-announcements">{data.announcements.slice(0, 3).map((announcement) => <article key={announcement.id}><div><Badge tone={announcement.priority === 'High' ? 'warning' : 'info'}>{announcement.priority}</Badge><time>{formatDate(announcement.date)}</time></div><strong>{announcement.title}</strong><p>{announcement.content}</p></article>)}</div></section>
+      <section className="panel employee-updates-panel"><div className="panel-header"><div><span className="panel-kicker">Inside Quantum</span><h2>Company updates</h2><p>Recent announcements from HR</p></div></div><div className="announcement-list horizontal-announcements">{data.announcements.slice(0, 3).map((announcement) => <article key={announcement.id}><div><Badge tone={announcement.priority === 'High' ? 'warning' : 'info'}>{announcement.priority}</Badge><time>{formatDate(announcement.date)}</time></div><strong>{announcement.title}</strong><p>{announcement.content}</p></article>)}</div></section>
     </div>
   )
 }

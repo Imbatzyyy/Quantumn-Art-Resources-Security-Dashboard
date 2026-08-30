@@ -3,7 +3,7 @@ import {
   AlertTriangle, CheckCircle2, Clock3, Eye, KeyRound, Laptop, LockKeyhole,
   LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck,
 } from 'lucide-react'
-import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.jsx'
+import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.tsx'
 import { useHrms } from '../state/useHrms.js'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, validatePermanentPassword } from '../utils/passwordPolicy.js'
 import { statusTone } from '../utils/format.js'
