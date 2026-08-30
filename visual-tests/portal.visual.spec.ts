@@ -94,6 +94,23 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'invite-administrator-desktop.png')
   })
 
+  test('premium announcement publishing', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Communications' }).click()
+    await page.getByRole('button', { name: 'New announcement' }).click()
+    await expect(page.getByRole('dialog', { name: 'Publish announcement' })).toBeVisible()
+    await capture(page, 'publish-announcement-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Communications' }).click()
+    await page.getByRole('button', { name: 'New announcement' }).click()
+    await page.getByLabel('Title').fill('Quarterly security workshop')
+    await page.getByRole('textbox', { name: 'Message' }).fill('Complete the secure-work workshop before Friday.')
+    await page.getByRole('radio', { name: /High priority/ }).click()
+    await expect(page.getByRole('heading', { name: 'Quarterly security workshop' })).toBeVisible()
+    await capture(page, 'publish-announcement-dark-desktop.png')
+  })
+
   test('premium payroll draft review', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
@@ -214,6 +231,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'assign-schedule-mobile.png')
+  })
+
+  test('announcement publishing dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Communications' }).click()
+    await page.getByRole('button', { name: 'New announcement' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Publish announcement' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'publish-announcement-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {

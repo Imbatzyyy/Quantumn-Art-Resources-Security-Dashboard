@@ -45,7 +45,7 @@ describe('communications, report, and employee-download boundaries', () => {
     const dialog = screen.getByRole('dialog', { name: 'Publish announcement' })
     await user.type(within(dialog).getByLabelText('Title'), 'Quarterly security workshop')
     await user.type(within(dialog).getByLabelText('Message'), 'Complete the secure-work workshop before Friday.')
-    await user.selectOptions(within(dialog).getByLabelText('Priority'), 'High')
+    await user.click(within(dialog).getByRole('radio', { name: /High priority/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Publish & notify' }))
 
     await waitFor(() => expect(addAnnouncement).toHaveBeenCalledWith({
