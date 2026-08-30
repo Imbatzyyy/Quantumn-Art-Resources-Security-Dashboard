@@ -24,7 +24,7 @@ interface EmptyStateProps {
 interface ModalProps {
   title: string
   children: ReactNode
-  onClose: () => void
+  onClose?: () => void
   size?: 'normal' | 'large' | 'wide'
   dismissible?: boolean
 }

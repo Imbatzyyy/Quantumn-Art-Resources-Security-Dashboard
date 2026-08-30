@@ -23,6 +23,12 @@ export interface PortalIdentity {
   email?: string
   status?: string
   middleName?: string
+  phone?: string
+  employmentType?: string
+  workArrangement?: string
+  workLocation?: string
+  costCenter?: string
+  hireDate?: string
   mustSetPassword?: boolean
   mustChangePassword?: boolean
 }
@@ -61,6 +67,9 @@ export interface PayrollRecord {
   employeeId: string
   period: string
   gross: number
+  allowances: number
+  bonuses: number
+  deductions: number
   net: number
   status: string
 }
@@ -81,6 +90,7 @@ export interface GoalRecord {
   id: string
   employeeId: string
   title: string
+  description: string
   category: string
   dueDate?: string
   progress: number
@@ -92,8 +102,13 @@ export interface PerformanceRecord {
   employeeId: string
   period: string
   score: number
+  goalProgress: number
+  quality: number
+  productivity: number
+  teamwork: number
   rating: string
   status: string
+  comments?: string
 }
 
 export interface DocumentRecord {
@@ -103,24 +118,114 @@ export interface DocumentRecord {
   type: string
   version: string
   requiresAck: boolean
+  filename: string
+  content: string
+  sensitive: boolean
+  period?: string
+  createdAt: string
 }
 
 export interface DocumentAcknowledgementRecord {
   id?: string
   documentId: string
   employeeId: string
+  acknowledgedAt?: string
 }
 
 export interface EmployeeRequestRecord {
   id: string
   employeeId: string
   status: string
+  type: string
+  subject: string
+  description: string
+  priority: string
+  requestedDate?: string
+  requestedValue?: string
+  decisionNote?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface LeaveRequestRecord {
   id: string
   employeeId: string
   status: string
+  type: string
+  startDate: string
+  endDate: string
+  days: number
+  reason: string
+}
+
+export interface ScheduleRecord {
+  id: string
+  employeeId: string
+  date: string
+  shiftStart: string
+  shiftEnd: string
+  workMode: string
+  location: string
+  notes?: string
+}
+
+export type ScheduleInput = Omit<ScheduleRecord, 'id'>
+
+export interface AnnouncementRecord {
+  id: string
+  priority: string
+  date: string
+  title: string
+  content: string
+}
+
+export interface RequestCommentRecord {
+  id: string
+  requestId: string
+  authorId: string
+  body: string
+  createdAt: string
+  internal?: boolean
+}
+
+export interface LifecycleCaseRecord {
+  id: string
+  employeeId: string
+  type: string
+  status: string
+  targetDate: string
+}
+
+export interface LifecycleCaseInput {
+  employeeId: string
+  type: string
+  targetDate: string
+}
+
+export interface LifecycleTaskRecord {
+  id: string
+  caseId: string
+  title: string
+  category: string
+  status: string
+  employeeVisible: boolean
+}
+
+export interface LeaveRequestInput {
+  employeeId: string
+  type: string
+  startDate: string
+  endDate: string
+  reason: string
+}
+
+export interface EmployeeRequestInput {
+  type: string
+  subject: string
+  description: string
+  requestedDate: string
+  requestedValue: string
+  priority: string
 }
 
 export interface EmployeeProvisionInput {
@@ -174,8 +279,15 @@ export interface SecurityAlertSummary {
 }
 
 export interface NotificationSummary {
+  id: string
   employeeId: string
   readAt?: string | null
+  category: string
+  createdAt: string
+  title: string
+  message: string
+  destination?: string
+  actionLabel?: string
 }
 
 export interface WorkflowSummary {
@@ -312,6 +424,11 @@ export interface HrmsSnapshot {
   performance: PerformanceRecord[]
   documents: DocumentRecord[]
   documentAcknowledgements: DocumentAcknowledgementRecord[]
+  schedules: ScheduleRecord[]
+  announcements: AnnouncementRecord[]
+  requestComments: RequestCommentRecord[]
+  lifecycleCases: LifecycleCaseRecord[]
+  lifecycleTasks: LifecycleTaskRecord[]
 }
 
 export interface ToastMessage {
@@ -343,6 +460,21 @@ export interface HrmsContextValue {
   addEmployee: (input: EmployeeProvisionInput) => Promise<unknown>
   updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<unknown>
   saveBenefit: (input: BenefitInput) => Promise<unknown>
+  clock: (employeeId: string) => Promise<unknown>
+  submitLeave: (input: LeaveRequestInput) => Promise<unknown>
+  submitRequest: (input: EmployeeRequestInput) => Promise<unknown>
+  addRequestComment: (id: string, body: string, internal: boolean) => Promise<unknown>
+  cancelRequest: (id: string) => Promise<unknown>
+  markNotificationRead: (id: string) => Promise<unknown>
+  markAllNotificationsRead: () => Promise<unknown>
+  updateGoalProgress: (id: string, progress: number) => Promise<unknown>
+  acknowledgeDocument: (id: string) => Promise<unknown>
+  saveSchedule: (input: ScheduleInput) => Promise<unknown>
+  reviewLeave: (id: string, status: string) => Promise<unknown>
+  reviewRequest: (id: string, status: string, reason: string) => Promise<unknown>
+  createLifecycleCase: (input: LifecycleCaseInput) => Promise<unknown>
+  updateLifecycleTask: (id: string, status: string) => Promise<unknown>
+  completeInitialPassword: (input: { currentPassword: string; newPassword: string }) => Promise<PortalIdentity>
 }
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'

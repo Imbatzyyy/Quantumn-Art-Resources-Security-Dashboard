@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   CheckCircle2,
   Circle,
@@ -9,7 +9,7 @@ import {
   LogOut,
   ShieldCheck,
 } from 'lucide-react'
-import { Modal } from './ui.jsx'
+import { Modal } from './ui.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -19,7 +19,7 @@ import {
   validatePermanentPassword,
 } from '../utils/passwordPolicy.js'
 
-function PasswordRule({ passed, children }) {
+function PasswordRule({ passed, children }: { passed: boolean; children: ReactNode }) {
   return (
     <li className={passed ? 'passed' : ''}>
       {passed ? <CheckCircle2 /> : <Circle />}
@@ -34,19 +34,19 @@ export default function FirstLoginPasswordSetup() {
   const [showPasswords, setShowPasswords] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-
   const context = useMemo(() => ({
     currentPassword: form.currentPassword,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    email: user?.email,
+    firstName: user?.firstName,
+    lastName: user?.lastName,
   }), [form.currentPassword, user])
+  if (!user) return null
   const checks = passwordChecks(form.newPassword, context)
   const strength = passwordStrength(form.newPassword, context)
   const matches = Boolean(form.confirmPassword) && form.newPassword === form.confirmPassword
   const ready = Object.values(checks).every(Boolean) && matches && Boolean(form.currentPassword)
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
     const policyError = validatePermanentPassword(form.newPassword, context)
@@ -61,7 +61,7 @@ export default function FirstLoginPasswordSetup() {
       })
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (reason) {
-      setError(reason.message)
+      setError(reason instanceof Error ? reason.message : 'Your password could not be updated.')
     } finally {
       setSaving(false)
     }

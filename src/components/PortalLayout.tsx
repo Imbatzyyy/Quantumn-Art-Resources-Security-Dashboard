@@ -19,7 +19,7 @@ import type { PortalNavigationItem, ThemeMode } from '../types/hrms.js'
 interface PortalLayoutProps {
   active: string
   onNavigate: (id: string) => void
-  items: PortalNavigationItem[]
+  items: readonly PortalNavigationItem[]
   title: string
   children: ReactNode
 }

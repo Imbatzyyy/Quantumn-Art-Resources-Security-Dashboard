@@ -5,7 +5,7 @@ import { useHrms } from './state/useHrms.js'
 const LoginPage = lazy(() => import('./pages/LoginPage.jsx'))
 const EmployeeRecoveryPage = lazy(() => import('./pages/EmployeeRecoveryPage.jsx'))
 const AdminPortal = lazy(() => import('./pages/AdminPortal.jsx'))
-const EmployeePortal = lazy(() => import('./pages/EmployeePortal.jsx'))
+const EmployeePortal = lazy(() => import('./pages/EmployeePortal.js'))
 const AdminInviteSetupPage = lazy(() => import('./pages/AdminInviteSetupPage.jsx'))
 
 function WorkspaceLoading() {

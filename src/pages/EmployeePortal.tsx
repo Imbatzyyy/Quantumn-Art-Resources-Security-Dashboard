@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import {
   Bell,
   BookOpenCheck,
@@ -30,8 +30,8 @@ import {
   WalletCards,
   XCircle,
 } from 'lucide-react'
-import PortalLayout from '../components/PortalLayout.tsx'
-import FirstLoginPasswordSetup from '../components/FirstLoginPasswordSetup.jsx'
+import PortalLayout from '../components/PortalLayout.js'
+import FirstLoginPasswordSetup from '../components/FirstLoginPasswordSetup.js'
 import {
   Badge,
   EmptyState,
@@ -40,11 +40,12 @@ import {
   SectionHeading,
   StatCard,
   TableShell,
-} from '../components/ui.tsx'
+} from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { downloadCsv, inclusiveDays } from '../utils/downloads.js'
 import { formatDate, formatDateTime, formatMoney, statusTone } from '../utils/format.js'
 import EmployeeAccountSecurity from './EmployeeAccountSecurity.js'
+import type { GoalRecord, LeaveRequestRecord, NotificationSummary, PayrollRecord } from '../types/hrms.js'
 
 const navItems = [
   { id: 'home', label: 'My Day', icon: Gauge, group: 'Workspace' },
@@ -59,19 +60,22 @@ const navItems = [
   { id: 'journey', label: 'My Journey', icon: ListChecks, group: 'My Account' },
   { id: 'account-security', label: 'Account Security', icon: ShieldCheck, badge: 'alerts', group: 'My Account' },
   { id: 'profile', label: 'My Profile', icon: UserRound, group: 'My Account' },
-]
+] as const
+
+type EmployeePage = typeof navItems[number]['id']
+interface NavigateProps { onNavigate: (page: EmployeePage) => void }
 
 const titles = Object.fromEntries(navItems.map((item) => [item.id, item.label]))
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
 
-const availableLeave = (requests) => Math.max(
+const availableLeave = (requests: LeaveRequestRecord[]) => Math.max(
   0,
   12 - requests
     .filter((request) => request.status === 'Approved')
     .reduce((total, request) => total + request.days, 0),
 )
 
-const downloadText = (filename, content) => {
+const downloadText = (filename: string, content: string) => {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -84,9 +88,9 @@ const downloadText = (filename, content) => {
 }
 
 export default function EmployeePortal() {
-  const [active, setActive] = useState('home')
+  const [active, setActive] = useState<EmployeePage>('home')
   const { data, user } = useHrms()
-  if (!data) return null
+  if (!data || !user) return null
 
   const pages = {
     home: <MyDay onNavigate={setActive} />,
@@ -103,11 +107,12 @@ export default function EmployeePortal() {
     profile: <EmployeeProfile />,
   }
 
-  return <><PortalLayout active={active} onNavigate={setActive} items={navItems} title={titles[active]}>{pages[active]}</PortalLayout>{user.mustChangePassword && <FirstLoginPasswordSetup />}</>
+  return <><PortalLayout active={active} onNavigate={(page) => setActive(page as EmployeePage)} items={navItems} title={titles[active]}>{pages[active]}</PortalLayout>{user.mustChangePassword && <FirstLoginPasswordSetup />}</>
 }
 
-function MyDay({ onNavigate }) {
+function MyDay({ onNavigate }: NavigateProps) {
   const { data, user, clock } = useHrms()
+  if (!data || !user) return null
   const today = new Date().toISOString().slice(0, 10)
   const attendance = data.attendance.find((item) => item.employeeId === user.id && item.date === today)
   const schedule = data.schedules.find((item) => item.employeeId === user.id && item.date === today)
@@ -155,8 +160,9 @@ function MyDay({ onNavigate }) {
   )
 }
 
-function TimeAndSchedule({ onNavigate }) {
+function TimeAndSchedule({ onNavigate }: NavigateProps) {
   const { data, user, clock } = useHrms()
+  if (!data || !user) return null
   const today = new Date().toISOString().slice(0, 10)
   const current = data.attendance.find((item) => item.employeeId === user.id && item.date === today)
   const history = data.attendance.filter((item) => item.employeeId === user.id)
@@ -172,11 +178,12 @@ function EmployeeLeave() {
   const { data, user, submitLeave } = useHrms()
   const [showRequest, setShowRequest] = useState(false)
   const [form, setForm] = useState({ type: 'Vacation', startDate: '', endDate: '', reason: '' })
+  if (!data || !user) return null
   const requests = data.leaveRequests.filter((item) => item.employeeId === user.id)
   const days = inclusiveDays(form.startDate, form.endDate)
   const today = new Date().toISOString().slice(0, 10)
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!days || days > 30) return
     try {
@@ -186,27 +193,29 @@ function EmployeeLeave() {
     } catch { /* Keep the form open for correction. */ }
   }
 
-  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${availableLeave(requests)} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={() => setShowRequest(false)}><form className="form-grid" onSubmit={submit}><label>Leave type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select></label><label>Calculated duration<input value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} disabled /></label><label>Start date<input type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} required /></label><label>End date<input type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></label><label className="span-2">Reason<textarea minLength="3" maxLength="500" rows="4" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} required /></label>{days > 30 && <p className="form-error span-2">A single request may cover at most 30 days.</p>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowRequest(false)}>Cancel</button><button className="button button-primary" disabled={!days || days > 30}>Submit securely</button></div></form></Modal>}</div>
+  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${availableLeave(requests)} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={() => setShowRequest(false)}><form className="form-grid" onSubmit={submit}><label>Leave type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select></label><label>Calculated duration<input value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} disabled /></label><label>Start date<input type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} required /></label><label>End date<input type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></label><label className="span-2">Reason<textarea minLength={3} maxLength={500} rows={4} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} required /></label>{days > 30 && <p className="form-error span-2">A single request may cover at most 30 days.</p>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowRequest(false)}>Cancel</button><button className="button button-primary" disabled={!days || days > 30}>Submit securely</button></div></form></Modal>}</div>
 }
 
 function RequestCenter() {
   const { data, user, submitRequest, addRequestComment, cancelRequest } = useHrms()
   const [showCreate, setShowCreate] = useState(false)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [comment, setComment] = useState('')
   const emptyForm = { type: 'Attendance Correction', subject: '', description: '', requestedDate: '', requestedValue: '', priority: 'Normal' }
   const [form, setForm] = useState(emptyForm)
+  if (!data || !user) return null
   const requests = data.employeeRequests.filter((item) => item.employeeId === user.id)
   const selected = requests.find((item) => item.id === selectedId)
   const comments = data.requestComments.filter((item) => item.requestId === selectedId)
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     try { await submitRequest(form); setForm(emptyForm); setShowCreate(false) } catch { /* Keep form open. */ }
   }
-  const respond = async (event) => {
+  const respond = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!comment.trim()) return
+    if (!selectedId) return
     try { await addRequestComment(selectedId, comment, false); setComment('') } catch { /* Keep response text. */ }
   }
 
@@ -215,21 +224,22 @@ function RequestCenter() {
       <SectionHeading eyebrow="One place for every HR need" title="Request Center" description="Submit, discuss, and track attendance, overtime, schedule, profile, document, payroll, and general HR requests." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus />New request</button>} />
       <div className="stats-grid stats-grid-3"><StatCard icon={Send} label="Submitted" value={requests.filter((item) => item.status === 'Submitted').length} tone="blue" /><StatCard icon={Clock3} label="In progress" value={requests.filter((item) => ['Under Review', 'More Information'].includes(item.status)).length} tone="amber" /><StatCard icon={CheckCircle2} label="Resolved" value={requests.filter((item) => ['Approved', 'Rejected', 'Completed'].includes(item.status)).length} tone="green" /></div>
       <section className="panel"><div className="panel-header"><div><h2>My requests</h2><p>Open a row to see the full decision timeline.</p></div></div>{requests.length ? <TableShell><thead><tr><th>Request</th><th>Type</th><th>Priority</th><th>Updated</th><th>Status</th><th></th></tr></thead><tbody>{requests.map((item) => <tr key={item.id}><td><strong>#{item.id} · {item.subject}</strong><small className="table-subtitle">{item.description}</small></td><td>{item.type}</td><td><Badge tone={item.priority === 'Urgent' ? 'danger' : item.priority === 'High' ? 'warning' : 'neutral'}>{item.priority}</Badge></td><td>{formatDateTime(item.updatedAt)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td><td><button className="text-button" onClick={() => setSelectedId(item.id)}>View</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={FileCheck2} title="No HR requests yet" text="Use New request when you need a correction, document, answer, or HR decision." />}</section>
-      {showCreate && <Modal title="Create an HR request" onClose={() => setShowCreate(false)} size="large"><form className="form-grid" onSubmit={submit}><label>Request type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{['Attendance Correction', 'Overtime', 'Schedule Change', 'Profile Correction', 'Document Request', 'Payroll Concern', 'General HR'].map((type) => <option key={type}>{type}</option>)}</select></label><label>Priority<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option>Normal</option><option>High</option><option>Urgent</option></select></label><label className="span-2">Subject<input minLength="3" maxLength="120" value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></label><label>Related date (optional)<input type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} /></label><label>Requested value (optional)<input maxLength="240" placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} /></label><label className="span-2">Details<textarea rows="5" minLength="3" maxLength="1000" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Only you and authorized HR roles can view this request. Sensitive actions are audited.</p><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary">Submit request</button></div></form></Modal>}
-      {selected && <Modal title={`Request #${selected.id}`} onClose={() => setSelectedId(null)} size="large"><div className="request-detail"><div className="request-detail-head"><div><span className="eyebrow">{selected.type}</span><h2>{selected.subject}</h2><p>{selected.description}</p></div><Badge tone={statusTone(selected.status)}>{selected.status}</Badge></div><dl className="detail-grid"><div><dt>Priority</dt><dd>{selected.priority}</dd></div><div><dt>Submitted</dt><dd>{formatDateTime(selected.createdAt)}</dd></div><div><dt>Related date</dt><dd>{formatDate(selected.requestedDate)}</dd></div><div><dt>Requested value</dt><dd>{selected.requestedValue || '—'}</dd></div></dl>{selected.decisionNote && <div className="decision-note"><ShieldCheck /><div><strong>Latest HR decision</strong><p>{selected.decisionNote}</p></div></div>}<div><h3>Conversation & timeline</h3><div className="timeline">{comments.map((item) => { const author = data.employees.find((employee) => employee.id === item.authorId); return <article key={item.id}><span>{author ? `${author.firstName[0]}${author.lastName[0]}` : 'HR'}</span><div><strong>{author ? `${author.firstName} ${author.lastName}` : 'HR team'}</strong><p>{item.body}</p><time>{formatDateTime(item.createdAt)}</time></div></article> })}{comments.length === 0 && <p className="form-note">No responses yet. HR updates will appear here.</p>}</div></div>{!['Cancelled', 'Completed', 'Rejected'].includes(selected.status) && <form className="inline-response" onSubmit={respond}><label className="sr-only" htmlFor="request-response">Add a response</label><textarea id="request-response" rows="3" maxLength="1000" placeholder="Add information or reply to HR…" value={comment} onChange={(event) => setComment(event.target.value)} required /><button className="button button-primary"><Send size={17} />Send response</button></form>}<div className="modal-actions">{['Submitted', 'More Information'].includes(selected.status) && <button className="button button-secondary danger-text" onClick={async () => { try { await cancelRequest(selected.id); setSelectedId(null) } catch { /* Toast explains failure. */ } }}><XCircle size={17} />Cancel request</button>}<button className="button button-secondary" onClick={() => setSelectedId(null)}>Close</button></div></div></Modal>}
+      {showCreate && <Modal title="Create an HR request" onClose={() => setShowCreate(false)} size="large"><form className="form-grid" onSubmit={submit}><label>Request type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{['Attendance Correction', 'Overtime', 'Schedule Change', 'Profile Correction', 'Document Request', 'Payroll Concern', 'General HR'].map((type) => <option key={type}>{type}</option>)}</select></label><label>Priority<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option>Normal</option><option>High</option><option>Urgent</option></select></label><label className="span-2">Subject<input minLength={3} maxLength={120} value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></label><label>Related date (optional)<input type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} /></label><label>Requested value (optional)<input maxLength={240} placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} /></label><label className="span-2">Details<textarea rows={5} minLength={3} maxLength={1000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Only you and authorized HR roles can view this request. Sensitive actions are audited.</p><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary">Submit request</button></div></form></Modal>}
+      {selected && <Modal title={`Request #${selected.id}`} onClose={() => setSelectedId(null)} size="large"><div className="request-detail"><div className="request-detail-head"><div><span className="eyebrow">{selected.type}</span><h2>{selected.subject}</h2><p>{selected.description}</p></div><Badge tone={statusTone(selected.status)}>{selected.status}</Badge></div><dl className="detail-grid"><div><dt>Priority</dt><dd>{selected.priority}</dd></div><div><dt>Submitted</dt><dd>{formatDateTime(selected.createdAt)}</dd></div><div><dt>Related date</dt><dd>{formatDate(selected.requestedDate)}</dd></div><div><dt>Requested value</dt><dd>{selected.requestedValue || '—'}</dd></div></dl>{selected.decisionNote && <div className="decision-note"><ShieldCheck /><div><strong>Latest HR decision</strong><p>{selected.decisionNote}</p></div></div>}<div><h3>Conversation & timeline</h3><div className="timeline">{comments.map((item) => { const author = data.employees.find((employee) => employee.id === item.authorId); return <article key={item.id}><span>{author ? `${author.firstName[0]}${author.lastName[0]}` : 'HR'}</span><div><strong>{author ? `${author.firstName} ${author.lastName}` : 'HR team'}</strong><p>{item.body}</p><time>{formatDateTime(item.createdAt)}</time></div></article> })}{comments.length === 0 && <p className="form-note">No responses yet. HR updates will appear here.</p>}</div></div>{!['Cancelled', 'Completed', 'Rejected'].includes(selected.status) && <form className="inline-response" onSubmit={respond}><label className="sr-only" htmlFor="request-response">Add a response</label><textarea id="request-response" rows={3} maxLength={1000} placeholder="Add information or reply to HR…" value={comment} onChange={(event) => setComment(event.target.value)} required /><button className="button button-primary"><Send size={17} />Send response</button></form>}<div className="modal-actions">{['Submitted', 'More Information'].includes(selected.status) && <button className="button button-secondary danger-text" onClick={async () => { try { await cancelRequest(selected.id); setSelectedId(null) } catch { /* Toast explains failure. */ } }}><XCircle size={17} />Cancel request</button>}<button className="button button-secondary" onClick={() => setSelectedId(null)}>Close</button></div></div></Modal>}
     </div>
   )
 }
 
-function ActionInbox({ onNavigate }) {
+function ActionInbox({ onNavigate }: NavigateProps) {
   const { data, user, markNotificationRead, markAllNotificationsRead } = useHrms()
+  if (!data || !user) return null
   const notifications = data.notifications.filter((item) => item.employeeId === user.id)
   const unread = notifications.filter((item) => !item.readAt)
-  const open = async (item) => {
+  const open = async (item: NotificationSummary) => {
     if (!item.readAt) {
       try { await markNotificationRead(item.id) } catch { return }
     }
-    if (item.destination && titles[item.destination]) onNavigate(item.destination)
+    if (item.destination && item.destination in titles) onNavigate(item.destination as EmployeePage)
   }
 
   return <div className="page-stack employee-feature-page employee-inbox-page"><SectionHeading eyebrow="Prioritized updates" title="Action Inbox" description="Decisions, documents, pay releases, security notices, and required actions in one place." actions={unread.length > 0 && <button className="button button-secondary" onClick={() => markAllNotificationsRead()}><CheckCircle2 />Mark all read</button>} /><section className="panel notification-feed">{notifications.map((item) => <button key={item.id} className={!item.readAt ? 'unread' : ''} onClick={() => open(item)}><span className="notification-icon"><Bell /></span><div><div><Badge tone={!item.readAt ? 'info' : 'neutral'}>{item.category}</Badge><time>{formatDateTime(item.createdAt)}</time></div><strong>{item.title}</strong><p>{item.message}</p></div>{item.actionLabel && <span className="notification-action">{item.actionLabel}</span>}</button>)}{notifications.length === 0 && <EmptyState icon={Inbox} title="Your inbox is clear" text="New actions and decisions from HR will appear here." />}</section></div>
@@ -237,12 +247,13 @@ function ActionInbox({ onNavigate }) {
 
 function PayAndBenefits() {
   const { data, user, recordActivity } = useHrms()
+  if (!data || !user) return null
   const records = data.payroll.filter((item) => item.employeeId === user.id)
   const benefits = data.benefits.filter((item) => item.employeeId === user.id)
   const latest = records[0]
   const employerBenefits = benefits.reduce((sum, item) => sum + item.employerShare, 0)
 
-  const download = async (record) => {
+  const download = async (record: PayrollRecord) => {
     downloadCsv(`payslip-${user.id}-${record.period}`, [{ label: 'Employee ID', value: () => user.id }, { label: 'Employee', value: () => `${user.firstName} ${user.lastName}` }, { label: 'Period', key: 'period' }, { label: 'Gross pay', key: 'gross' }, { label: 'Allowances', key: 'allowances' }, { label: 'Bonuses', key: 'bonuses' }, { label: 'Deductions', key: 'deductions' }, { label: 'Net pay', key: 'net' }, { label: 'Status', key: 'status' }], [record])
     try { await recordActivity({ action: 'Downloaded own payslip', target: record.period }) } catch { /* The export is complete; toast reports the audit issue. */ }
   }
@@ -252,6 +263,7 @@ function PayAndBenefits() {
 
 function GoalsAndGrowth() {
   const { data, user } = useHrms()
+  if (!data || !user) return null
   const reviews = data.performance.filter((item) => item.employeeId === user.id && item.status === 'Published')
   const goals = data.goals.filter((item) => item.employeeId === user.id)
   const latest = reviews[0]
@@ -259,17 +271,18 @@ function GoalsAndGrowth() {
   return <div className="page-stack employee-feature-page employee-growth-page"><SectionHeading eyebrow="My career" title="Goals & Growth" description="Track agreed goals and review feedback that HR has explicitly published." />{latest ? <section className="performance-hero premium-performance"><div><span>Latest performance score</span><strong>{latest.score}<small>/100</small></strong><Badge tone="success">{latest.rating}</Badge></div><div><ProgressBar value={latest.goalProgress} label="Goal completion" /><p>Review period: {latest.period}</p>{latest.comments && <p>{latest.comments}</p>}</div></section> : <EmptyState icon={Target} title="No published review" text="Draft reviews remain private to HR until they are intentionally published." />}{latest && <div className="performance-metrics"><article className="panel"><span><Star /></span><strong>{latest.quality}</strong><p>Quality</p></article><article className="panel"><span><Target /></span><strong>{latest.productivity}</strong><p>Productivity</p></article><article className="panel"><span><UserRound /></span><strong>{latest.teamwork}</strong><p>Teamwork</p></article></div>}<section className="panel"><div className="panel-header"><div><h2>Active goals</h2><p>Update progress; HR sees the same saved value</p></div></div><div className="goal-list">{goals.map((goal) => <GoalCard key={goal.id} goal={goal} />)}{!goals.length && <EmptyState icon={Target} title="No active goals" text="Your manager or HR can add an agreed goal." />}</div></section></div>
 }
 
-function GoalCard({ goal }) {
+function GoalCard({ goal }: { goal: GoalRecord }) {
   const { updateGoalProgress } = useHrms()
   const [progress, setProgress] = useState(goal.progress)
-  return <article><div className="goal-head"><div><Badge tone={statusTone(goal.status)}>{goal.status}</Badge><h3>{goal.title}</h3><p>{goal.description}</p></div><strong>{progress}%</strong></div><input className="goal-slider" aria-label={`${goal.title} progress`} type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))} /><div className="goal-foot"><span>{goal.category} · Due {formatDate(goal.dueDate)}</span><button className="button button-secondary" disabled={progress === goal.progress} onClick={async () => { try { await updateGoalProgress(goal.id, progress) } catch { setProgress(goal.progress) } }}>Save progress</button></div></article>
+  return <article><div className="goal-head"><div><Badge tone={statusTone(goal.status)}>{goal.status}</Badge><h3>{goal.title}</h3><p>{goal.description}</p></div><strong>{progress}%</strong></div><input className="goal-slider" aria-label={`${goal.title} progress`} type="range" min={0} max={100} step={5} value={progress} onChange={(event) => setProgress(Number(event.target.value))} /><div className="goal-foot"><span>{goal.category} · Due {formatDate(goal.dueDate)}</span><button className="button button-secondary" disabled={progress === goal.progress} onClick={async () => { try { await updateGoalProgress(goal.id, progress) } catch { setProgress(goal.progress) } }}>Save progress</button></div></article>
 }
 
 function DocumentVault() {
   const { data, user, acknowledgeDocument, recordActivity } = useHrms()
+  if (!data || !user) return null
   const documents = data.documents.filter((item) => !item.employeeId || item.employeeId === user.id)
   const acknowledgements = new Map(data.documentAcknowledgements.filter((item) => item.employeeId === user.id).map((item) => [item.documentId, item]))
-  const download = async (document) => {
+  const download = async (document: typeof data.documents[number]) => {
     downloadText(document.filename, document.content)
     try { await recordActivity({ action: 'Downloaded own HR document', target: document.title }) } catch { /* Toast reports the audit issue. */ }
   }
@@ -277,7 +290,7 @@ function DocumentVault() {
   return <div className="page-stack employee-feature-page employee-documents-page"><SectionHeading eyebrow="Secure records" title="Document Vault" description="Policies and employee-specific records retrieved directly from Supabase." /><div className="stats-grid stats-grid-3"><StatCard icon={FolderLock} label="Available documents" value={documents.length} tone="blue" /><StatCard icon={BookOpenCheck} label="Acknowledgements due" value={documents.filter((item) => item.requiresAck && !acknowledgements.has(item.id)).length} tone="amber" /><StatCard icon={ShieldCheck} label="Sensitive records" value={documents.filter((item) => item.sensitive).length} detail="Access is audited" tone="purple" /></div><section className="document-grid">{documents.map((item) => { const acknowledgement = acknowledgements.get(item.id); return <article className="panel document-card" key={item.id}><div className="document-icon"><FileText /></div><div className="document-card-main"><div><Badge tone={item.sensitive ? 'warning' : 'info'}>{item.type}</Badge>{item.requiresAck && <Badge tone={acknowledgement ? 'success' : 'danger'}>{acknowledgement ? 'Acknowledged' : 'Action required'}</Badge>}</div><h2>{item.title}</h2><p>Version {item.version}{item.period ? ` · ${item.period}` : ''}</p><small>{item.employeeId ? 'Private employee document' : 'Organization document'} · Added {formatDateTime(item.createdAt)}</small></div><div className="document-actions"><button className="button button-secondary" onClick={() => download(item)}><Download size={17} />Download</button>{item.requiresAck && !acknowledgement && <button className="button button-primary" onClick={() => acknowledgeDocument(item.id)}><BookOpenCheck size={17} />Acknowledge</button>}{acknowledgement && <span className="acknowledged-note"><CheckCircle2 />{formatDateTime(acknowledgement.acknowledgedAt)}</span>}</div></article> })}</section>{!documents.length && <EmptyState icon={FolderLock} title="No documents available" text="Documents published for you will appear here." />}</div>
 }
 
-function HelpCenter({ onNavigate }) {
+function HelpCenter({ onNavigate }: NavigateProps) {
   const topics = [
     { icon: Clock3, title: 'Attendance correction', text: 'Report a missing or incorrect clock record through Request Center.' },
     { icon: ReceiptText, title: 'Payroll concern', text: 'Ask about a payslip without exposing payroll details in email.' },
@@ -289,13 +302,15 @@ function HelpCenter({ onNavigate }) {
 
 function EmployeeJourney() {
   const { data, user } = useHrms()
+  if (!data || !user) return null
   const cases = data.lifecycleCases.filter((item) => item.employeeId === user.id)
   return <div className="page-stack employee-feature-page employee-journey-page"><SectionHeading eyebrow="Employee lifecycle" title="My Journey" description="See employee-visible onboarding or offboarding steps without exposing internal security tasks." />{cases.map((item) => { const tasks = data.lifecycleTasks.filter((task) => task.caseId === item.id && task.employeeVisible); const complete = tasks.filter((task) => task.status !== 'Pending').length; const progress = tasks.length ? Math.round((complete / tasks.length) * 100) : 0; return <section className="panel journey-card" key={item.id}><div className="journey-head"><div><Badge tone={statusTone(item.status)}>{item.status}</Badge><h2>{item.type} checklist</h2><p>Target date: {formatDate(item.targetDate)}</p></div><strong>{progress}%</strong></div><ProgressBar value={progress} label={`${complete} of ${tasks.length} visible steps complete`} /><div className="checklist">{tasks.map((task) => <article key={task.id} className={task.status !== 'Pending' ? 'complete' : ''}>{task.status !== 'Pending' ? <CheckCircle2 /> : <Clock3 />}<div><strong>{task.title}</strong><p>{task.category}</p></div><Badge tone={statusTone(task.status)}>{task.status}</Badge></article>)}</div></section> })}{!cases.length && <EmptyState icon={ListChecks} title="No active journey checklist" text="Onboarding or offboarding steps will appear here when HR starts a case." />}</div>
 }
 
 function EmployeeProfile() {
   const { user, updateEmployee } = useHrms()
-  const [form, setForm] = useState({ phone: user.phone })
-  const submit = async (event) => { event.preventDefault(); try { await updateEmployee(user.id, form) } catch { /* Keep form state. */ } }
-  return <div className="page-stack employee-feature-page employee-profile-page"><SectionHeading eyebrow="My account" title="My Profile" description="Review your synchronized employment record and update the contact field you are authorized to change." /><section className="panel profile-page"><div className="profile-hero"><span>{user.firstName[0]}{user.lastName[0]}</span><div><h2>{user.preferredName || user.firstName} {user.lastName}</h2><p>{user.position} · {user.department}</p><div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="neutral">Live HR record</Badge></div></div></div><form className="form-grid" onSubmit={submit}><label>Employee ID<input value={user.id} disabled /></label><label>Work email<input value={user.email} disabled /></label><label>Legal name<input value={[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')} disabled /></label><label>Preferred name<input value={user.preferredName || '—'} disabled /></label><label>Department<input value={user.department} disabled /></label><label>Position<input value={user.position} disabled /></label><label>Employment type<input value={user.employmentType} disabled /></label><label>Work arrangement<input value={user.workArrangement} disabled /></label><label>Work location<input value={user.workLocation} disabled /></label><label>Hire date<input value={formatDate(user.hireDate)} disabled /></label><label>Cost center<input value={user.costCenter || '—'} disabled /></label><label>Phone number<input value={form.phone} minLength="7" maxLength="30" onChange={(event) => setForm({ phone: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Operational changes made by HR synchronize through Supabase Realtime. Your phone update is validated by a restricted database function and audit logged.</p><div className="modal-actions span-2"><button className="button button-primary">Save phone number</button></div></form></section></div>
+  const [form, setForm] = useState({ phone: user?.phone ?? '' })
+  if (!user) return null
+  const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); try { await updateEmployee(user.id, form) } catch { /* Keep form state. */ } }
+  return <div className="page-stack employee-feature-page employee-profile-page"><SectionHeading eyebrow="My account" title="My Profile" description="Review your synchronized employment record and update the contact field you are authorized to change." /><section className="panel profile-page"><div className="profile-hero"><span>{user.firstName[0]}{user.lastName[0]}</span><div><h2>{user.preferredName || user.firstName} {user.lastName}</h2><p>{user.position} · {user.department}</p><div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="neutral">Live HR record</Badge></div></div></div><form className="form-grid" onSubmit={submit}><label>Employee ID<input value={user.id} disabled /></label><label>Work email<input value={user.email} disabled /></label><label>Legal name<input value={[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')} disabled /></label><label>Preferred name<input value={user.preferredName || '—'} disabled /></label><label>Department<input value={user.department} disabled /></label><label>Position<input value={user.position} disabled /></label><label>Employment type<input value={user.employmentType} disabled /></label><label>Work arrangement<input value={user.workArrangement} disabled /></label><label>Work location<input value={user.workLocation} disabled /></label><label>Hire date<input value={formatDate(user.hireDate)} disabled /></label><label>Cost center<input value={user.costCenter || '—'} disabled /></label><label>Phone number<input value={form.phone} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Operational changes made by HR synchronize through Supabase Realtime. Your phone update is validated by a restricted database function and audit logged.</p><div className="modal-actions span-2"><button className="button button-primary">Save phone number</button></div></form></section></div>
 }

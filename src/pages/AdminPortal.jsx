@@ -18,7 +18,6 @@ import {
   FolderLock,
   Gauge,
   Megaphone,
-  MessageSquareText,
   PhilippinePeso,
   Plus,
   ShieldCheck,
@@ -26,10 +25,8 @@ import {
   Target,
   TrendingUp,
   UserCog,
-  UserRoundCheck,
   Users,
   Workflow,
-  X,
 } from 'lucide-react'
 import PortalLayout from '../components/PortalLayout.tsx'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableShell } from '../components/ui.tsx'
@@ -39,6 +36,9 @@ import { formatDate, formatDateTime, formatMoney, statusTone } from '../utils/fo
 import AdminSecurityCenter from './AdminSecurityCenter.js'
 import AdminAccounts from './AdminAccounts.js'
 import PeopleDirectory from './PeopleDirectory.js'
+import AdminTimeOperations from './AdminTimeOperations.js'
+import AdminApprovals from './AdminApprovals.js'
+import AdminLifecycleOperations from './AdminLifecycleOperations.js'
 
 const navItems = [
   { id: 'action-center', label: 'Action Center', icon: Gauge, badge: 'approvals', group: 'Workspace' },
@@ -83,9 +83,9 @@ export default function AdminPortal() {
   const pages = {
     'action-center': <ActionCenter onNavigate={setActive} />,
     people: <PeopleDirectory onNavigate={setActive} />,
-    time: <TimeOperations />,
-    approvals: <ApprovalsCenter />,
-    lifecycle: <LifecycleOperations />,
+    time: <AdminTimeOperations />,
+    approvals: <AdminApprovals />,
+    lifecycle: <AdminLifecycleOperations />,
     payroll: <PayrollOperations />,
     performance: <PerformanceOperations />,
     documents: <DocumentOperations />,
@@ -166,62 +166,8 @@ function ActionCenter({ onNavigate }) {
   )
 }
 
-function TimeOperations() {
-  const { data, saveSchedule } = useHrms()
-  const [showSchedule, setShowSchedule] = useState(false)
-  const today = new Date().toISOString().slice(0, 10)
-  const defaultEmployee = data.employees.find((item) => item.role === 'employee' && item.status === 'Active')?.id ?? ''
-  const [form, setForm] = useState({ employeeId: defaultEmployee, date: today, shiftStart: '08:00', shiftEnd: '17:00', location: 'Main Office', workMode: 'On-site', notes: '' })
-  const todayRecords = data.attendance.filter((item) => item.date === today)
-  const missingOut = todayRecords.filter((item) => item.clockIn && !item.clockOut)
-  const exceptionRequests = data.employeeRequests.filter((item) => ['Attendance Correction', 'Overtime', 'Schedule Change'].includes(item.type) && openRequestStatuses.includes(item.status))
-  const scheduleCoverage = data.employees.filter((item) => item.role === 'employee' && item.status === 'Active').filter((employee) => data.schedules.some((item) => item.employeeId === employee.id && item.date === today)).length
 
-  const submit = async (event) => {
-    event.preventDefault()
-    try { await saveSchedule(form); setShowSchedule(false) } catch { /* Keep form open. */ }
-  }
 
-  return <div className="page-stack"><SectionHeading eyebrow="Exception-first operations" title="Time & Attendance" description="Monitor live attendance, assigned schedules, and correction requests without silently changing employee records." actions={<button className="button button-primary" onClick={() => setShowSchedule(true)}><Plus />Assign schedule</button>} /><div className="stats-grid stats-grid-4"><StatCard icon={CheckCircle2} label="Clocked in today" value={todayRecords.length} tone="green" /><StatCard icon={Clock3} label="Late arrivals" value={todayRecords.filter((item) => item.status === 'Late').length} tone="amber" /><StatCard icon={CalendarClock} label="Open time records" value={missingOut.length} detail="Clock-in without clock-out" tone="purple" /><StatCard icon={CalendarDays} label="Schedule coverage" value={scheduleCoverage} detail="Active employees today" tone="blue" /></div><div className="content-grid content-grid-2"><section className="panel"><div className="panel-header"><div><h2>Today’s attendance</h2><p>Employee clock events from Supabase</p></div></div><TableShell><thead><tr><th>Employee</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>{todayRecords.map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong><small className="table-subtitle">{item.employeeId}</small></td><td>{item.clockIn ?? '—'}</td><td>{item.clockOut ?? 'Open'}</td><td>{item.hours.toFixed(1)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td></tr>)}</tbody></TableShell></section><section className="panel"><div className="panel-header"><div><h2>Time exceptions</h2><p>Employee-submitted corrections and schedule changes</p></div><Badge tone={exceptionRequests.length ? 'warning' : 'success'}>{exceptionRequests.length} open</Badge></div><div className="compact-record-list">{exceptionRequests.map((item) => <article key={item.id}><div><strong>{item.subject}</strong><p>{personName(data, item.employeeId)} · {item.type} · {formatDate(item.requestedDate)}</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}{!exceptionRequests.length && <EmptyState icon={CheckCircle2} title="No time exceptions" text="Correction and schedule requests will appear here and in Approvals." />}</div></section></div><section className="panel"><div className="panel-header"><div><h2>Upcoming schedule roster</h2><p>Next assigned shift per employee</p></div></div><TableShell><thead><tr><th>Employee</th><th>Date</th><th>Shift</th><th>Mode</th><th>Location</th></tr></thead><tbody>{data.schedules.filter((item) => item.date >= today).slice(0, 20).map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong></td><td>{formatDate(item.date)}</td><td>{item.workMode === 'Rest Day' ? 'Rest day' : `${item.shiftStart}–${item.shiftEnd}`}</td><td><Badge tone={item.workMode === 'Rest Day' ? 'neutral' : 'info'}>{item.workMode}</Badge></td><td>{item.location}</td></tr>)}</tbody></TableShell></section>{showSchedule && <Modal title="Assign or update schedule" onClose={() => setShowSchedule(false)}><form className="form-grid" onSubmit={submit}><label className="span-2">Employee<select value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee' && item.status === 'Active').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.id}</option>)}</select></label><label>Date<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></label><label>Work mode<select value={form.workMode} onChange={(event) => setForm({ ...form, workMode: event.target.value })}><option>On-site</option><option>Remote</option><option>Hybrid</option><option>Rest Day</option></select></label><label>Shift start<input type="time" value={form.shiftStart} onChange={(event) => setForm({ ...form, shiftStart: event.target.value })} disabled={form.workMode === 'Rest Day'} required /></label><label>Shift end<input type="time" value={form.shiftEnd} onChange={(event) => setForm({ ...form, shiftEnd: event.target.value })} disabled={form.workMode === 'Rest Day'} required /></label><label className="span-2">Location<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} disabled={form.workMode === 'Rest Day'} required /></label><label className="span-2">Notes<textarea rows="3" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowSchedule(false)}>Cancel</button><button className="button button-primary">Save schedule</button></div></form></Modal>}</div>
-}
-
-function ApprovalsCenter() {
-  const { data, reviewLeave, reviewRequest, addRequestComment } = useHrms()
-  const [selectedId, setSelectedId] = useState(null)
-  const [decision, setDecision] = useState('Under Review')
-  const [reason, setReason] = useState('')
-  const [comment, setComment] = useState('')
-  const [internal, setInternal] = useState(false)
-  const pendingLeaves = data.leaveRequests.filter((item) => item.status === 'Pending')
-  const requests = data.employeeRequests.filter((item) => openRequestStatuses.includes(item.status))
-  const selected = data.employeeRequests.find((item) => item.id === selectedId)
-  const comments = data.requestComments.filter((item) => item.requestId === selectedId)
-
-  const decide = async (event) => {
-    event.preventDefault()
-    try { await reviewRequest(selectedId, decision, reason); setReason(''); if (['Approved', 'Rejected', 'Completed'].includes(decision)) setSelectedId(null) } catch { /* Keep decision form. */ }
-  }
-  const addComment = async (event) => {
-    event.preventDefault()
-    try { await addRequestComment(selectedId, comment, internal); setComment(''); setInternal(false) } catch { /* Keep comment. */ }
-  }
-
-  return <div className="page-stack"><SectionHeading eyebrow="Explainable decisions" title="Unified Approvals" description="Review leave and HR requests with clear context, decision reasons, comments, and employee notifications." /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarCheck} label="Leave decisions" value={pendingLeaves.length} tone="amber" /><StatCard icon={FileCheck2} label="HR request queue" value={requests.length} tone="blue" /><StatCard icon={MessageSquareText} label="Needs information" value={requests.filter((item) => item.status === 'More Information').length} tone="purple" /></div><section className="panel"><div className="panel-header"><div><h2>Leave requests</h2><p>Dates, duration, and reason before each decision</p></div></div>{pendingLeaves.length ? <TableShell><thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Reason</th><th>Decision</th></tr></thead><tbody>{pendingLeaves.map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong><small className="table-subtitle">{item.employeeId}</small></td><td>{item.type} · {item.days} day{item.days === 1 ? '' : 's'}</td><td>{formatDate(item.startDate)}–{formatDate(item.endDate)}</td><td>{item.reason}</td><td><div className="table-actions"><button className="mini-button approve" onClick={() => reviewLeave(item.id, 'Approved')}><Check />Approve</button><button className="mini-button reject" onClick={() => reviewLeave(item.id, 'Rejected')}><X />Reject</button></div></td></tr>)}</tbody></TableShell> : <EmptyState icon={CheckCircle2} title="No leave approvals" text="New leave requests will appear here." />}</section><section className="panel"><div className="panel-header"><div><h2>HR request queue</h2><p>Cross-functional requests with a shared conversation history</p></div></div>{requests.length ? <TableShell><thead><tr><th>Request</th><th>Employee</th><th>Type</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>{requests.map((item) => <tr key={item.id}><td><strong>#{item.id} · {item.subject}</strong><small className="table-subtitle">{item.description}</small></td><td>{personName(data, item.employeeId)}</td><td>{item.type}</td><td><Badge tone={item.priority === 'Urgent' ? 'danger' : item.priority === 'High' ? 'warning' : 'neutral'}>{item.priority}</Badge></td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td><td><button className="text-button" onClick={() => { setSelectedId(item.id); setDecision(item.status === 'Submitted' ? 'Under Review' : item.status); setReason(item.decisionNote || '') }}>Review</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={CheckCircle2} title="No HR request approvals" text="Employee requests will appear here." />}</section>{selected && <Modal title={`Review request #${selected.id}`} onClose={() => setSelectedId(null)} size="large"><div className="request-detail"><div className="request-detail-head"><div><span className="eyebrow">{selected.type} · {personName(data, selected.employeeId)}</span><h2>{selected.subject}</h2><p>{selected.description}</p></div><Badge tone={statusTone(selected.status)}>{selected.status}</Badge></div><dl className="detail-grid"><div><dt>Priority</dt><dd>{selected.priority}</dd></div><div><dt>Related date</dt><dd>{formatDate(selected.requestedDate)}</dd></div><div><dt>Requested value</dt><dd>{selected.requestedValue || '—'}</dd></div><div><dt>Submitted</dt><dd>{formatDateTime(selected.createdAt)}</dd></div></dl><div className="timeline">{comments.map((item) => <article key={item.id}><span>{item.internal ? 'IN' : 'HR'}</span><div><strong>{personName(data, item.authorId)}{item.internal ? ' · Internal note' : ''}</strong><p>{item.body}</p><time>{formatDateTime(item.createdAt)}</time></div></article>)}</div><form className="inline-response admin-response" onSubmit={addComment}><textarea rows="3" minLength="1" maxLength="1000" placeholder="Add a response or private handoff note…" value={comment} onChange={(event) => setComment(event.target.value)} required /><label className="check-label"><input type="checkbox" checked={internal} onChange={(event) => setInternal(event.target.checked)} />Internal note (hidden from employee)</label><button className="button button-secondary"><MessageSquareText />Add note</button></form><form className="decision-form" onSubmit={decide}><label>Decision<select value={decision} onChange={(event) => setDecision(event.target.value)}><option>Under Review</option><option>More Information</option><option>Approved</option><option>Rejected</option><option>Completed</option></select></label><label>Decision reason<textarea rows="3" minLength={['More Information', 'Rejected'].includes(decision) ? 3 : 0} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain impact and the employee’s next step." required={['More Information', 'Rejected'].includes(decision)} /></label><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setSelectedId(null)}>Cancel</button><button className="button button-primary">Save decision & notify</button></div></form></div></Modal>}</div>
-}
-
-function LifecycleOperations() {
-  const { data, createLifecycleCase, updateLifecycleTask } = useHrms()
-  const [showCreate, setShowCreate] = useState(false)
-  const defaultEmployee = data.employees.find((item) => item.role === 'employee' && item.status === 'Active')?.id ?? ''
-  const [form, setForm] = useState(() => ({ employeeId: defaultEmployee, type: 'Onboarding', targetDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) }))
-  const activeCases = data.lifecycleCases.filter((item) => item.status === 'Active')
-  const submit = async (event) => {
-    event.preventDefault()
-    try { await createLifecycleCase(form); setShowCreate(false) } catch { /* Keep form open. */ }
-  }
-
-  return <div className="page-stack"><SectionHeading eyebrow="Secure employee lifecycle" title="Onboarding & Offboarding" description="Coordinate people, assets, payroll, compliance, and access deactivation in one accountable checklist." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus />Start checklist</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={UserRoundCheck} label="Active onboarding" value={activeCases.filter((item) => item.type === 'Onboarding').length} tone="blue" /><StatCard icon={Workflow} label="Active offboarding" value={activeCases.filter((item) => item.type === 'Offboarding').length} tone="amber" /><StatCard icon={CheckCircle2} label="Completed cases" value={data.lifecycleCases.filter((item) => item.status === 'Completed').length} tone="green" /></div><div className="lifecycle-grid">{data.lifecycleCases.map((item) => { const employee = data.employees.find((person) => person.id === item.employeeId); const tasks = data.lifecycleTasks.filter((task) => task.caseId === item.id); const done = tasks.filter((task) => task.status !== 'Pending').length; const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0; return <section className="panel lifecycle-card" key={item.id}><div className="lifecycle-card-head"><div><div className="inline-badges"><Badge tone={item.type === 'Offboarding' ? 'warning' : 'info'}>{item.type}</Badge><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><h2>{employee ? `${employee.firstName} ${employee.lastName}` : item.employeeId}</h2><p>{item.employeeId} · Target {formatDate(item.targetDate)}</p></div><strong>{progress}%</strong></div><ProgressBar value={progress} label={`${done} of ${tasks.length} tasks resolved`} />{item.type === 'Offboarding' && item.status === 'Active' && <div className="impact-banner"><ShieldCheck /><p>Completing the final checklist task automatically changes the employee profile to Inactive, blocking HRMS access.</p></div>}<div className="checklist admin-checklist">{tasks.map((task) => <article key={task.id} className={task.status !== 'Pending' ? 'complete' : ''}><button className="task-toggle" aria-label={`Mark ${task.title} ${task.status === 'Pending' ? 'complete' : 'pending'}`} disabled={item.status !== 'Active'} onClick={() => updateLifecycleTask(task.id, task.status === 'Pending' ? 'Complete' : 'Pending')}>{task.status === 'Pending' ? <Clock3 /> : <CheckCircle2 />}</button><div><strong>{task.title}</strong><p>{task.category} · {task.employeeVisible ? 'Employee visible' : 'Internal'}</p></div><Badge tone={statusTone(task.status)}>{task.status}</Badge></article>)}</div></section> })}</div>{!data.lifecycleCases.length && <EmptyState icon={Workflow} title="No lifecycle cases" text="Start an onboarding or offboarding checklist for an employee." />}{showCreate && <Modal title="Start lifecycle checklist" onClose={() => setShowCreate(false)}><form className="form-grid" onSubmit={submit}><label className="span-2">Employee<select value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.status}</option>)}</select></label><label>Case type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Onboarding</option><option>Offboarding</option></select></label><label>Target date<input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} required /></label>{form.type === 'Offboarding' && <div className="form-warning span-2"><ShieldCheck /><p>Access is not removed when the case starts. It is deactivated only after every clearance task is completed or skipped by an authorized HR administrator.</p></div>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary">Create accountable checklist</button></div></form></Modal>}</div>
-}
 
 function PayrollOperations() {
   const { data, generatePayroll, transitionPayrollRun } = useHrms()

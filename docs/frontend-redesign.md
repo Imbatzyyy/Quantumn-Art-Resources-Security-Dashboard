@@ -48,6 +48,16 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Applied the Employee visual system to Time & Attendance, Leave, Requests, Inbox, Pay & Benefits, Growth, Documents, Help, Journey, Profile, and Account Security pages.
 - Extended typed Supabase-facing contracts for employee, administrator, security, session, MFA, OWASP ZAP, audit, payroll, benefit, document, and performance records. No database schema or RLS policy was changed.
 
+## Phase 3 portal and people-operations migration
+
+- Migrated the complete Employee portal from JSX to strict TypeScript, including My Day, Time & Schedule, Leave, Request Center, Action Inbox, Pay & Benefits, Goals & Growth, Document Vault, Help Center, My Journey, Account Security, and Profile.
+- Migrated the required first-login password setup to strict TypeScript so temporary-password replacement, password-policy guidance, protected submission, and safe error handling are covered by the shared context contract.
+- Extracted Admin Time & Attendance into a strict TypeScript feature module with typed schedules, live attendance records, exception requests, and schedule assignment.
+- Extracted Unified Approvals into a strict TypeScript feature module with typed leave decisions, HR request decisions, employee-visible responses, internal notes, and decision reasons.
+- Extracted Admin Onboarding & Offboarding into a strict TypeScript feature module with typed lifecycle cases, employee-visible/internal tasks, progress calculation, and access-deactivation guidance.
+- Expanded the shared HRMS snapshot and operation contracts to cover schedules, notifications, announcements, request comments, lifecycle cases/tasks, employee self-service actions, and Admin people-operations decisions.
+- Kept the Supabase provider implementation, database schema, RLS policies, Auth configuration, and production environment unchanged.
+
 ## Verification gates passed
 
 ```bash
@@ -71,7 +81,7 @@ The Phase 1 browser-loaded local app reported no console warnings or errors. The
 
 ## Recommended next continuation
 
-1. Continue extracting the remaining Admin and Employee feature pages from `AdminPortal.jsx` and `EmployeePortal.jsx` into strict TypeScript modules.
+1. Extract Payroll, Performance, Documents, Analytics, Communications, and the Admin Action Center from `AdminPortal.jsx` into strict TypeScript modules.
 2. Migrate `HrmsContext.jsx` and the data-provider boundary to typed operation contracts in small, verified slices.
 3. Add component-level accessibility, keyboard-navigation, and responsive tests for the new feature modules.
 4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
