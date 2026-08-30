@@ -1644,7 +1644,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .lifecycle-select-shell > svg, .lifecycle-date-shell > svg { width: 18px; color: var(--text-faint); }
 .lifecycle-select-shell select, .lifecycle-date-shell input { min-width: 0; width: 100%; height: 51px; padding: 0; color: var(--text); border: 0; outline: 0; background: transparent; font-weight: 760; }
 .lifecycle-person-card { min-height: 76px; padding: .75rem; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: .7rem; border: 1px solid color-mix(in srgb,var(--blue) 11%,var(--border)); border-radius: 16px; background: color-mix(in srgb,var(--blue-soft) 38%,var(--surface)); }
-.lifecycle-person-card > span { width: 44px; height: 44px; display: grid; place-items: center; color: white; border-radius: 14px; background: linear-gradient(145deg,#2267d8,#7656c9); font-size: .75rem; font-weight: 900; box-shadow: 0 8px 18px rgba(71,80,183,.2); }
+.lifecycle-person-card > span:not(.badge) { width: 44px; height: 44px; display: grid; place-items: center; color: white; border-radius: 14px; background: linear-gradient(145deg,#2267d8,#7656c9); font-size: .75rem; font-weight: 900; box-shadow: 0 8px 18px rgba(71,80,183,.2); }
+.lifecycle-person-card > .badge { width: max-content; min-width: 0; min-height: 26px; align-self: center; justify-self: end; padding: .28rem .55rem; border-radius: 999px; line-height: 1; box-shadow: none; }
 .lifecycle-person-card > div { min-width: 0; }
 .lifecycle-person-card strong { display: block; color: var(--text); font-size: .78rem; }
 .lifecycle-person-card p, .lifecycle-person-card small { margin: .18rem 0 0; display: block; color: var(--text-faint); font-size: .62rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
