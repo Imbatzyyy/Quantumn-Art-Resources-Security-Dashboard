@@ -97,7 +97,7 @@ describe('core administrator operation boundaries', () => {
     renderOperation(<AdminTimeOperations />, { saveSchedule })
     await user.click(screen.getByRole('button', { name: 'Assign schedule' }))
     const dialog = screen.getByRole('dialog', { name: 'Assign or update schedule' })
-    await user.selectOptions(within(dialog).getByLabelText('Work mode'), 'Remote')
+    await user.click(within(dialog).getByRole('radio', { name: /Remote/ }))
     await user.clear(within(dialog).getByLabelText('Location'))
     await user.type(within(dialog).getByLabelText('Location'), 'Approved remote workspace')
     await user.type(within(dialog).getByLabelText('Notes'), 'Remote coverage schedule')

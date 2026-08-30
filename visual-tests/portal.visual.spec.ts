@@ -70,6 +70,21 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'create-lifecycle-checklist-dark-desktop.png')
   })
 
+  test('premium schedule assignment', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Time & Attendance' }).click()
+    await page.getByRole('button', { name: 'Assign schedule' }).click()
+    await expect(page.getByRole('dialog', { name: 'Assign or update schedule' })).toBeVisible()
+    await capture(page, 'assign-schedule-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Time & Attendance' }).click()
+    await page.getByRole('button', { name: 'Assign schedule' }).click()
+    await page.getByRole('radio', { name: /Remote/ }).click()
+    await expect(page.getByText('Approved remote workspace')).toBeVisible()
+    await capture(page, 'assign-schedule-dark-desktop.png')
+  })
+
   test('admin accounts and invitation', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Admin Accounts & Roles' }).click()
@@ -187,6 +202,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'create-lifecycle-checklist-mobile.png')
+  })
+
+  test('schedule assignment dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Time & Attendance' }).click()
+    await page.getByRole('button', { name: 'Assign schedule' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Assign or update schedule' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'assign-schedule-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {
