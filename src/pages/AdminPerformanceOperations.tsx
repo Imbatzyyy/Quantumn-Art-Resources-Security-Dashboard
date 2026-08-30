@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Award, BookOpenCheck, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, Compass, FileText, Flag, GraduationCap, Layers3, Plus, Rocket, Send, ShieldCheck, Sparkles, Star, Target, TrendingUp, UserRound } from 'lucide-react'
+import { Award, BookOpenCheck, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, Compass, FileText, Flag, Gauge, GraduationCap, Layers3, LockKeyhole, MessageSquareText, Plus, Rocket, Save, Send, ShieldCheck, Sparkles, Star, Target, TrendingUp, UserRound, UsersRound } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableShell } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, statusTone } from '../utils/format.js'
@@ -9,9 +9,14 @@ const personName = (data: HrmsSnapshot, employeeId: string) => {
   const employee = data.employees.find((item) => item.id === employeeId)
   return employee ? `${employee.firstName} ${employee.lastName}` : employeeId
 }
-const reviewMetrics: Array<[keyof Pick<PerformanceReviewInput, 'score' | 'goalProgress' | 'quality' | 'productivity' | 'teamwork'>, string]> = [
-  ['score', 'Overall score'], ['goalProgress', 'Goal progress'], ['quality', 'Quality'], ['productivity', 'Productivity'], ['teamwork', 'Teamwork'],
+const reviewMetrics = [
+  { key: 'score' as const, label: 'Overall score', icon: Gauge },
+  { key: 'goalProgress' as const, label: 'Goal progress', icon: Target },
+  { key: 'quality' as const, label: 'Quality', icon: Star },
+  { key: 'productivity' as const, label: 'Productivity', icon: TrendingUp },
+  { key: 'teamwork' as const, label: 'Teamwork', icon: UsersRound },
 ]
+const ratingForScore = (score: number) => score >= 90 ? 'Outstanding' : score >= 80 ? 'Exceeds expectations' : score >= 70 ? 'Meets expectations' : 'Needs improvement'
 
 export default function AdminPerformanceOperations() {
   const { data, savePerformance, publishPerformance, createPerformanceCycle, saveGoal } = useHrms()
@@ -41,13 +46,16 @@ export default function AdminPerformanceOperations() {
     { value: 'Leadership', icon: Award },
     { value: 'Delivery', icon: Target },
   ]
+  const selectedReviewEmployee = reviewForm ? data.employees.find((item) => item.id === reviewForm.employeeId) : undefined
+  const selectedReviewCycle = reviewForm ? data.performanceCycles.find((item) => item.id === Number(reviewForm.cycleId)) : undefined
+  const calculatedReviewRating = reviewForm ? ratingForScore(Number(reviewForm.score)) : ''
 
   const openReview = (review?: PerformanceRecord) => setReviewForm(review ? { ...review, comments: review.comments ?? '', cycleId: review.cycleId ?? '' } : { employeeId: defaultEmployee, cycleId: defaultCycle?.id ?? '', period: defaultCycle?.period ?? `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`, score: 80, goalProgress: 80, quality: 80, productivity: 80, teamwork: 80, comments: '' })
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!reviewForm) return
     const score = Number(reviewForm.score)
-    const rating = score >= 90 ? 'Outstanding' : score >= 80 ? 'Exceeds expectations' : score >= 70 ? 'Meets expectations' : 'Needs improvement'
+    const rating = ratingForScore(score)
     try { await savePerformance({ ...reviewForm, rating }); setReviewForm(null) } catch { /* Keep private draft open. */ }
   }
   const submitCycle = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); try { await createPerformanceCycle(cycleForm); setShowCycle(false) } catch { /* Keep form open. */ } }
@@ -58,7 +66,62 @@ export default function AdminPerformanceOperations() {
     <div className="stats-grid stats-grid-3"><StatCard icon={CalendarCheck} label="Active cycles" value={data.performanceCycles.filter((item) => item.status === 'Active').length} tone="blue" /><StatCard icon={FileText} label="Draft reviews" value={data.performance.filter((item) => item.status === 'Draft').length} tone="amber" /><StatCard icon={TrendingUp} label="Active goals" value={data.goals.filter((item) => item.status === 'Active').length} tone="green" /></div>
     <section className="panel"><div className="panel-header"><div><h2>Review records</h2><p>Employees retrieve only Published records through RLS.</p></div></div>{data.performance.length ? <TableShell><thead><tr><th>Employee</th><th>Period</th><th>Score</th><th>Goal progress</th><th>Rating</th><th>Status / Action</th></tr></thead><tbody>{data.performance.map((review) => <tr key={review.id}><td><strong>{personName(data, review.employeeId)}</strong><small className="table-subtitle">{review.employeeId}</small></td><td>{review.period}</td><td><strong>{review.score}/100</strong></td><td>{review.goalProgress}%</td><td>{review.rating}</td><td><div className="table-actions"><Badge tone={statusTone(review.status)}>{review.status}</Badge><button className="mini-button" onClick={() => openReview(review)}>Edit</button>{review.status === 'Draft' && <button className="mini-button approve" onClick={() => void publishPerformance(review.id)}><Check />Publish</button>}</div></td></tr>)}</tbody></TableShell> : <EmptyState icon={Star} title="No performance reviews" text="Create a draft, review it, then publish it to the employee." />}</section>
     <section className="panel"><div className="panel-header"><div><h2>Employee goals</h2><p>Shared progress values for coaching conversations</p></div></div><div className="goal-admin-grid">{data.goals.map((goal) => <article key={goal.id}><div><Badge tone={statusTone(goal.status)}>{goal.status}</Badge><h3>{goal.title}</h3><p>{personName(data, goal.employeeId)} · {goal.category} · Due {formatDate(goal.dueDate)}</p></div><strong>{goal.progress}%</strong><ProgressBar value={goal.progress} label="Progress" /></article>)}</div></section>
-    {reviewForm && <Modal title="Save performance review draft" onClose={() => setReviewForm(null)} size="large"><form className="form-grid" onSubmit={submitReview}><label>Employee<select value={reviewForm.employeeId} onChange={(event) => setReviewForm({ ...reviewForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></label><label>Cycle<select value={reviewForm.cycleId} onChange={(event) => { const cycle = data.performanceCycles.find((item) => item.id === Number(event.target.value)); setReviewForm({ ...reviewForm, cycleId: event.target.value, period: cycle?.period ?? reviewForm.period }) }}><option value="">No cycle</option>{data.performanceCycles.map((item) => <option value={item.id} key={item.id}>{item.period} · {item.status}</option>)}</select></label><label className="span-2">Review period<input value={reviewForm.period} onChange={(event) => setReviewForm({ ...reviewForm, period: event.target.value })} required /></label>{reviewMetrics.map(([key, label]) => <label key={key}>{label}<input type="number" min={0} max={100} value={reviewForm[key]} onChange={(event) => setReviewForm({ ...reviewForm, [key]: Number(event.target.value) })} required /></label>)}<label className="span-2">Comments<textarea rows={4} maxLength={1000} value={reviewForm.comments} onChange={(event) => setReviewForm({ ...reviewForm, comments: event.target.value })} /></label><p className="form-note span-2">Saving creates a private draft. Use Publish only after the review is complete and approved for employee disclosure.</p><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setReviewForm(null)}>Cancel</button><button className="button button-primary">Save private draft</button></div></form></Modal>}
+    {reviewForm && <Modal title="Save performance review draft" onClose={() => setReviewForm(null)} size="large">
+      <form className="performance-review-shell" onSubmit={submitReview}>
+        <section className="performance-review-intro">
+          <span className="performance-review-intro-icon"><LockKeyhole aria-hidden="true" /></span>
+          <div><small>Private calibration workspace</small><h3>Evaluate performance with clarity and controlled disclosure</h3><p>Capture evidence-based scores and reviewer context. The employee sees nothing until an authorized administrator publishes the completed review.</p></div>
+          <span className="performance-review-state"><ShieldCheck aria-hidden="true" />Draft protected</span>
+        </section>
+
+        <div className="performance-review-content">
+          <section className="performance-scorecard" aria-labelledby="performance-scorecard-title">
+            <header className="performance-review-heading"><span><Gauge aria-hidden="true" /></span><div><h4 id="performance-scorecard-title">Review scorecard</h4><p>Define the employee, review period, and calibrated performance measures.</p></div></header>
+
+            <div className="performance-review-context-grid">
+              <label className="performance-review-field">Employee
+                <span className="performance-review-select"><UserRound aria-hidden="true" /><select aria-label="Employee" value={reviewForm.employeeId} onChange={(event) => setReviewForm({ ...reviewForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></span>
+              </label>
+              <label className="performance-review-field">Cycle
+                <span className="performance-review-select"><CalendarCheck aria-hidden="true" /><select aria-label="Cycle" value={reviewForm.cycleId} onChange={(event) => { const cycle = data.performanceCycles.find((item) => item.id === Number(event.target.value)); setReviewForm({ ...reviewForm, cycleId: event.target.value, period: cycle?.period ?? reviewForm.period }) }}><option value="">No cycle</option>{data.performanceCycles.map((item) => <option value={item.id} key={item.id}>{item.period} · {item.status}</option>)}</select></span>
+              </label>
+            </div>
+
+            {selectedReviewEmployee && <div className="performance-review-person"><span>{selectedReviewEmployee.firstName[0]}{selectedReviewEmployee.lastName[0]}</span><div><strong>{selectedReviewEmployee.firstName} {selectedReviewEmployee.lastName}</strong><p>{selectedReviewEmployee.position || 'Employee'} · {selectedReviewEmployee.department || 'Organization'}</p></div><Badge tone="info">{selectedReviewCycle?.title || 'Independent review'}</Badge></div>}
+
+            <label className="performance-review-field">Review period
+              <span className="performance-review-input"><CalendarDays aria-hidden="true" /><input aria-label="Review period" value={reviewForm.period} onChange={(event) => setReviewForm({ ...reviewForm, period: event.target.value })} required /></span>
+              <small>Employee and period together identify the private draft record.</small>
+            </label>
+
+            <div className="performance-metric-grid">{reviewMetrics.map(({ key, label, icon: Icon }) => <label className={`performance-metric-card ${key === 'score' ? 'primary' : ''}`} key={key}><span><Icon aria-hidden="true" /></span><div><strong>{label}</strong><small>Score from 0 to 100</small><i><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm[key])))}%` }} /></i></div><input aria-label={label} type="number" min={0} max={100} value={reviewForm[key]} onChange={(event) => setReviewForm({ ...reviewForm, [key]: Number(event.target.value) })} required /></label>)}</div>
+          </section>
+
+          <aside className="performance-review-preview" aria-labelledby="performance-review-preview-title">
+            <header><div><small>Calibration preview</small><h4 id="performance-review-preview-title">Private review summary</h4></div><span><Award aria-hidden="true" /></span></header>
+
+            <section className="performance-rating-card">
+              <div><span><Gauge aria-hidden="true" /></span><div><small>Calculated rating</small><h5>{calculatedReviewRating}</h5><p>{reviewForm.period}</p></div><strong>{reviewForm.score}</strong></div>
+              <div className="performance-rating-scale"><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm.score)))}%` }} /></div>
+            </section>
+
+            <div className="performance-preview-metrics">{reviewMetrics.slice(1).map(({ key, label, icon: Icon }) => <article key={key}><span><Icon aria-hidden="true" /></span><div><small>{label}</small><strong>{reviewForm[key]}/100</strong></div><i><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm[key])))}%` }} /></i></article>)}</div>
+
+            <label className="performance-comments-field">Reviewer comments <em>Private draft</em>
+              <span><MessageSquareText aria-hidden="true" /><textarea aria-label="Comments" rows={6} maxLength={1000} value={reviewForm.comments} onChange={(event) => setReviewForm({ ...reviewForm, comments: event.target.value })} placeholder="Record evidence, achievements, development priorities, and context for the final conversation…" /></span>
+              <small><span>Keep the narrative factual, specific, and actionable.</span><strong>{reviewForm.comments.length}/1000</strong></small>
+            </label>
+
+            <div className="performance-draft-assurance"><LockKeyhole aria-hidden="true" /><div><strong>Not visible to the employee</strong><p>Saving creates or replaces a private draft. Employee access and notification begin only after the separate Publish action succeeds.</p></div></div>
+          </aside>
+        </div>
+
+        <footer className="performance-review-footer">
+          <div><ShieldCheck aria-hidden="true" /><p><strong>Protected reviewer workspace.</strong> Confirm the metrics and narrative before saving this private calibration record.</p></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setReviewForm(null)}>Cancel</button><button className="button button-primary"><Save aria-hidden="true" />Save private draft</button></div>
+        </footer>
+      </form>
+    </Modal>}
     {showCycle && <Modal title="Create performance cycle" onClose={() => setShowCycle(false)} size="large">
       <form className="performance-cycle-shell" onSubmit={submitCycle}>
         <section className="performance-cycle-intro">

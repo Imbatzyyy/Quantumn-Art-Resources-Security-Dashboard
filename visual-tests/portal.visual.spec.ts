@@ -169,6 +169,27 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'assign-employee-goal-dark-desktop.png')
   })
 
+  test('premium private performance review', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New review' }).click()
+    await expect(page.getByRole('dialog', { name: 'Save performance review draft' })).toBeVisible()
+    await capture(page, 'save-performance-review-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New review' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Save performance review draft' })
+    await dialog.getByLabel('Overall score').fill('94')
+    await dialog.getByLabel('Goal progress').fill('91')
+    await dialog.getByLabel('Quality').fill('93')
+    await dialog.getByLabel('Productivity').fill('92')
+    await dialog.getByLabel('Teamwork').fill('96')
+    await dialog.getByLabel('Comments').fill('Delivered measurable results and supported team execution.')
+    await expect(dialog.getByRole('heading', { name: 'Outstanding' })).toBeVisible()
+    await capture(page, 'save-performance-review-dark-desktop.png')
+  })
+
   test('premium payroll draft review', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
@@ -337,6 +358,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'assign-employee-goal-mobile.png')
+  })
+
+  test('private performance review dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'New review' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Save performance review draft' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'save-performance-review-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {

@@ -203,6 +203,40 @@ describe('core administrator operation boundaries', () => {
     }))
   })
 
+  it('saves calibrated performance evidence as a private draft', async () => {
+    const user = userEvent.setup()
+    const savePerformance = vi.fn(async () => emptySnapshot)
+    renderOperation(<AdminPerformanceOperations />, { savePerformance })
+    await user.click(screen.getByRole('button', { name: 'New review' }))
+    const dialog = screen.getByRole('dialog', { name: 'Save performance review draft' })
+    const scores = [
+      ['Overall score', '92'],
+      ['Goal progress', '88'],
+      ['Quality', '91'],
+      ['Productivity', '89'],
+      ['Teamwork', '94'],
+    ] as const
+    for (const [label, value] of scores) {
+      await user.clear(within(dialog).getByLabelText(label))
+      await user.type(within(dialog).getByLabelText(label), value)
+    }
+    await user.type(within(dialog).getByLabelText('Comments'), 'Delivered measurable results and supported team execution.')
+    fireEvent.submit(dialog.querySelector('form')!)
+
+    await waitFor(() => expect(savePerformance).toHaveBeenCalledWith(expect.objectContaining({
+      employeeId: employee.id,
+      cycleId: '',
+      period: 'Q3 2026',
+      score: 92,
+      goalProgress: 88,
+      quality: 91,
+      productivity: 89,
+      teamwork: 94,
+      rating: 'Outstanding',
+      comments: 'Delivered measurable results and supported team execution.',
+    })))
+  })
+
   it('assigns an employee goal with the selected coaching metadata', async () => {
     const user = userEvent.setup()
     const saveGoal = vi.fn(async () => emptySnapshot)
