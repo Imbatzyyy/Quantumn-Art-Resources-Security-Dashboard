@@ -93,6 +93,21 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'generate-payroll-draft-dark-desktop.png')
   })
 
+  test('premium employee request review', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: /^Approvals/ }).click()
+    await page.getByRole('button', { name: 'Review' }).click()
+    await expect(page.getByRole('dialog', { name: 'Review request #REQ-204' })).toBeVisible()
+    await capture(page, 'review-employee-request-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: /^Approvals/ }).click()
+    await page.getByRole('button', { name: 'Review' }).click()
+    await page.getByRole('button', { name: /Private handoff/ }).click()
+    await expect(page.getByLabel('Private HR handoff note')).toBeVisible()
+    await capture(page, 'review-employee-request-dark-desktop.png')
+  })
+
   test('security center and secure alert composer', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Security Center 1', exact: true }).click()
@@ -172,5 +187,17 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'create-lifecycle-checklist-mobile.png')
+  })
+
+  test('employee request review dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: /^Approvals/ }).click()
+    await page.getByRole('button', { name: 'Review' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Review request #REQ-204' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'review-employee-request-mobile.png')
   })
 })
