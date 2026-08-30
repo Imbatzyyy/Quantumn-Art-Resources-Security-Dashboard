@@ -67,6 +67,24 @@ interface NavigateProps { onNavigate: (page: EmployeePage) => void }
 
 const titles = Object.fromEntries(navItems.map((item) => [item.id, item.label]))
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
+const requestTypes = [
+  'Attendance Correction', 'Overtime', 'Schedule Change', 'Profile Correction',
+  'Document Request', 'Payroll Concern', 'General HR',
+] as const
+const requestRouting: Record<string, { team: string; guidance: string }> = {
+  'Attendance Correction': { team: 'Time & Attendance', guidance: 'Include the date, expected time, and what appears incorrectly.' },
+  Overtime: { team: 'Time & Attendance', guidance: 'Include the work date, total hours, and approving supervisor.' },
+  'Schedule Change': { team: 'People Operations', guidance: 'State the requested schedule and when it should take effect.' },
+  'Profile Correction': { team: 'People Operations', guidance: 'Describe the current value and the correct employee information.' },
+  'Document Request': { team: 'HR Services', guidance: 'Name the document, intended recipient, and required delivery date.' },
+  'Payroll Concern': { team: 'Payroll Operations', guidance: 'Identify the pay period and the amount or item that needs review.' },
+  'General HR': { team: 'People Operations', guidance: 'Give HR enough context to route and resolve the request correctly.' },
+}
+const requestPriorities = [
+  { value: 'Normal', label: 'Normal', detail: 'Standard HR review' },
+  { value: 'High', label: 'High', detail: 'Time-sensitive issue' },
+  { value: 'Urgent', label: 'Urgent', detail: 'Immediate work impact' },
+] as const
 
 const availableLeave = (requests: LeaveRequestRecord[]) => Math.max(
   0,
@@ -207,6 +225,10 @@ function RequestCenter() {
   const requests = data.employeeRequests.filter((item) => item.employeeId === user.id)
   const selected = requests.find((item) => item.id === selectedId)
   const comments = data.requestComments.filter((item) => item.requestId === selectedId)
+  const routing = requestRouting[form.type] ?? requestRouting['General HR']
+  const subjectLength = form.subject.length
+  const detailsLength = form.description.length
+  const requestReady = form.subject.trim().length >= 3 && form.description.trim().length >= 3
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -224,7 +246,70 @@ function RequestCenter() {
       <SectionHeading eyebrow="One place for every HR need" title="Request Center" description="Submit, discuss, and track attendance, overtime, schedule, profile, document, payroll, and general HR requests." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus />New request</button>} />
       <div className="stats-grid stats-grid-3"><StatCard icon={Send} label="Submitted" value={requests.filter((item) => item.status === 'Submitted').length} tone="blue" /><StatCard icon={Clock3} label="In progress" value={requests.filter((item) => ['Under Review', 'More Information'].includes(item.status)).length} tone="amber" /><StatCard icon={CheckCircle2} label="Resolved" value={requests.filter((item) => ['Approved', 'Rejected', 'Completed'].includes(item.status)).length} tone="green" /></div>
       <section className="panel"><div className="panel-header"><div><h2>My requests</h2><p>Open a row to see the full decision timeline.</p></div></div>{requests.length ? <TableShell><thead><tr><th>Request</th><th>Type</th><th>Priority</th><th>Updated</th><th>Status</th><th></th></tr></thead><tbody>{requests.map((item) => <tr key={item.id}><td><strong>#{item.id} · {item.subject}</strong><small className="table-subtitle">{item.description}</small></td><td>{item.type}</td><td><Badge tone={item.priority === 'Urgent' ? 'danger' : item.priority === 'High' ? 'warning' : 'neutral'}>{item.priority}</Badge></td><td>{formatDateTime(item.updatedAt)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td><td><button className="text-button" onClick={() => setSelectedId(item.id)}>View</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={FileCheck2} title="No HR requests yet" text="Use New request when you need a correction, document, answer, or HR decision." />}</section>
-      {showCreate && <Modal title="Create an HR request" onClose={() => setShowCreate(false)} size="large"><form className="form-grid" onSubmit={submit}><label>Request type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{['Attendance Correction', 'Overtime', 'Schedule Change', 'Profile Correction', 'Document Request', 'Payroll Concern', 'General HR'].map((type) => <option key={type}>{type}</option>)}</select></label><label>Priority<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option>Normal</option><option>High</option><option>Urgent</option></select></label><label className="span-2">Subject<input minLength={3} maxLength={120} value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></label><label>Related date (optional)<input type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} /></label><label>Requested value (optional)<input maxLength={240} placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} /></label><label className="span-2">Details<textarea rows={5} minLength={3} maxLength={1000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Only you and authorized HR roles can view this request. Sensitive actions are audited.</p><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary">Submit request</button></div></form></Modal>}
+      {showCreate && <Modal title="Create an HR request" onClose={() => setShowCreate(false)} size="large">
+        <form className="employee-request-create-shell" onSubmit={submit}>
+          <section className="employee-request-create-intro">
+            <span><FileCheck2 aria-hidden="true" /></span>
+            <div><small>Private case intake</small><h3>Tell HR what needs attention</h3><p>Provide the essential facts once. Your request, replies, and HR decision stay together in one accountable case history.</p></div>
+            <Badge tone="success">Employee-owned record</Badge>
+          </section>
+
+          <div className="employee-request-create-content">
+            <section className="employee-request-fields">
+              <header className="employee-request-section-heading"><span><MessageSquareText aria-hidden="true" /></span><div><small>Request details</small><h4>Describe the outcome you need</h4><p>{routing.guidance}</p></div></header>
+
+              <div className="employee-request-field-grid">
+                <label className="employee-request-field">
+                  <span>Request type <em aria-hidden="true">Required</em></span>
+                  <span className="employee-request-input-shell"><LifeBuoy aria-hidden="true" /><select aria-label="Request type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{requestTypes.map((type) => <option key={type}>{type}</option>)}</select></span>
+                </label>
+
+                <fieldset className="employee-request-priority" aria-label="Priority">
+                  <legend>Priority</legend>
+                  <div>{requestPriorities.map((priority) => <label className={form.priority === priority.value ? `active priority-${priority.value.toLowerCase()}` : ''} key={priority.value}><input type="radio" name="request-priority" value={priority.value} checked={form.priority === priority.value} onChange={(event) => setForm({ ...form, priority: event.target.value })} /><span>{priority.label}</span><small>{priority.detail}</small></label>)}</div>
+                </fieldset>
+
+                <label className="employee-request-field span-2">
+                  <span>Subject <em aria-hidden="true">Required</em><small>{subjectLength}/120</small></span>
+                  <span className="employee-request-input-shell"><FileText aria-hidden="true" /><input aria-label="Subject" minLength={3} maxLength={120} placeholder="Summarize the request in one clear sentence" value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></span>
+                </label>
+
+                <label className="employee-request-field">
+                  <span>Related date <small>Optional</small></span>
+                  <span className="employee-request-input-shell"><CalendarDays aria-hidden="true" /><input aria-label="Related date (optional)" type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} /></span>
+                </label>
+
+                <label className="employee-request-field">
+                  <span>Requested value <small>Optional</small></span>
+                  <span className="employee-request-input-shell"><CheckCircle2 aria-hidden="true" /><input aria-label="Requested value (optional)" maxLength={240} placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} /></span>
+                </label>
+
+                <label className="employee-request-field employee-request-details span-2">
+                  <span>Details <em aria-hidden="true">Required</em><small>{detailsLength}/1000</small></span>
+                  <textarea aria-label="Details" rows={6} minLength={3} maxLength={1000} placeholder="Explain what happened, what the record currently shows, and the outcome you are requesting." value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required />
+                </label>
+              </div>
+            </section>
+
+            <aside className="employee-request-summary" aria-live="polite">
+              <header><small>Case summary</small><h4>Review before submitting</h4><p>Confirm the classification and information HR will receive.</p></header>
+              <dl>
+                <div><dt>Request</dt><dd>{form.type}</dd></div>
+                <div><dt>Assigned queue</dt><dd>{routing.team}</dd></div>
+                <div><dt>Priority</dt><dd><Badge tone={form.priority === 'Urgent' ? 'danger' : form.priority === 'High' ? 'warning' : 'neutral'}>{form.priority}</Badge></dd></div>
+                <div><dt>Related date</dt><dd>{form.requestedDate ? formatDate(form.requestedDate) : 'Not specified'}</dd></div>
+              </dl>
+              <div className="employee-request-summary-copy"><small>Request preview</small><strong>{form.subject.trim() || 'Your subject will appear here'}</strong><p>{form.description.trim() || 'Add concise facts so HR can understand and resolve the case without unnecessary follow-up.'}</p></div>
+              <div className="employee-request-security"><ShieldCheck aria-hidden="true" /><div><strong>Private by default</strong><p>Visible only to you and authorized HR roles. Submission and sensitive case actions are audited.</p></div></div>
+            </aside>
+          </div>
+
+          <footer className="employee-request-create-footer">
+            <div><ShieldCheck aria-hidden="true" /><p><strong>{requestReady ? 'Ready to submit.' : 'Complete the required fields.'}</strong> The case is created only after Supabase accepts the protected request.</p></div>
+            <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary" disabled={!requestReady}><Send aria-hidden="true" />Submit request</button></div>
+          </footer>
+        </form>
+      </Modal>}
       {selected && <Modal title={`Request #${selected.id}`} onClose={() => setSelectedId(null)} size="large"><div className="request-detail"><div className="request-detail-head"><div><span className="eyebrow">{selected.type}</span><h2>{selected.subject}</h2><p>{selected.description}</p></div><Badge tone={statusTone(selected.status)}>{selected.status}</Badge></div><dl className="detail-grid"><div><dt>Priority</dt><dd>{selected.priority}</dd></div><div><dt>Submitted</dt><dd>{formatDateTime(selected.createdAt)}</dd></div><div><dt>Related date</dt><dd>{formatDate(selected.requestedDate)}</dd></div><div><dt>Requested value</dt><dd>{selected.requestedValue || '—'}</dd></div></dl>{selected.decisionNote && <div className="decision-note"><ShieldCheck /><div><strong>Latest HR decision</strong><p>{selected.decisionNote}</p></div></div>}<div><h3>Conversation & timeline</h3><div className="timeline">{comments.map((item) => { const author = data.employees.find((employee) => employee.id === item.authorId); return <article key={item.id}><span>{author ? `${author.firstName[0]}${author.lastName[0]}` : 'HR'}</span><div><strong>{author ? `${author.firstName} ${author.lastName}` : 'HR team'}</strong><p>{item.body}</p><time>{formatDateTime(item.createdAt)}</time></div></article> })}{comments.length === 0 && <p className="form-note">No responses yet. HR updates will appear here.</p>}</div></div>{!['Cancelled', 'Completed', 'Rejected'].includes(selected.status) && <form className="inline-response" onSubmit={respond}><label className="sr-only" htmlFor="request-response">Add a response</label><textarea id="request-response" rows={3} maxLength={1000} placeholder="Add information or reply to HR…" value={comment} onChange={(event) => setComment(event.target.value)} required /><button className="button button-primary"><Send size={17} />Send response</button></form>}<div className="modal-actions">{['Submitted', 'More Information'].includes(selected.status) && <button className="button button-secondary danger-text" onClick={async () => { try { await cancelRequest(selected.id); setSelectedId(null) } catch { /* Toast explains failure. */ } }}><XCircle size={17} />Cancel request</button>}<button className="button button-secondary" onClick={() => setSelectedId(null)}>Close</button></div></div></Modal>}
     </div>
   )

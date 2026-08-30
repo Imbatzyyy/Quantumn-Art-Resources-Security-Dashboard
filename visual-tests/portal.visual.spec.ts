@@ -249,6 +249,17 @@ test.describe('premium desktop baselines', () => {
     await page.getByRole('button', { name: 'New request' }).click()
     await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
     await capture(page, 'employee-new-request-desktop.png')
+
+    await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Request Center', exact: true }).click()
+    await page.getByRole('button', { name: 'New request' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Create an HR request' })
+    await dialog.getByLabel('Request type').selectOption('Payroll Concern')
+    await dialog.getByRole('radio', { name: /High/ }).click()
+    await dialog.getByLabel('Subject').fill('Review August payslip deduction')
+    await dialog.getByLabel('Details').fill('The deduction shown on my August payslip does not match the approved benefits record.')
+    await expect(dialog.getByText('Payroll Operations')).toBeVisible()
+    await capture(page, 'employee-new-request-dark-desktop.png')
   })
 
   test('admin and employee dark workspaces', async ({ page }) => {
@@ -281,6 +292,15 @@ test.describe('responsive mobile baselines', () => {
     await page.getByRole('button', { name: 'Open menu' }).click()
     await expect(page.getByRole('navigation', { name: 'Portal navigation' })).toBeVisible()
     await capture(page, 'employee-navigation-mobile.png')
+  })
+
+  test('employee request creation', async ({ page }) => {
+    await prepare(page, 'employee', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Request Center', exact: true }).click()
+    await page.getByRole('button', { name: 'New request' }).click()
+    await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
+    await capture(page, 'employee-new-request-mobile.png')
   })
 
   test('employee creation dialog', async ({ page }) => {
