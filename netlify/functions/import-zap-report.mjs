@@ -20,11 +20,17 @@ const riskName = (alert) => {
 const allowedTarget = (value) => {
   try {
     const url = new globalThis.URL(value)
+    const localSupabase = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\]):\d+$/.test(env('SUPABASE_URL') || '')
+    const localQaTarget = env('QUANTUM_ENVIRONMENT') === 'local'
+      && localSupabase
+      && url.protocol === 'http:'
+      && url.hostname === 'host.docker.internal'
+      && url.port === '4175'
     return url.protocol === 'https:' && (
       url.hostname === 'quantumnhr.com'
       || url.hostname === 'www.quantumnhr.com'
       || url.hostname.endsWith('--quantumnartresources.netlify.app')
-    )
+    ) || localQaTarget
   } catch {
     return false
   }

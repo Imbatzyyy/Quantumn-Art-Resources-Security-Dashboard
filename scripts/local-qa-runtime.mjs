@@ -1,10 +1,12 @@
 import { execFile } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
 export const localOrigin = 'http://127.0.0.1:4175'
 export const localProjectRef = 'localquantumhrmsqa01'
+export const createLocalCaptureToken = () => randomBytes(32).toString('base64url')
 
 const parseEnvironment = (output) => Object.fromEntries(
   output
@@ -25,7 +27,7 @@ const requireLocalUrl = (value) => {
   return url.origin
 }
 
-export const loadLocalQaRuntime = async () => {
+export const loadLocalQaRuntime = async ({ captureToken = createLocalCaptureToken() } = {}) => {
   const { stdout } = await execFileAsync('npx', ['supabase', 'status', '--output', 'env'], {
     cwd: globalThis.process.cwd(),
     maxBuffer: 1024 * 1024,
@@ -53,6 +55,9 @@ export const loadLocalQaRuntime = async () => {
       QUANTUM_ENVIRONMENT: 'local',
       CONTEXT: 'dev',
       APP_URL: localOrigin,
+      LOCAL_QA_CAPTURE_TOKEN: captureToken,
+      RESEND_API_KEY: 'local-capture-only',
+      RESEND_FROM_EMAIL: 'Quantum HRMS Local QA <local@quantum.test>',
     },
   }
 }

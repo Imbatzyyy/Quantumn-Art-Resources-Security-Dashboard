@@ -52,7 +52,7 @@ The recommended subscription-free route is the local Supabase gate:
 npm run test:qa:local
 ```
 
-It applies the migrations locally, runs pgTAP RLS/schema verification, creates two fictional Auth users with process-only random passwords, and executes real Admin/Employee Playwright journeys without touching hosted Supabase. See [docs/local-free-qa.md](docs/local-free-qa.md).
+It applies the migrations locally, runs pgTAP RLS/schema verification, creates fictional Auth users with process-only random passwords, executes real Admin/Employee Playwright journeys, and performs disposable employee, invitation, approval, security, ZAP-import, and Realtime mutation checks without touching hosted Supabase or Resend. See [docs/local-free-qa.md](docs/local-free-qa.md).
 
 ## Repository safety
 

@@ -4,6 +4,7 @@ coverage/
 test-results/
 playwright-report/
 playwright-report-authenticated/
+playwright-report-mutations/
 blob-report/
 .env
 .env.*
