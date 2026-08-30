@@ -19,6 +19,20 @@ import {
   verifyMfaLogin,
 } from './supabaseAuth.js'
 import type { HrmsDataProvider } from '../types/hrms.js'
+import type { Database, TablesUpdate } from '../types/database.js'
+import { databaseId } from './supabaseIdentifiers.js'
+
+type PublicTable = keyof Database['public']['Tables']
+
+const realtimeTables = [
+  'profiles', 'attendance', 'leave_requests', 'payroll', 'payroll_runs',
+  'performance_reviews', 'performance_cycles', 'announcements',
+  'security_alerts', 'security_alert_responses', 'account_sessions', 'audit_logs',
+  'zap_scan_runs', 'zap_findings', 'employee_requests',
+  'request_comments', 'notifications', 'employee_documents',
+  'document_acknowledgements', 'work_schedules', 'employee_benefits',
+  'employee_goals', 'lifecycle_cases', 'lifecycle_tasks',
+] as const satisfies readonly PublicTable[]
 
 const requireCurrentUser = async () => {
   const profile = await getCurrentUser()
@@ -31,15 +45,6 @@ export const supabaseProvider: HrmsDataProvider = {
 
   subscribeToChanges(onChange) {
     const client = requireSupabase()
-    const tables = [
-      'profiles', 'attendance', 'leave_requests', 'payroll', 'payroll_runs',
-      'performance_reviews', 'performance_cycles', 'announcements',
-      'security_alerts', 'security_alert_responses', 'account_sessions', 'audit_logs',
-      'zap_scan_runs', 'zap_findings', 'employee_requests',
-      'request_comments', 'notifications', 'employee_documents',
-      'document_acknowledgements', 'work_schedules', 'employee_benefits',
-      'employee_goals', 'lifecycle_cases', 'lifecycle_tasks',
-    ]
     let debounceTimer: number | undefined
     let channel = client.channel(`hrms-live-${Date.now()}`)
     const queueRefresh = () => {
@@ -47,7 +52,7 @@ export const supabaseProvider: HrmsDataProvider = {
       debounceTimer = window.setTimeout(onChange, 250)
     }
 
-    tables.forEach((table) => {
+    realtimeTables.forEach((table) => {
       channel = channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table },
@@ -177,12 +182,14 @@ export const supabaseProvider: HrmsDataProvider = {
     }
 
     if (profile.id === id) {
+      const newPhone = changes.phone?.trim()
+      if (!newPhone) throw new Error('Enter a valid phone number before saving.')
       const { error } = await client.rpc('update_own_profile', {
-        new_phone: changes.phone ?? profile.phone,
+        new_phone: newPhone,
       })
       if (error) throw error
     } else {
-      const update: Record<string, string | number | null> = {}
+      const update: TablesUpdate<'profiles'> = {}
       if (changes.phone !== undefined) update.phone = changes.phone
       if (changes.position !== undefined) update.position = changes.position
       if (changes.status !== undefined) update.status = changes.status
@@ -222,7 +229,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async reviewLeave(id, status) {
     const { error } = await requireSupabase().rpc('review_leave_request', {
-      request_id: id,
+      request_id: databaseId(id, 'Leave request'),
       decision: status,
     })
     if (error) throw error
@@ -234,8 +241,8 @@ export const supabaseProvider: HrmsDataProvider = {
       requested_type: input.type,
       requested_subject: input.subject,
       requested_description: input.description,
-      requested_date: input.requestedDate || null,
-      requested_value: input.requestedValue || null,
+      requested_date: input.requestedDate || undefined,
+      requested_value: input.requestedValue || undefined,
       requested_priority: input.priority || 'Normal',
     })
     if (error) throw error
@@ -244,7 +251,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async reviewRequest(id, status, reason) {
     const { error } = await requireSupabase().rpc('review_employee_request', {
-      selected_request_id: id,
+      selected_request_id: databaseId(id, 'Employee request'),
       decision: status,
       decision_reason: reason || '',
     })
@@ -254,7 +261,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async addRequestComment(id, body, internal = false) {
     const { error } = await requireSupabase().rpc('add_request_comment', {
-      selected_request_id: id,
+      selected_request_id: databaseId(id, 'Employee request'),
       comment_body: body,
       internal_note: internal,
     })
@@ -264,7 +271,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async cancelRequest(id) {
     const { error } = await requireSupabase().rpc('cancel_employee_request', {
-      selected_request_id: id,
+      selected_request_id: databaseId(id, 'Employee request'),
     })
     if (error) throw error
     return fetchSnapshot()
@@ -272,7 +279,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async markNotificationRead(id) {
     const { error } = await requireSupabase().rpc('mark_notification_read', {
-      selected_notification_id: id,
+      selected_notification_id: databaseId(id, 'Notification'),
     })
     if (error) throw error
     return fetchSnapshot()
@@ -286,7 +293,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async acknowledgeDocument(id) {
     const { error } = await requireSupabase().rpc('acknowledge_document', {
-      selected_document_id: id,
+      selected_document_id: databaseId(id, 'Document'),
     })
     if (error) throw error
     return fetchSnapshot()
@@ -294,7 +301,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async updateGoalProgress(id, progress) {
     const { error } = await requireSupabase().rpc('update_goal_progress', {
-      selected_goal_id: id,
+      selected_goal_id: databaseId(id, 'Employee goal'),
       new_progress: Number(progress),
     })
     if (error) throw error
@@ -478,7 +485,7 @@ export const supabaseProvider: HrmsDataProvider = {
       created_by: profile.id,
     }
     const query = input.id
-      ? requireSupabase().from('employee_goals').update(payload).eq('id', input.id)
+      ? requireSupabase().from('employee_goals').update(payload).eq('id', databaseId(input.id, 'Employee goal'))
       : requireSupabase().from('employee_goals').insert(payload)
     const { error } = await query
     if (error) throw error
@@ -497,7 +504,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async updateLifecycleTask(id, status) {
     const { error } = await requireSupabase().rpc('update_lifecycle_task', {
-      selected_task_id: id,
+      selected_task_id: databaseId(id, 'Lifecycle task'),
       new_status: status,
     })
     if (error) throw error
@@ -523,6 +530,8 @@ export const supabaseProvider: HrmsDataProvider = {
   },
 
   async savePerformance(input) {
+    const rating = input.rating?.trim()
+    if (!rating) throw new Error('A calculated performance rating is required.')
     const { error } = await requireSupabase().rpc('save_performance_review', {
       target_employee: input.employeeId,
       review_period: input.period.trim(),
@@ -531,9 +540,9 @@ export const supabaseProvider: HrmsDataProvider = {
       review_quality: Number(input.quality),
       review_productivity: Number(input.productivity),
       review_teamwork: Number(input.teamwork),
-      review_rating: input.rating,
+      review_rating: rating,
       review_comments: input.comments || '',
-      review_cycle_id: input.cycleId || null,
+      review_cycle_id: input.cycleId ? databaseId(input.cycleId, 'Performance cycle') : undefined,
     })
     if (error) throw error
     return fetchSnapshot()
@@ -541,7 +550,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async publishPerformance(id) {
     const { error } = await requireSupabase().rpc('publish_performance_review', {
-      selected_review_id: id,
+      selected_review_id: databaseId(id, 'Performance review'),
     })
     if (error) throw error
     return fetchSnapshot()

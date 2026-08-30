@@ -160,6 +160,19 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Extended the route regression test to preserve the visual keyboard order from work email, to recovery, to password.
 - Re-ran the rendered matrix after the fix and observed no browser warnings or errors. Local Supabase configuration remained absent, so authentication continued to fail closed and no production session or data was used.
 
+## Phase 14 generated Supabase database contract
+
+- Used the official Supabase CLI to export TypeScript definitions from the already linked project in a read-only operation; no schema, RLS policy, Auth account, or record was changed.
+- Added the generated 1,615-line database contract, including the real table Row/Insert/Update shapes, foreign-key relationships, RPC arguments and return values, PostgREST version, and reusable table helper types.
+- Applied `Database` directly to the browser Supabase client, so table names, selected columns, filters, inserts, updates, upserts, and RPC payloads are checked by TypeScript.
+- Applied exact generated table-row types to all HRMS mappers and all 24 parallel snapshot reads while preserving the existing runtime validation for malformed Supabase responses.
+- Added a schema-checked Realtime table registry, so a renamed or removed subscribed table now fails compilation instead of silently losing synchronization.
+- Replaced the unrestricted profile-update record with the generated `profiles` update type.
+- Resolved schema mismatches uncovered by the generated contract: numeric identity values are now validated and converted before RPC calls, optional request arguments are omitted instead of sent as incompatible `null` values, the own-profile phone RPC requires a non-empty value, and performance rating/cycle identifiers are validated before submission.
+- Added dedicated numeric-identifier boundary tests covering valid string/numeric identities and rejection of opaque, fractional, zero, negative, empty, and unsafe-integer values.
+- Updated mapper fixtures to satisfy real generated database rows rather than partial invented shapes.
+- Increased the deterministic frontend suite from 59 to 67 passing tests across twelve files.
+
 ## Verification gates passed
 
 ```bash
@@ -170,7 +183,7 @@ npm run build
 git diff --check
 ```
 
-The automated suite contains 59 passing tests across eleven files. The local browser smoke and responsive checks cover `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`, with the two sign-in routes additionally checked at 390, 768, and 1440 pixel widths. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final responsive browser matrix reported no horizontal overflow, console warnings, or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 13, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
+The automated suite contains 67 passing tests across twelve files. The local browser smoke and responsive checks cover `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`, with the two sign-in routes additionally checked at 390, 768, and 1440 pixel widths. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final responsive browser matrix reported no horizontal overflow, console warnings, or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 14, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -185,9 +198,8 @@ The automated suite contains 59 passing tests across eleven files. The local bro
 ## Recommended next continuation
 
 1. Add repeatable screenshot comparison and rendered color-contrast automation for the two portal shells and their highest-risk workflows.
-2. Generate database types from the Supabase schema and apply them to table and RPC calls without changing the schema.
-3. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
-4. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
+2. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
+3. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
 
 ## Security boundary
 

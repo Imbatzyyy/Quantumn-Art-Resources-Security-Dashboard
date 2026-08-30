@@ -25,6 +25,7 @@ import type {
   ZapFinding,
   ZapScanRun,
 } from '../types/hrms.js'
+import type { Tables } from '../types/database.js'
 
 export type DatabaseRow = Record<string, unknown>
 
@@ -44,7 +45,7 @@ export const emptySnapshot = (): HrmsSnapshot => ({
   lifecycleCases: [], lifecycleTasks: [],
 })
 
-export const employeeFromRow = (row: DatabaseRow): EmployeeRecord & { authUserId?: string } => ({
+export const employeeFromRow = (row: Tables<'profiles'>): EmployeeRecord & { authUserId?: string } => ({
   id: text(row.employee_code), authUserId: optionalText(row.auth_user_id),
   firstName: text(row.first_name), middleName: text(row.middle_name), lastName: text(row.last_name),
   preferredName: text(row.preferred_name), email: text(row.email), role: text(row.role),
@@ -57,19 +58,19 @@ export const employeeFromRow = (row: DatabaseRow): EmployeeRecord & { authUserId
   emergencyContactPhone: text(row.emergency_contact_phone),
 })
 
-export const attendanceFromRow = (row: DatabaseRow): AttendanceRecord => ({
+export const attendanceFromRow = (row: Tables<'attendance'>): AttendanceRecord => ({
   id: text(row.id), employeeId: text(row.employee_code), date: text(row.work_date),
   clockIn: shortTime(row.clock_in), clockOut: shortTime(row.clock_out),
   status: text(row.status), hours: numeric(row.hours),
 })
 
-export const leaveFromRow = (row: DatabaseRow): LeaveRequestRecord => ({
+export const leaveFromRow = (row: Tables<'leave_requests'>): LeaveRequestRecord => ({
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.leave_type),
   startDate: text(row.start_date), endDate: text(row.end_date), days: numeric(row.days),
   reason: text(row.reason), status: text(row.status),
 })
 
-export const payrollFromRow = (row: DatabaseRow): PayrollRecord & { paymentDate?: string } => ({
+export const payrollFromRow = (row: Tables<'payroll'>): PayrollRecord & { paymentDate?: string } => ({
   id: text(row.id), employeeId: text(row.employee_code), period: text(row.period),
   gross: numeric(row.gross), allowances: numeric(row.allowances), bonuses: numeric(row.bonuses),
   deductions: numeric(row.deductions), net: numeric(row.net), status: text(row.status),
@@ -77,7 +78,7 @@ export const payrollFromRow = (row: DatabaseRow): PayrollRecord & { paymentDate?
   paymentDate: optionalText(row.payment_date),
 })
 
-export const payrollRunFromRow = (row: DatabaseRow): PayrollRunRecord & Record<string, unknown> => ({
+export const payrollRunFromRow = (row: Tables<'payroll_runs'>): PayrollRunRecord & Record<string, unknown> => ({
   id: numeric(row.id), period: text(row.period), deductionRate: numeric(row.deduction_rate),
   status: text(row.status) as PayrollRunRecord['status'], employeeCount: numeric(row.employee_count),
   grossTotal: numeric(row.gross_total), netTotal: numeric(row.net_total),
@@ -86,7 +87,7 @@ export const payrollRunFromRow = (row: DatabaseRow): PayrollRunRecord & Record<s
   paidAt: optionalText(row.paid_at), lockedAt: optionalText(row.locked_at), createdAt: optionalText(row.created_at),
 })
 
-export const performanceFromRow = (row: DatabaseRow): PerformanceRecord & { publishedAt?: string } => ({
+export const performanceFromRow = (row: Tables<'performance_reviews'>): PerformanceRecord & { publishedAt?: string } => ({
   id: text(row.id), employeeId: text(row.employee_code), period: text(row.period), score: numeric(row.score),
   goalProgress: numeric(row.goal_progress), quality: numeric(row.quality_score ?? row.score),
   productivity: numeric(row.productivity_score ?? row.score), teamwork: numeric(row.teamwork_score ?? row.score),
@@ -95,16 +96,16 @@ export const performanceFromRow = (row: DatabaseRow): PerformanceRecord & { publ
   publishedAt: optionalText(row.published_at),
 })
 
-export const performanceCycleFromRow = (row: DatabaseRow): PerformanceCycleRecord => ({
+export const performanceCycleFromRow = (row: Tables<'performance_cycles'>): PerformanceCycleRecord => ({
   id: numeric(row.id), title: text(row.title), period: text(row.period), status: text(row.status),
   startDate: optionalText(row.start_date), endDate: optionalText(row.end_date),
 })
 
-export const announcementFromRow = (row: DatabaseRow): AnnouncementRecord => ({
+export const announcementFromRow = (row: Tables<'announcements'>): AnnouncementRecord => ({
   id: text(row.id), title: text(row.title), content: text(row.content), priority: text(row.priority), date: text(row.published_on),
 })
 
-export const alertFromRow = (row: DatabaseRow): SecurityAlertSummary & Record<string, unknown> => ({
+export const alertFromRow = (row: Tables<'security_alerts'>): SecurityAlertSummary & Record<string, unknown> => ({
   id: text(row.alert_code), employeeId: optionalText(row.employee_code), severity: text(row.severity),
   confidence: text(row.confidence), title: text(row.title), description: text(row.description),
   affected: text(row.affected_label), time: text(row.display_time), status: text(row.status),
@@ -114,12 +115,12 @@ export const alertFromRow = (row: DatabaseRow): SecurityAlertSummary & Record<st
   updatedAt: optionalText(row.updated_at),
 })
 
-export const alertResponseFromRow = (row: DatabaseRow): AlertResponseRecord & { note?: string } => ({
+export const alertResponseFromRow = (row: Tables<'security_alert_responses'>): AlertResponseRecord & { note?: string } => ({
   id: text(row.id), alertId: text(row.alert_code), actorId: text(row.actor_employee_code),
   action: text(row.response_action), note: text(row.note), createdAt: text(row.created_at),
 })
 
-export const sessionFromRow = (row: DatabaseRow, currentCode: string): SessionRecord & { lastActive?: string } => ({
+export const sessionFromRow = (row: Tables<'account_sessions'>, currentCode: string): SessionRecord & { lastActive?: string } => ({
   id: text(row.session_code), employeeId: text(row.employee_code), device: text(row.device),
   location: text(row.location), lastActive: optionalText(row.last_active_label),
   current: text(row.session_code) === currentCode, createdAt: optionalText(row.created_at),
@@ -127,11 +128,11 @@ export const sessionFromRow = (row: DatabaseRow, currentCode: string): SessionRe
   trustStatus: text(row.trust_status, 'Recognized'),
 })
 
-export const auditFromRow = (row: DatabaseRow): AuditRecord => ({
+export const auditFromRow = (row: Tables<'audit_logs'>): AuditRecord => ({
   id: text(row.id), actor: text(row.actor_label), action: text(row.action), target: text(row.target), time: text(row.display_time),
 })
 
-export const zapScanFromRow = (row: DatabaseRow): ZapScanRun & Record<string, unknown> => ({
+export const zapScanFromRow = (row: Tables<'zap_scan_runs'>): ZapScanRun & Record<string, unknown> => ({
   id: text(row.scan_code), type: text(row.scan_type), environment: text(row.environment),
   targetUrl: text(row.target_url), completedAt: optionalText(row.completed_at), status: text(row.status),
   high: numeric(row.high_count), medium: numeric(row.medium_count), low: numeric(row.low_count),
@@ -141,14 +142,14 @@ export const zapScanFromRow = (row: DatabaseRow): ZapScanRun & Record<string, un
   reviewedBy: optionalText(row.reviewed_by), reviewedAt: optionalText(row.reviewed_at), notes: text(row.notes),
 })
 
-export const zapFindingFromRow = (row: DatabaseRow): ZapFinding & Record<string, unknown> => ({
+export const zapFindingFromRow = (row: Tables<'zap_findings'>): ZapFinding & Record<string, unknown> => ({
   id: text(row.id), scanId: text(row.scan_code), pluginId: optionalText(row.plugin_id), name: text(row.name),
   risk: text(row.risk), status: text(row.status), affectedUrl: text(row.affected_url),
   description: text(row.description), solution: text(row.solution), evidence: text(row.evidence),
   confidence: optionalText(row.confidence), referenceUrl: optionalText(row.reference_url),
 })
 
-export const requestFromRow = (row: DatabaseRow): EmployeeRequestRecord & Record<string, unknown> => ({
+export const requestFromRow = (row: Tables<'employee_requests'>): EmployeeRequestRecord & Record<string, unknown> => ({
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.request_type), subject: text(row.subject),
   description: text(row.description), requestedDate: optionalText(row.requested_date), requestedValue: text(row.requested_value),
   priority: text(row.priority), status: text(row.status), decisionNote: text(row.decision_note),
@@ -156,18 +157,18 @@ export const requestFromRow = (row: DatabaseRow): EmployeeRequestRecord & Record
   reviewedBy: optionalText(row.reviewed_by), reviewedAt: optionalText(row.reviewed_at),
 })
 
-export const requestCommentFromRow = (row: DatabaseRow): RequestCommentRecord => ({
+export const requestCommentFromRow = (row: Tables<'request_comments'>): RequestCommentRecord => ({
   id: text(row.id), requestId: text(row.request_id), authorId: text(row.author_employee_code),
   body: text(row.body), internal: truthy(row.is_internal), createdAt: text(row.created_at),
 })
 
-export const notificationFromRow = (row: DatabaseRow): NotificationSummary => ({
+export const notificationFromRow = (row: Tables<'notifications'>): NotificationSummary => ({
   id: text(row.id), employeeId: text(row.employee_code), category: text(row.category), title: text(row.title),
   message: text(row.message), destination: optionalText(row.destination), actionLabel: optionalText(row.action_label),
   readAt: nullableText(row.read_at), createdAt: text(row.created_at),
 })
 
-export const documentFromRow = (row: DatabaseRow): DocumentRecord & Record<string, unknown> => ({
+export const documentFromRow = (row: Tables<'employee_documents'>): DocumentRecord & Record<string, unknown> => ({
   id: text(row.id), employeeId: nullableText(row.employee_code), title: text(row.title),
   type: text(row.document_type), period: optionalText(row.period), content: text(row.content),
   filename: text(row.filename), version: text(row.version), requiresAck: truthy(row.requires_ack),
@@ -175,35 +176,35 @@ export const documentFromRow = (row: DatabaseRow): DocumentRecord & Record<strin
   uploadedBy: optionalText(row.uploaded_by),
 })
 
-export const acknowledgementFromRow = (row: DatabaseRow): DocumentAcknowledgementRecord => ({
+export const acknowledgementFromRow = (row: Tables<'document_acknowledgements'>): DocumentAcknowledgementRecord => ({
   id: text(row.id), documentId: text(row.document_id), employeeId: text(row.employee_code),
   acknowledgedAt: optionalText(row.acknowledged_at),
 })
 
-export const scheduleFromRow = (row: DatabaseRow): ScheduleRecord => ({
+export const scheduleFromRow = (row: Tables<'work_schedules'>): ScheduleRecord => ({
   id: text(row.id), employeeId: text(row.employee_code), date: text(row.work_date),
   shiftStart: shortTime(row.shift_start) ?? '', shiftEnd: shortTime(row.shift_end) ?? '',
   location: text(row.location), workMode: text(row.work_mode), notes: text(row.notes),
 })
 
-export const benefitFromRow = (row: DatabaseRow): BenefitRecord => ({
+export const benefitFromRow = (row: Tables<'employee_benefits'>): BenefitRecord => ({
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.benefit_type),
   provider: text(row.provider), planName: text(row.plan_name), employeeShare: numeric(row.employee_share),
   employerShare: numeric(row.employer_share), status: text(row.status), effectiveDate: optionalText(row.effective_date),
 })
 
-export const goalFromRow = (row: DatabaseRow): GoalRecord & { createdBy?: string } => ({
+export const goalFromRow = (row: Tables<'employee_goals'>): GoalRecord & { createdBy?: string } => ({
   id: text(row.id), employeeId: text(row.employee_code), title: text(row.title), description: text(row.description),
   category: text(row.category), progress: numeric(row.progress), status: text(row.status),
   dueDate: optionalText(row.due_date), createdBy: optionalText(row.created_by),
 })
 
-export const lifecycleCaseFromRow = (row: DatabaseRow): LifecycleCaseRecord & Record<string, unknown> => ({
+export const lifecycleCaseFromRow = (row: Tables<'lifecycle_cases'>): LifecycleCaseRecord & Record<string, unknown> => ({
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.case_type), status: text(row.status),
   targetDate: text(row.target_date), ownerId: optionalText(row.owner_code), createdAt: optionalText(row.created_at),
 })
 
-export const lifecycleTaskFromRow = (row: DatabaseRow): LifecycleTaskRecord & Record<string, unknown> => ({
+export const lifecycleTaskFromRow = (row: Tables<'lifecycle_tasks'>): LifecycleTaskRecord & Record<string, unknown> => ({
   id: text(row.id), caseId: text(row.case_id), title: text(row.title), category: text(row.category),
   status: text(row.status), employeeVisible: truthy(row.employee_visible),
   completedBy: optionalText(row.completed_by), completedAt: optionalText(row.completed_at),

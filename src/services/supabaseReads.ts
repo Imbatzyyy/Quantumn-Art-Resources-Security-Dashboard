@@ -11,15 +11,15 @@ import {
 } from './supabaseMappers.js'
 import type { EmployeeRecord, HrmsSnapshot } from '../types/hrms.js'
 
-interface QueryResultLike {
-  data: unknown
+interface QueryResultLike<Row> {
+  data: Row[] | null
   error: unknown
 }
 
 const isDatabaseRow = (value: unknown): value is DatabaseRow =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const queryRows = (result: QueryResultLike, label: string): DatabaseRow[] => {
+const queryRows = <Row extends object>(result: QueryResultLike<Row>, label: string): Row[] => {
   if (result.error) throw result.error
   if (result.data == null) return []
   if (!Array.isArray(result.data) || !result.data.every(isDatabaseRow)) {
