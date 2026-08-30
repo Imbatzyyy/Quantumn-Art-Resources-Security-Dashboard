@@ -201,7 +201,7 @@ export interface PerformanceReviewInput {
   status?: string
 }
 
-export type GoalInput = Omit<GoalRecord, 'id'>
+export type GoalInput = Omit<GoalRecord, 'id'> & { id?: string }
 
 export interface DocumentRecord {
   id: string

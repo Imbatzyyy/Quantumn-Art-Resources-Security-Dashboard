@@ -1,18 +1,27 @@
-const csvCell = (value) => {
+export interface CsvColumn {
+  label: string
+  key?: string
+  value?: (row: unknown) => unknown
+}
+
+const csvCell = (value: unknown): string => {
   const text = value == null ? '' : String(value)
   return `"${text.replaceAll('"', '""')}"`
 }
 
-const safeFilename = (value) =>
+const safeFilename = (value: string): string =>
   value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 
-export function downloadCsv(title, columns, rows) {
+export function downloadCsv(title: string, columns: CsvColumn[], rows: object[]): void {
   const header = columns.map(({ label }) => csvCell(label)).join(',')
   const body = rows.map((row) =>
-    columns.map(({ key, value }) => csvCell(value ? value(row) : row[key])).join(','),
+    columns.map(({ key, value }) => {
+      const cell = value ? value(row) : key ? (row as Record<string, unknown>)[key] : ''
+      return csvCell(cell)
+    }).join(','),
   )
   const csv = `\uFEFF${[header, ...body].join('\r\n')}`
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -27,10 +36,10 @@ export function downloadCsv(title, columns, rows) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
-export function inclusiveDays(startDate, endDate) {
+export function inclusiveDays(startDate?: string | null, endDate?: string | null): number {
   if (!startDate || !endDate) return 0
   const start = new Date(`${startDate}T00:00:00Z`)
   const end = new Date(`${endDate}T00:00:00Z`)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0
-  return Math.floor((end - start) / 86400000) + 1
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1
 }

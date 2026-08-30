@@ -1,4 +1,6 @@
-export function formatMoney(value) {
+import type { BadgeTone } from '../types/hrms.js'
+
+export function formatMoney(value?: number | null): string {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP',
@@ -6,7 +8,7 @@ export function formatMoney(value) {
   }).format(value ?? 0)
 }
 
-export function formatDate(value) {
+export function formatDate(value?: string | null): string {
   if (!value) return '—'
   return new Intl.DateTimeFormat('en-PH', {
     month: 'short',
@@ -15,7 +17,7 @@ export function formatDate(value) {
   }).format(new Date(`${value}T00:00:00`))
 }
 
-export function formatDateTime(value) {
+export function formatDateTime(value?: string | null): string {
   if (!value) return '—'
   return new Intl.DateTimeFormat('en-PH', {
     month: 'short',
@@ -26,8 +28,8 @@ export function formatDateTime(value) {
   }).format(new Date(value))
 }
 
-export function statusTone(status) {
-  const tones = {
+export function statusTone(status?: string | null): BadgeTone {
+  const tones: Record<string, BadgeTone> = {
     Active: 'success',
     Present: 'success',
     Approved: 'success',
@@ -67,5 +69,5 @@ export function statusTone(status) {
     New: 'danger',
     'On Leave': 'info',
   }
-  return tones[status] ?? 'neutral'
+  return status ? tones[status] ?? 'neutral' : 'neutral'
 }

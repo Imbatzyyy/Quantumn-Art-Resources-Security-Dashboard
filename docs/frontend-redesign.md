@@ -82,6 +82,18 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Completed the source UI migration: there are no `.jsx` files remaining under `src`.
 - Added fail-closed preview states for password-recovery and administrator-invitation links when Supabase environment variables are unavailable. These routes remain readable instead of throwing a React error, without exposing whether an account exists.
 
+## Phase 6 complete Supabase provider migration
+
+- Migrated the remaining utility and provider implementation files to strict TypeScript. The entire `src` tree now consists only of `.ts` and `.tsx` source files.
+- Extracted typed Supabase row mappers for every HRMS domain record. Database values are normalized at one boundary instead of flowing through the portal as implicit `any` values.
+- Extracted the typed snapshot read layer, including current-session lookup, employee-profile lookup, 24 parallel role-scoped table reads, query-result validation, and browser-session code lifecycle.
+- Added explicit validation for malformed or missing Supabase query results before those values can enter the shared HRMS snapshot.
+- Extracted authentication, MFA, session recording, and organization-security-summary operations into a strict module while preserving the existing Supabase Auth flow.
+- Extracted the protected server-operation request helper and limited its request payload to serializable primitive fields.
+- Applied the stable `HrmsDataProvider` contract directly to all remaining mutations, including employee provisioning, requests, payroll, performance, documents, announcements, lifecycle cases, alerts, sessions, and ZAP imports.
+- Closed remaining nullability gaps for expired sessions, missing invited-account email, unresolved current-user identity, absent MFA factors, and optional goal-record identifiers.
+- Migrated CSV download, date/money formatting, status tones, inclusive-day calculation, and password-policy utilities to TypeScript.
+
 ## Verification gates passed
 
 ```bash
@@ -91,7 +103,7 @@ npm run build
 git diff --check
 ```
 
-The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to 275 KB; Admin and Employee feature bundles continue to load on demand. In Phase 5, the initial bundle remains approximately 275 KB, the Employee feature bundle is approximately 65 KB, and the Admin feature bundle is approximately 138 KB before gzip compression.
+The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 6, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression. The small shared-bundle increase covers runtime validation at the Supabase row boundary.
 
 ## Deliberately unchanged
 
@@ -105,9 +117,9 @@ The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/empl
 
 ## Recommended next continuation
 
-1. Migrate the large legacy `supabaseProvider.js` internally in mapper, snapshot-read, authentication, and mutation slices while keeping the validated provider contract stable.
-2. Add component-level accessibility, keyboard-navigation, and responsive tests for the new feature modules.
-3. Add automated route/error-boundary tests for authentication bootstrap and unconfigured preview behavior.
+1. Add component-level accessibility, keyboard-navigation, responsive, and provider-boundary tests.
+2. Add automated route/error-boundary tests for authentication bootstrap and unconfigured preview behavior.
+3. Generate database types from the Supabase schema and apply them to table and RPC calls without changing the schema.
 4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
 5. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
 

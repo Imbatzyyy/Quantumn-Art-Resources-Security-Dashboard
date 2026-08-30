@@ -13,10 +13,30 @@ const commonPasswords = new Set([
   'changemechangeme',
 ])
 
-const canonical = (value) => value.toLocaleLowerCase('en').replace(/[^a-z0-9]/g, '')
+export interface PasswordContext {
+  firstName?: string
+  lastName?: string
+  email?: string
+  currentPassword?: string
+}
 
-export function passwordChecks(password, context = {}) {
-  const value = typeof password === 'string' ? password : ''
+export interface PasswordChecks {
+  length: boolean
+  maximum: boolean
+  notCurrent: boolean
+  notCommon: boolean
+  notPersonal: boolean
+}
+
+export interface PasswordStrength {
+  score: number
+  label: 'Start typing' | 'Too short' | 'Good' | 'Strong' | 'Very strong'
+}
+
+const canonical = (value: string) => value.toLocaleLowerCase('en').replace(/[^a-z0-9]/g, '')
+
+export function passwordChecks(password: string, context: PasswordContext = {}): PasswordChecks {
+  const value = password
   const normalized = canonical(value)
   const contextTokens = [
     'quantumnhr',
@@ -37,7 +57,7 @@ export function passwordChecks(password, context = {}) {
   }
 }
 
-export function validatePermanentPassword(password, context = {}) {
+export function validatePermanentPassword(password: string, context: PasswordContext = {}): string {
   const checks = passwordChecks(password, context)
   if (!checks.length) return `Use at least ${PASSWORD_MIN_LENGTH} characters. A memorable passphrase works well.`
   if (!checks.maximum) return `Use no more than ${PASSWORD_MAX_LENGTH} characters.`
@@ -47,7 +67,7 @@ export function validatePermanentPassword(password, context = {}) {
   return ''
 }
 
-export function passwordStrength(password, context = {}) {
+export function passwordStrength(password: string, context: PasswordContext = {}): PasswordStrength {
   const length = Array.from(password || '').length
   const checks = passwordChecks(password, context)
   if (!password || !checks.notCommon || !checks.notPersonal) return { score: 0, label: 'Start typing' }
