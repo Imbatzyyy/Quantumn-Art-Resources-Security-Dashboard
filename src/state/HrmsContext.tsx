@@ -218,6 +218,15 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         }
         return snapshot
       },
+      async updateProfilePhoto(photo) {
+        const snapshot = await run(
+          () => dataProvider.updateProfilePhoto(photo),
+          'Profile photo updated securely.',
+        )
+        const updatedUser = await dataProvider.getCurrentUser()
+        setUser(updatedUser)
+        return snapshot
+      },
       submitLeave: (input) => run(() => dataProvider.submitLeave(input), 'Leave request submitted.'),
       reviewLeave: (id, status) => run(() => dataProvider.reviewLeave(id, status), `Leave request ${status.toLowerCase()}.`),
       submitRequest: (input) => run(() => dataProvider.submitRequest(input), 'Request submitted to HR.'),

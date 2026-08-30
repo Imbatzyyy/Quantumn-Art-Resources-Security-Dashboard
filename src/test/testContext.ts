@@ -25,7 +25,7 @@ export function createTestContext(overrides: Partial<HrmsContextValue> = {}): Hr
     beginMfaEnrollment: async () => ({ factorId: 'factor', qrCode: '', secret: '' }),
     verifyMfaEnrollment: async () => ({ enabled: true, factorId: 'factor', currentLevel: 'aal2' }),
     disableMfa: async () => ({ enabled: false, factorId: null, currentLevel: 'aal1' }),
-    addEmployee: resolved, updateEmployee: resolved, saveBenefit: resolved, clock: resolved,
+    addEmployee: resolved, updateEmployee: resolved, updateProfilePhoto: resolved, saveBenefit: resolved, clock: resolved,
     submitLeave: resolved, submitRequest: resolved, addRequestComment: resolved, cancelRequest: resolved,
     markNotificationRead: resolved, markAllNotificationsRead: resolved, updateGoalProgress: resolved,
     acknowledgeDocument: resolved, saveSchedule: resolved, reviewLeave: resolved, reviewRequest: resolved,

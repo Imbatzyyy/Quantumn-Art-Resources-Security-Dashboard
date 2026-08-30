@@ -2,7 +2,7 @@
 -- Every assertion is read-only and runs inside a rolled-back transaction.
 
 begin;
-select plan(8);
+select plan(14);
 
 select is(
   (
@@ -64,11 +64,78 @@ select is(
         'mark_all_notifications_read', 'acknowledge_document',
         'update_goal_progress', 'create_lifecycle_case', 'update_lifecycle_task',
         'generate_payroll', 'transition_payroll_run', 'save_performance_review',
-        'publish_performance_review', 'respond_to_security_alert'
+        'publish_performance_review', 'respond_to_security_alert',
+        'update_own_avatar_path'
       ])
   ),
-  15,
+  16,
   'all protected workflow functions exist'
+);
+
+select ok(
+  exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'avatar_path'
+      and data_type = 'text'
+  ),
+  'employee profiles include a protected avatar storage path'
+);
+
+select ok(
+  exists (
+    select 1
+    from storage.buckets
+    where id = 'profile-avatars'
+      and not public
+  ),
+  'profile avatars use a private Supabase Storage bucket'
+);
+
+select ok(
+  exists (
+    select 1
+    from storage.buckets
+    where id = 'profile-avatars'
+      and file_size_limit = 2097152
+      and allowed_mime_types = array['image/webp']::text[]
+  ),
+  'profile avatar uploads are restricted to 2 MB WebP files'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = any(array[
+        'profile avatar owners can read',
+        'profile avatar owners can insert',
+        'profile avatar owners can update',
+        'profile avatar owners can delete'
+      ])
+  ),
+  4,
+  'profile avatar objects have owner-scoped read, insert, update, and delete policies'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_proc
+    where oid = 'public.update_own_avatar_path(text)'::regprocedure
+      and prosecdef
+  ),
+  'profile path registration uses a security-definer function'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.update_own_avatar_path(text)', 'execute')
+    and not has_function_privilege('anon', 'public.update_own_avatar_path(text)', 'execute'),
+  'only authenticated accounts can register their uploaded avatar path'
 );
 
 select is(

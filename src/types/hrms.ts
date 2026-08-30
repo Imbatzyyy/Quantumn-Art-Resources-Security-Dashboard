@@ -29,6 +29,8 @@ export interface PortalIdentity {
   workLocation?: string
   costCenter?: string
   hireDate?: string
+  avatarPath?: string
+  avatarUrl?: string
   mustSetPassword?: boolean
   mustChangePassword?: boolean
 }
@@ -579,6 +581,7 @@ export interface HrmsDataProvider {
   completeAdminInvitation: (input: AdminInvitationCompletionInput) => Promise<unknown>
   completeInitialPassword: (input: InitialPasswordInput) => Promise<HrmsSnapshot>
   updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<HrmsSnapshot>
+  updateProfilePhoto: (photo: Blob) => Promise<HrmsSnapshot>
   submitLeave: (input: LeaveRequestInput) => Promise<HrmsSnapshot>
   reviewLeave: (id: string, status: string) => Promise<HrmsSnapshot>
   submitRequest: (input: EmployeeRequestInput) => Promise<HrmsSnapshot>
@@ -639,6 +642,7 @@ export interface HrmsContextValue {
   disableMfa: (factorId: string | null) => Promise<MfaStatus>
   addEmployee: (input: EmployeeProvisionInput) => Promise<unknown>
   updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<unknown>
+  updateProfilePhoto: (photo: Blob) => Promise<unknown>
   saveBenefit: (input: BenefitInput) => Promise<unknown>
   clock: (employeeId: string) => Promise<unknown>
   submitLeave: (input: LeaveRequestInput) => Promise<unknown>

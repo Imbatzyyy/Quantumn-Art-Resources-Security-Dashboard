@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   Bell,
   BookOpenCheck,
   BriefcaseBusiness,
+  Building2,
+  Camera,
   CalendarDays,
   CalendarRange,
   CheckCircle2,
@@ -17,9 +19,11 @@ import {
   LifeBuoy,
   ListChecks,
   MapPin,
+  Mail,
   MessageSquareText,
   PhilippinePeso,
   Plus,
+  Phone,
   ReceiptText,
   Send,
   ShieldCheck,
@@ -33,6 +37,7 @@ import {
 } from 'lucide-react'
 import PortalLayout from '../components/PortalLayout.js'
 import FirstLoginPasswordSetup from '../components/FirstLoginPasswordSetup.js'
+import ProfilePhotoEditor from '../components/ProfilePhotoEditor.js'
 import {
   Badge,
   EmptyState,
@@ -447,9 +452,87 @@ function EmployeeJourney() {
 }
 
 function EmployeeProfile() {
-  const { user, updateEmployee } = useHrms()
+  const { user, updateEmployee, updateProfilePhoto, notify } = useHrms()
   const [form, setForm] = useState({ phone: user?.phone ?? '' })
+  const [phoneSaving, setPhoneSaving] = useState(false)
+  const [photoSaving, setPhotoSaving] = useState(false)
+  const [photoEditorUrl, setPhotoEditorUrl] = useState('')
+  const photoInput = useRef<HTMLInputElement>(null)
   if (!user) return null
-  const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); try { await updateEmployee(user.id, form) } catch { /* Keep form state. */ } }
-  return <div className="page-stack employee-feature-page employee-profile-page"><SectionHeading eyebrow="My account" title="My Profile" description="Review your synchronized employment record and update the contact field you are authorized to change." /><section className="panel profile-page"><div className="profile-hero"><span>{user.firstName[0]}{user.lastName[0]}</span><div><h2>{user.preferredName || user.firstName} {user.lastName}</h2><p>{user.position} · {user.department}</p><div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="neutral">Live HR record</Badge></div></div></div><form className="form-grid" onSubmit={submit}><label>Employee ID<input value={user.id} disabled /></label><label>Work email<input value={user.email} disabled /></label><label>Legal name<input value={[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')} disabled /></label><label>Preferred name<input value={user.preferredName || '—'} disabled /></label><label>Department<input value={user.department} disabled /></label><label>Position<input value={user.position} disabled /></label><label>Employment type<input value={user.employmentType} disabled /></label><label>Work arrangement<input value={user.workArrangement} disabled /></label><label>Work location<input value={user.workLocation} disabled /></label><label>Hire date<input value={formatDate(user.hireDate)} disabled /></label><label>Cost center<input value={user.costCenter || '—'} disabled /></label><label>Phone number<input value={form.phone} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} required /></label><p className="form-note span-2"><ShieldCheck size={15} />Operational changes made by HR synchronize through Supabase Realtime. Your phone update is validated by a restricted database function and audit logged.</p><div className="modal-actions span-2"><button className="button button-primary">Save phone number</button></div></form></section></div>
+  const initials = `${user.firstName[0] || ''}${user.lastName[0] || ''}`
+  const resetPhotoEditor = () => {
+    if (photoEditorUrl) URL.revokeObjectURL(photoEditorUrl)
+    setPhotoEditorUrl('')
+    if (photoInput.current) photoInput.current.value = ''
+  }
+  const closePhotoEditor = () => {
+    if (photoSaving) return
+    resetPhotoEditor()
+  }
+  const choosePhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      notify('Choose a JPG, PNG, or WebP profile photo.', 'error')
+      event.target.value = ''
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      notify('Choose a profile photo smaller than 8 MB.', 'error')
+      event.target.value = ''
+      return
+    }
+    if (photoEditorUrl) URL.revokeObjectURL(photoEditorUrl)
+    setPhotoEditorUrl(URL.createObjectURL(file))
+  }
+  const savePhoto = async (photo: Blob) => {
+    setPhotoSaving(true)
+    try {
+      await updateProfilePhoto(photo)
+      resetPhotoEditor()
+    } finally { setPhotoSaving(false) }
+  }
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPhoneSaving(true)
+    try { await updateEmployee(user.id, form) } catch { /* Keep form state. */ }
+    finally { setPhoneSaving(false) }
+  }
+  return <div className="page-stack employee-feature-page employee-profile-page">
+    <SectionHeading eyebrow="My account" title="My Profile" description="Your trusted identity, employment details, and employee-managed contact information in one secure workspace." actions={<Badge tone="success">Supabase Realtime</Badge>} />
+    <section className="profile-identity-hero">
+      <input ref={photoInput} className="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile picture" onChange={choosePhoto} />
+      <button type="button" className="profile-photo-button" onClick={() => photoInput.current?.click()} aria-label="Change profile picture">
+        {user.avatarUrl ? <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName} profile`} /> : <strong>{initials}</strong>}
+        <span><Camera />Update photo</span>
+      </button>
+      <div className="profile-identity-copy"><small>Employee identity</small><h2>{user.preferredName || user.firstName} {user.lastName}</h2><p><BriefcaseBusiness />{user.position}<i /> <Building2 />{user.department}</p><div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="info">{user.id}</Badge><Badge tone="neutral">Live HR record</Badge></div></div>
+      <div className="profile-identity-assurance"><ShieldCheck /><div><small>Record assurance</small><strong>Verified employment profile</strong><p>Operational fields are governed by HR and synchronized in realtime.</p></div></div>
+    </section>
+
+    <div className="profile-workspace-grid">
+      <section className="panel profile-record-card">
+        <header className="profile-card-heading"><span><BriefcaseBusiness /></span><div><small>Official record</small><h2>Employment information</h2><p>Read-only details managed by authorized HR administrators.</p></div><Badge tone="neutral">HR managed</Badge></header>
+        <div className="profile-record-grid">
+          <label>Employee ID<input value={user.id} disabled /></label><label>Work email<input value={user.email} disabled /></label>
+          <label>Legal name<input value={[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')} disabled /></label><label>Preferred name<input value={user.preferredName || '—'} disabled /></label>
+          <label>Department<input value={user.department} disabled /></label><label>Position<input value={user.position} disabled /></label>
+          <label>Employment type<input value={user.employmentType} disabled /></label><label>Work arrangement<input value={user.workArrangement} disabled /></label>
+          <label>Work location<input value={user.workLocation} disabled /></label><label>Hire date<input value={formatDate(user.hireDate)} disabled /></label>
+          <label>Cost center<input value={user.costCenter || '—'} disabled /></label>
+        </div>
+      </section>
+
+      <aside className="profile-side-stack">
+        <form className="panel profile-contact-card" onSubmit={submit}>
+          <header className="profile-card-heading"><span><Phone /></span><div><small>Employee managed</small><h2>Contact details</h2><p>Keep your direct contact number current.</p></div></header>
+          <label><span>Phone number <em>Editable</em></span><div><Phone /><input aria-label="Phone number" value={form.phone} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} placeholder="+63 912 345 6789" required /></div></label>
+          <button className="button button-primary" disabled={phoneSaving || form.phone.trim() === (user.phone || '').trim()}>{phoneSaving ? 'Saving securely…' : 'Save phone number'}</button>
+        </form>
+        <section className="panel profile-access-card"><span><ShieldCheck /></span><div><small>Data protection</small><h2>Controlled access</h2><p>Your photo is stored in an employee-owned private path. Employment changes remain restricted to authorized HR roles.</p></div><ul><li><Camera />Private photo object</li><li><Mail />Verified work email</li><li><ShieldCheck />Audited profile changes</li></ul></section>
+        <section className="profile-realtime-note"><span><ShieldCheck /></span><div><strong>Realtime profile synchronization</strong><p>Approved changes are read from Supabase and reflected across your portal session.</p></div><Badge tone="success">Connected</Badge></section>
+      </aside>
+    </div>
+    {photoEditorUrl && <Modal title="Crop your profile picture" onClose={closePhotoEditor} size="large" dismissible={!photoSaving}><ProfilePhotoEditor sourceUrl={photoEditorUrl} saving={photoSaving} onCancel={closePhotoEditor} onSave={savePhoto} /></Modal>}
+  </div>
 }

@@ -19,6 +19,15 @@ import type {
 
 const portalForRole = (role: string): PortalKind => role === 'employee' ? 'employee' : 'admin'
 
+const profileAvatarUrl = async (avatarPath?: string): Promise<string | undefined> => {
+  if (!avatarPath) return undefined
+  const { data, error } = await requireSupabase().storage
+    .from('profile-avatars')
+    .createSignedUrl(avatarPath, 60 * 60)
+  if (error) return undefined
+  return `${data.signedUrl}${data.signedUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
+}
+
 const browserDeviceLabel = (): string => {
   if (typeof navigator === 'undefined') return 'Web browser'
   const agent = navigator.userAgent
@@ -49,6 +58,7 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
   return {
     ...profile,
     portal: portalForRole(profile.role),
+    avatarUrl: await profileAvatarUrl(profile.avatarPath),
     mustChangePassword: session.user.app_metadata?.must_change_password === true,
     mustSetPassword: session.user.app_metadata?.must_set_password === true,
   }
@@ -87,6 +97,7 @@ export async function authenticate({ email, password, portal }: LoginCredentials
     }
     return {
       ...profile, portal: resolvedPortal,
+      avatarUrl: await profileAvatarUrl(profile.avatarPath),
       mustChangePassword: data.user.app_metadata?.must_change_password === true,
       mustSetPassword: false,
     }
@@ -122,7 +133,7 @@ export async function verifyMfaLogin({ factorId, code, portal }: MfaLoginInput):
     await client.auth.signOut()
     throw new Error('This account cannot access the selected portal.')
   }
-  return { ...profile, portal: resolvedPortal, mustChangePassword: false }
+  return { ...profile, portal: resolvedPortal, avatarUrl: await profileAvatarUrl(profile.avatarPath), mustChangePassword: false }
 }
 
 export async function recordCurrentSession(): Promise<string | null> {

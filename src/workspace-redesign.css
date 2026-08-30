@@ -333,6 +333,7 @@
 .portal-shell-employee .workspace-status { border-color: #d7e8e4; background: #e8f6f2; }
 .portal-shell-employee .workspace-status strong { color: #25675f; }
 .portal-shell-employee .workspace-status small { color: #67847f; }
+.portal-shell-employee:has(.employee-profile-page) .workspace-status small { color: #526f69; }
 .portal-shell-employee .topbar { border-color: #e1e9eb; background: rgba(255, 255, 255, .88); }
 .portal-shell-employee .portal-content {
   background:

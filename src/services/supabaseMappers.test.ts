@@ -18,6 +18,7 @@ describe('Supabase row boundary', () => {
 
   it('normalizes employee fields and numeric values', () => {
     const row: Tables<'profiles'> = {
+      avatar_path: null,
       auth_user_id: null, cost_center: null, created_at: '2026-08-30T00:00:00Z',
       emergency_contact_name: null, emergency_contact_phone: null,
       emergency_contact_relationship: null, employment_type: 'Full-time',

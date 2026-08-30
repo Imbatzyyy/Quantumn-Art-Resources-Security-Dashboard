@@ -918,6 +918,7 @@ export type Database = {
       profiles: {
         Row: {
           auth_user_id: string | null
+          avatar_path: string | null
           cost_center: string | null
           created_at: string
           department: string
@@ -944,6 +945,7 @@ export type Database = {
         }
         Insert: {
           auth_user_id?: string | null
+          avatar_path?: string | null
           cost_center?: string | null
           created_at?: string
           department: string
@@ -970,6 +972,7 @@ export type Database = {
         }
         Update: {
           auth_user_id?: string | null
+          avatar_path?: string | null
           cost_center?: string | null
           created_at?: string
           department?: string
@@ -1478,6 +1481,10 @@ export type Database = {
       }
       update_lifecycle_task: {
         Args: { new_status: string; selected_task_id: number }
+        Returns: undefined
+      }
+      update_own_avatar_path: {
+        Args: { new_avatar_path: string }
         Returns: undefined
       }
       update_own_profile: { Args: { new_phone: string }; Returns: undefined }

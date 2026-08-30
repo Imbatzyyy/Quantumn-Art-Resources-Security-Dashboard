@@ -323,6 +323,24 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'employee-change-password-dark-desktop.png')
   })
 
+  test('premium employee profile and private photo editor', async ({ page }) => {
+    await prepare(page, 'employee')
+    await page.getByRole('button', { name: 'My Profile' }).click()
+    await expect(page.getByRole('heading', { name: 'Maya Santos' })).toBeVisible()
+    await capture(page, 'employee-profile-desktop.png')
+
+    await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'My Profile' }).click()
+    await page.getByLabel('Choose profile picture').setInputFiles('assets/images/default-avatar.png')
+    const editor = page.getByRole('dialog', { name: 'Crop your profile picture' })
+    await expect(editor).toBeVisible()
+    await editor.getByLabel('Photo zoom').fill('1.35')
+    await editor.getByLabel('Horizontal photo position').fill('18')
+    await editor.getByLabel('Vertical photo position').fill('-12')
+    await expect(editor.getByLabel('Profile photo crop preview')).toBeVisible()
+    await capture(page, 'employee-profile-photo-editor-dark-desktop.png')
+  })
+
   test('admin and employee dark workspaces', async ({ page }) => {
     await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
     await capture(page, 'admin-action-center-dark-desktop.png')
@@ -394,6 +412,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'employee-change-password-dark-mobile.png')
+  })
+
+  test('employee profile photo editor on mobile', async ({ page }) => {
+    await prepare(page, 'employee', mobile, 'dark')
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'My Profile' }).click()
+    await page.getByLabel('Choose profile picture').setInputFiles('assets/images/default-avatar.png')
+    const editor = page.getByRole('dialog', { name: 'Crop your profile picture' })
+    await expect(editor).toBeVisible()
+    const box = await editor.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'employee-profile-photo-editor-dark-mobile.png')
   })
 
   test('every employee destination remains usable in mobile dark mode', async ({ page }) => {

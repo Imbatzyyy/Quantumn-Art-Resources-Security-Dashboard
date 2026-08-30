@@ -254,6 +254,20 @@ describe('Employee self-service provider boundaries', () => {
     await waitFor(() => expect(updateEmployee).toHaveBeenCalledWith(employee.id, { phone: '+63 917 555 0101' }))
   })
 
+  it('rejects unsupported profile picture files before any upload begins', async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    const notify = vi.fn()
+    const updateProfilePhoto = vi.fn(async () => emptySnapshot)
+    renderEmployee({ notify, updateProfilePhoto })
+    await user.click(screen.getByRole('button', { name: 'My Profile' }))
+    const invalidPhoto = new File(['not an image'], 'profile.txt', { type: 'text/plain' })
+    await user.upload(screen.getByLabelText('Choose profile picture'), invalidPhoto)
+
+    expect(notify).toHaveBeenCalledWith('Choose a JPG, PNG, or WebP profile photo.', 'error')
+    expect(updateProfilePhoto).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Crop your profile picture' })).not.toBeInTheDocument()
+  })
+
   it('shows only employee-visible lifecycle tasks in My Journey', async () => {
     const user = userEvent.setup()
     renderEmployee({
