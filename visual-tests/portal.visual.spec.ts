@@ -64,6 +64,20 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'invite-administrator-desktop.png')
   })
 
+  test('premium payroll draft review', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Payroll Runs' }).click()
+    await page.getByRole('button', { name: 'Generate payroll' }).click()
+    await expect(page.getByRole('dialog', { name: 'Generate payroll draft' })).toBeVisible()
+    await capture(page, 'generate-payroll-draft-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Payroll Runs' }).click()
+    await page.getByRole('button', { name: 'Generate payroll' }).click()
+    await expect(page.getByRole('dialog', { name: 'Generate payroll draft' })).toBeVisible()
+    await capture(page, 'generate-payroll-draft-dark-desktop.png')
+  })
+
   test('security center and secure alert composer', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Security Center 1', exact: true }).click()
@@ -119,5 +133,17 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'create-employee-mobile.png')
+  })
+
+  test('payroll draft dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Payroll Runs' }).click()
+    await page.getByRole('button', { name: 'Generate payroll' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Generate payroll draft' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'generate-payroll-draft-mobile.png')
   })
 })
