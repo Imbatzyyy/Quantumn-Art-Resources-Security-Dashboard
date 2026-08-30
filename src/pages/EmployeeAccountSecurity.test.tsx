@@ -51,6 +51,48 @@ describe('Employee Account Security', () => {
     expect(screen.queryByRole('dialog', { name: 'Change your password' })).not.toBeInTheDocument()
   })
 
+  it('reveals password values only on request and clears every credential when dismissed', async () => {
+    const user = userEvent.setup()
+    renderSecurity(createTestContext({
+      user: employeeIdentity,
+      getMfaStatus: async () => ({ enabled: true, factorId: 'factor-1', currentLevel: 'aal2' }),
+    }))
+
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
+    let dialog = screen.getByRole('dialog', { name: 'Change your password' })
+    const current = within(dialog).getByLabelText('Current password')
+    const next = within(dialog).getByLabelText('New private password')
+    const confirmation = within(dialog).getByLabelText('Confirm password')
+    const submit = within(dialog).getByRole('button', { name: 'Update my password' })
+
+    expect(current).toHaveAttribute('type', 'password')
+    expect(next).toHaveAttribute('type', 'password')
+    expect(confirmation).toHaveAttribute('type', 'password')
+    expect(submit).toBeDisabled()
+
+    await user.type(current, 'Current private passphrase 2025!')
+    await user.type(next, 'Lavender trains orbit quietly 2026!')
+    await user.type(confirmation, 'Lavender trains orbit quietly 2026!')
+    expect(within(dialog).getByText('Passwords match.')).toBeVisible()
+    expect(within(dialog).getByText('Very strong')).toBeVisible()
+    expect(submit).toBeEnabled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Show password values' }))
+    expect(current).toHaveAttribute('type', 'text')
+    expect(next).toHaveAttribute('type', 'text')
+    expect(confirmation).toHaveAttribute('type', 'text')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog', { name: 'Change your password' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
+    dialog = screen.getByRole('dialog', { name: 'Change your password' })
+    expect(within(dialog).getByLabelText('Current password')).toHaveValue('')
+    expect(within(dialog).getByLabelText('New private password')).toHaveValue('')
+    expect(within(dialog).getByLabelText('Confirm password')).toHaveValue('')
+    expect(within(dialog).getByLabelText('Current password')).toHaveAttribute('type', 'password')
+  })
+
   it('keeps authenticator enrollment employee-owned and verifies a six-digit code', async () => {
     const user = userEvent.setup()
     const beginMfaEnrollment = vi.fn(async () => ({

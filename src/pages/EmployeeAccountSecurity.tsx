@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
-  AlertTriangle, CheckCircle2, Clock3, Eye, KeyRound, Laptop, LockKeyhole,
+  AlertTriangle, CheckCircle2, Circle, Clock3, Eye, EyeOff, KeyRound, Laptop, LockKeyhole,
   LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck,
 } from 'lucide-react'
 import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, validatePermanentPassword } from '../utils/passwordPolicy.js'
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordChecks,
+  passwordStrength,
+  validatePermanentPassword,
+} from '../utils/passwordPolicy.js'
 import { statusTone } from '../utils/format.js'
 import type { MfaEnrollment, MfaStatus, SecurityAlertSummary, SessionRecord } from '../types/hrms.js'
 
@@ -32,6 +38,8 @@ export default function EmployeeAccountSecurity() {
   const [mfaError, setMfaError] = useState('')
   const [mfaSaving, setMfaSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordValues, setShowPasswordValues] = useState(false)
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
 
@@ -54,6 +62,26 @@ export default function EmployeeAccountSecurity() {
       ? 'Review needed'
       : 'Protected'
   const protectionTone = protectionStatus === 'Protected' ? 'success' : protectionStatus === 'At risk' ? 'danger' : 'warning'
+  const passwordContext = useMemo(() => ({
+    currentPassword: passwordForm.currentPassword,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+  }), [passwordForm.currentPassword, user.email, user.firstName, user.lastName])
+  const passwordRules = passwordChecks(passwordForm.newPassword, passwordContext)
+  const passwordRating = passwordStrength(passwordForm.newPassword, passwordContext)
+  const passwordsMatch = Boolean(passwordForm.confirmPassword) && passwordForm.newPassword === passwordForm.confirmPassword
+  const passwordReady = Boolean(passwordForm.currentPassword)
+    && Object.values(passwordRules).every(Boolean)
+    && passwordsMatch
+
+  const closePasswordDialog = () => {
+    if (passwordSaving) return
+    setShowPassword(false)
+    setShowPasswordValues(false)
+    setPasswordError('')
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  }
 
   const beginMfa = async () => {
     setMfaSaving(true); setMfaError('')
@@ -84,15 +112,15 @@ export default function EmployeeAccountSecurity() {
   }
   const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setPasswordError('')
-    const problem = validatePermanentPassword(passwordForm.newPassword, {
-      currentPassword: passwordForm.currentPassword, email: user.email, firstName: user.firstName, lastName: user.lastName,
-    })
+    const problem = validatePermanentPassword(passwordForm.newPassword, passwordContext)
     if (problem) return setPasswordError(problem)
     if (passwordForm.newPassword !== passwordForm.confirmPassword) return setPasswordError('The new passwords do not match.')
+    setPasswordSaving(true)
     try {
       await changePassword(passwordForm)
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); setShowPassword(false)
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); setShowPassword(false); setShowPasswordValues(false)
     } catch (error) { setPasswordError(errorMessage(error, 'The password could not be changed.')) }
+    finally { setPasswordSaving(false) }
   }
 
   const timeline = useMemo(() => [
@@ -145,6 +173,52 @@ export default function EmployeeAccountSecurity() {
 
     {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button></div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
 
-    {showPassword && <Modal title="Change your password" onClose={() => setShowPassword(false)}><form className="form-grid" onSubmit={submitPassword}><label className="span-2">Current password<input type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} required /></label><label className="span-2">New private password<input type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} required /><small className="form-note">Use a unique passphrase of at least {PASSWORD_MIN_LENGTH} characters.</small></label><label className="span-2">Confirm password<input type="password" autoComplete="new-password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })} required /></label>{passwordError && <p className="form-error span-2">{passwordError}</p>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowPassword(false)}>Cancel</button><button className="button button-primary">Update my password</button></div></form></Modal>}
+    {showPassword && <Modal title="Change your password" size="large" onClose={closePasswordDialog}>
+      <form className="password-change-shell" onSubmit={submitPassword} aria-busy={passwordSaving}>
+        <section className="password-change-intro">
+          <span><ShieldCheck /></span>
+          <div><small>Private account protection</small><h3>Replace your password securely</h3><p>Your current password is verified before Supabase Auth accepts the new one. Password values are never stored in your employee record.</p></div>
+          <Badge tone="success">Authenticated update</Badge>
+        </section>
+
+        <div className="password-change-content">
+          <section className="password-change-fields">
+            <header className="password-change-heading"><span><KeyRound /></span><div><small>Credentials</small><h4>Confirm it is you</h4><p>Enter your current password, then choose a new private passphrase.</p></div></header>
+            <div className="password-change-inputs">
+              <label>
+                <span>Current password <em>Required</em></span>
+                <span className="password-change-input-shell"><KeyRound /><input aria-label="Current password" type={showPasswordValues ? 'text' : 'password'} autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} placeholder="Enter your current password" required /></span>
+              </label>
+              <label>
+                <span>New private password <em>Required</em></span>
+                <span className="password-change-input-shell"><LockKeyhole /><input aria-label="New private password" type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} placeholder="Use a long, unique passphrase" required /></span>
+              </label>
+              <label>
+                <span>Confirm password <em>Required</em></span>
+                <span className={`password-change-input-shell ${passwordForm.confirmPassword ? passwordsMatch ? 'is-valid' : 'is-invalid' : ''}`}><ShieldCheck /><input aria-label="Confirm password" type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })} placeholder="Enter the same password again" required /></span>
+                {passwordForm.confirmPassword && <small className={passwordsMatch ? 'password-match-success' : 'password-match-error'}>{passwordsMatch ? 'Passwords match.' : 'The two new-password entries do not match yet.'}</small>}
+              </label>
+            </div>
+            <button className="password-change-visibility" type="button" onClick={() => setShowPasswordValues((visible) => !visible)}>{showPasswordValues ? <EyeOff /> : <Eye />}{showPasswordValues ? 'Hide password values' : 'Show password values'}</button>
+          </section>
+
+          <aside className="password-change-guidance" aria-label="New password security guidance">
+            <header><span><ShieldCheck /></span><div><small>Live security check</small><h4>{passwordRating.label}</h4></div></header>
+            <div className={`password-change-meter strength-${passwordRating.score}`} role="meter" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordRating.score} aria-valuetext={passwordRating.label}><i /><i /><i /><i /></div>
+            <ul>
+              <li className={passwordRules.length && passwordRules.maximum ? 'passed' : ''}>{passwordRules.length && passwordRules.maximum ? <CheckCircle2 /> : <Circle />}<span>{PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} characters; a longer passphrase is encouraged</span></li>
+              <li className={passwordRules.notCurrent ? 'passed' : ''}>{passwordRules.notCurrent ? <CheckCircle2 /> : <Circle />}<span>Different from your current password</span></li>
+              <li className={passwordRules.notCommon ? 'passed' : ''}>{passwordRules.notCommon ? <CheckCircle2 /> : <Circle />}<span>Not a common or easily guessed password</span></li>
+              <li className={passwordRules.notPersonal ? 'passed' : ''}>{passwordRules.notPersonal ? <CheckCircle2 /> : <Circle />}<span>Does not contain your name, email username, or “Quantum HRMS”</span></li>
+              <li className={passwordsMatch ? 'passed' : ''}>{passwordsMatch ? <CheckCircle2 /> : <Circle />}<span>Both new-password entries match</span></li>
+            </ul>
+            <div className="password-change-tip"><LockKeyhole /><p>Use a password manager or a unique multi-word passphrase. Never reuse or send this password through email or chat.</p></div>
+          </aside>
+        </div>
+
+        {passwordError && <p className="form-error password-change-error" role="alert">{passwordError}</p>}
+        <footer className="password-change-footer"><div><ShieldCheck /><p><strong>Secure Supabase Auth update.</strong> The change is recorded in your protected security activity history.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={closePasswordDialog} disabled={passwordSaving}>Cancel</button><button className="button button-primary" disabled={!passwordReady || passwordSaving}>{passwordSaving ? 'Updating securely…' : 'Update my password'}</button></div></footer>
+      </form>
+    </Modal>}
   </div>
 }

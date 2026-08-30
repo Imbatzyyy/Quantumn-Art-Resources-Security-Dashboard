@@ -284,6 +284,25 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'employee-new-request-dark-desktop.png')
   })
 
+  test('premium employee password change', async ({ page }) => {
+    await prepare(page, 'employee')
+    await page.getByRole('button', { name: 'Account Security' }).click()
+    await page.getByRole('button', { name: 'Change password' }).click()
+    await expect(page.getByRole('dialog', { name: 'Change your password' })).toBeVisible()
+    await capture(page, 'employee-change-password-desktop.png')
+
+    await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Account Security' }).click()
+    await page.getByRole('button', { name: 'Change password' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Change your password' })
+    await dialog.getByLabel('Current password').fill('Current passphrase for visual test')
+    await dialog.getByLabel('New private password').fill('Lavender trains orbit quietly 2026!')
+    await dialog.getByLabel('Confirm password').fill('Lavender trains orbit quietly 2026!')
+    await expect(dialog.getByText('Passwords match.')).toBeVisible()
+    await expect(dialog.getByText('Very strong')).toBeVisible()
+    await capture(page, 'employee-change-password-dark-desktop.png')
+  })
+
   test('admin and employee dark workspaces', async ({ page }) => {
     await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
     await capture(page, 'admin-action-center-dark-desktop.png')
@@ -331,6 +350,18 @@ test.describe('responsive mobile baselines', () => {
     await page.getByRole('button', { name: 'New request' }).click()
     await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
     await capture(page, 'employee-new-request-mobile.png')
+  })
+
+  test('employee password change dialog', async ({ page }) => {
+    await prepare(page, 'employee', mobile, 'dark')
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Account Security' }).click()
+    await page.getByRole('button', { name: 'Change password' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Change your password' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'employee-change-password-dark-mobile.png')
   })
 
   test('every employee destination remains usable in mobile dark mode', async ({ page }) => {
