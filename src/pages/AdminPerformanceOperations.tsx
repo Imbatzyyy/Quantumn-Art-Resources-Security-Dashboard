@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, FileText, Flag, Layers3, Plus, Rocket, ShieldCheck, Sparkles, Star, Target, TrendingUp } from 'lucide-react'
+import { Award, BookOpenCheck, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, Compass, FileText, Flag, GraduationCap, Layers3, Plus, Rocket, Send, ShieldCheck, Sparkles, Star, Target, TrendingUp, UserRound } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableShell } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, statusTone } from '../utils/format.js'
@@ -33,6 +33,14 @@ export default function AdminPerformanceOperations() {
   const cycleWindowDays = cycleForm.startDate && cycleForm.endDate
     ? Math.max(0, Math.round((new Date(`${cycleForm.endDate}T00:00:00`).getTime() - new Date(`${cycleForm.startDate}T00:00:00`).getTime()) / 86400000) + 1)
     : null
+  const goalEmployees = data.employees.filter((item) => item.role === 'employee')
+  const selectedGoalEmployee = goalEmployees.find((item) => item.id === goalForm.employeeId)
+  const goalCategories = [
+    { value: 'Growth', icon: GraduationCap },
+    { value: 'Role', icon: BriefcaseBusiness },
+    { value: 'Leadership', icon: Award },
+    { value: 'Delivery', icon: Target },
+  ]
 
   const openReview = (review?: PerformanceRecord) => setReviewForm(review ? { ...review, comments: review.comments ?? '', cycleId: review.cycleId ?? '' } : { employeeId: defaultEmployee, cycleId: defaultCycle?.id ?? '', period: defaultCycle?.period ?? `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`, score: 80, goalProgress: 80, quality: 80, productivity: 80, teamwork: 80, comments: '' })
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
@@ -111,6 +119,68 @@ export default function AdminPerformanceOperations() {
         </footer>
       </form>
     </Modal>}
-    {showGoal && <Modal title="Assign employee goal" onClose={() => setShowGoal(false)}><form className="form-grid" onSubmit={submitGoal}><label className="span-2">Employee<select value={goalForm.employeeId} onChange={(event) => setGoalForm({ ...goalForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></label><label className="span-2">Goal title<input value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} required /></label><label>Category<input value={goalForm.category} onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })} required /></label><label>Due date<input type="date" value={goalForm.dueDate} onChange={(event) => setGoalForm({ ...goalForm, dueDate: event.target.value })} required /></label><label className="span-2">Description<textarea rows={4} value={goalForm.description} onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })} /></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowGoal(false)}>Cancel</button><button className="button button-primary">Assign goal</button></div></form></Modal>}
+    {showGoal && <Modal title="Assign employee goal" onClose={() => setShowGoal(false)} size="large">
+      <form className="goal-assign-shell" onSubmit={submitGoal}>
+        <section className="goal-assign-intro">
+          <span className="goal-assign-intro-icon"><Target aria-hidden="true" /></span>
+          <div><small>Growth plan creation</small><h3>Turn expectations into a focused development goal</h3><p>Choose the employee, define a meaningful outcome, and set a clear coaching horizon before the goal enters their workspace.</p></div>
+          <span className="goal-assign-state"><Sparkles aria-hidden="true" />Live goal card</span>
+        </section>
+
+        <div className="goal-assign-content">
+          <section className="goal-assign-fields" aria-labelledby="goal-assign-fields-title">
+            <header className="goal-assign-heading"><span><Compass aria-hidden="true" /></span><div><h4 id="goal-assign-fields-title">Goal foundations</h4><p>Connect a specific employee with an outcome that is clear and coachable.</p></div></header>
+
+            <label className="goal-premium-field">Employee
+              <span className="goal-select-shell"><UserRound aria-hidden="true" /><select aria-label="Employee" value={goalForm.employeeId} onChange={(event) => setGoalForm({ ...goalForm, employeeId: event.target.value })}>{goalEmployees.map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></span>
+            </label>
+
+            {selectedGoalEmployee && <div className="goal-employee-card"><span>{selectedGoalEmployee.firstName[0]}{selectedGoalEmployee.lastName[0]}</span><div><strong>{selectedGoalEmployee.firstName} {selectedGoalEmployee.lastName}</strong><p>{selectedGoalEmployee.position || 'Employee'} · {selectedGoalEmployee.department || 'Organization'}</p></div><Badge tone="success">{selectedGoalEmployee.status}</Badge></div>}
+
+            <label className="goal-premium-field">Goal title
+              <span className="goal-input-shell"><Target aria-hidden="true" /><input aria-label="Goal title" value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} placeholder="e.g. Lead the quarterly operations review" minLength={3} maxLength={160} required /></span>
+              <small><span>Phrase the goal as a specific outcome.</span><strong>{goalForm.title.length}/160</strong></small>
+            </label>
+
+            <div className="goal-field-grid">
+              <label className="goal-premium-field">Category
+                <span className="goal-input-shell"><BookOpenCheck aria-hidden="true" /><input aria-label="Category" value={goalForm.category} onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })} required /></span>
+              </label>
+              <label className="goal-premium-field">Due date
+                <span className="goal-input-shell"><CalendarClock aria-hidden="true" /><input aria-label="Due date" type="date" value={goalForm.dueDate} onChange={(event) => setGoalForm({ ...goalForm, dueDate: event.target.value })} required /></span>
+              </label>
+            </div>
+
+            <div className="goal-category-suggestions" aria-label="Suggested goal categories">{goalCategories.map(({ value, icon: Icon }) => <button type="button" className={goalForm.category === value ? 'active' : ''} onClick={() => setGoalForm({ ...goalForm, category: value })} key={value}><Icon aria-hidden="true" />{value}</button>)}</div>
+
+            <label className="goal-premium-field">Description <em>Recommended</em>
+              <textarea aria-label="Description" rows={6} value={goalForm.description} onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })} placeholder="Describe the expected outcome, success measures, and the support available…" />
+              <small><span>Include a measurable result and the employee’s next action.</span><strong>{goalForm.description.length} characters</strong></small>
+            </label>
+          </section>
+
+          <aside className="goal-assign-preview" aria-labelledby="goal-assign-preview-title">
+            <header><div><small>Employee view</small><h4 id="goal-assign-preview-title">Goal preview</h4></div><span><TrendingUp aria-hidden="true" /></span></header>
+
+            <article className="goal-preview-card">
+              <div className="goal-preview-owner"><span>{selectedGoalEmployee ? `${selectedGoalEmployee.firstName[0]}${selectedGoalEmployee.lastName[0]}` : '—'}</span><div><small>Assigned to</small><strong>{selectedGoalEmployee ? `${selectedGoalEmployee.firstName} ${selectedGoalEmployee.lastName}` : 'Select an employee'}</strong></div><Badge tone="success">Active</Badge></div>
+              <span className="goal-preview-icon"><Target aria-hidden="true" /></span>
+              <small className="goal-preview-category">{goalForm.category || 'Goal category'}</small>
+              <h5>{goalForm.title.trim() || 'Your goal title will appear here'}</h5>
+              <p>{goalForm.description.trim() || 'Add a concise description so the employee understands the outcome and the next step.'}</p>
+              <div className="goal-preview-progress"><div><span>Starting progress</span><strong>0%</strong></div><i><span /></i></div>
+              <dl><div><dt>Due date</dt><dd>{goalForm.dueDate ? formatDate(goalForm.dueDate) : 'Set a target date'}</dd></div><div><dt>Status</dt><dd>Active</dd></div></dl>
+            </article>
+
+            <div className="goal-coaching-note"><ShieldCheck aria-hidden="true" /><div><strong>Private, accountable coaching</strong><p>The assigned employee can read this goal through Supabase RLS. Only authorized HR administrators can create or update it.</p></div></div>
+          </aside>
+        </div>
+
+        <footer className="goal-assign-footer">
+          <div><Send aria-hidden="true" /><p><strong>Ready to create the growth plan.</strong> Confirm the employee, success outcome, and due date before assignment.</p></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowGoal(false)}>Cancel</button><button className="button button-primary"><Target aria-hidden="true" />Assign goal</button></div>
+        </footer>
+      </form>
+    </Modal>}
   </div>
 }

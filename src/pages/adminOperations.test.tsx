@@ -202,4 +202,27 @@ describe('core administrator operation boundaries', () => {
       title: 'Year-End Review', period: 'H2 2026', status: 'Draft', startDate: '', endDate: '',
     }))
   })
+
+  it('assigns an employee goal with the selected coaching metadata', async () => {
+    const user = userEvent.setup()
+    const saveGoal = vi.fn(async () => emptySnapshot)
+    renderOperation(<AdminPerformanceOperations />, { saveGoal })
+    await user.click(screen.getByRole('button', { name: 'Add goal' }))
+    const dialog = screen.getByRole('dialog', { name: 'Assign employee goal' })
+    await user.type(within(dialog).getByLabelText('Goal title'), 'Lead the quarterly operations review')
+    await user.click(within(dialog).getByRole('button', { name: 'Leadership' }))
+    await user.type(within(dialog).getByLabelText('Due date'), '2026-12-15')
+    await user.type(within(dialog).getByLabelText('Description'), 'Present measurable improvements and document next-quarter actions.')
+    fireEvent.submit(dialog.querySelector('form')!)
+
+    await waitFor(() => expect(saveGoal).toHaveBeenCalledWith({
+      employeeId: employee.id,
+      title: 'Lead the quarterly operations review',
+      description: 'Present measurable improvements and document next-quarter actions.',
+      category: 'Leadership',
+      dueDate: '2026-12-15',
+      progress: 0,
+      status: 'Active',
+    }))
+  })
 })

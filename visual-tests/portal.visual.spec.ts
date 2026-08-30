@@ -150,6 +150,25 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'create-performance-cycle-dark-desktop.png')
   })
 
+  test('premium employee goal assignment', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'Add goal' }).click()
+    await expect(page.getByRole('dialog', { name: 'Assign employee goal' })).toBeVisible()
+    await capture(page, 'assign-employee-goal-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'Add goal' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Assign employee goal' })
+    await dialog.getByLabel('Goal title').fill('Lead the quarterly operations review')
+    await dialog.getByRole('button', { name: 'Leadership' }).click()
+    await dialog.getByLabel('Due date').fill('2026-12-15')
+    await dialog.getByLabel('Description').fill('Present measurable improvements and document next-quarter actions.')
+    await expect(dialog.getByRole('heading', { name: 'Lead the quarterly operations review' })).toBeVisible()
+    await capture(page, 'assign-employee-goal-dark-desktop.png')
+  })
+
   test('premium payroll draft review', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
@@ -306,6 +325,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'create-performance-cycle-mobile.png')
+  })
+
+  test('employee goal assignment dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Performance' }).click()
+    await page.getByRole('button', { name: 'Add goal' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Assign employee goal' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'assign-employee-goal-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {
