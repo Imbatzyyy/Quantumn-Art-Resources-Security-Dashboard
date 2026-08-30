@@ -173,12 +173,25 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Updated mapper fixtures to satisfy real generated database rows rather than partial invented shapes.
 - Increased the deterministic frontend suite from 59 to 67 passing tests across twelve files.
 
+## Phase 15 repeatable rendered visual QA
+
+- Added Playwright and axe browser verification to the normal project gate, with Chromium installation documented as a one-time local prerequisite.
+- Added a test-only Vite entry that renders the real portal components with deterministic fictional records and no connection to Supabase, Netlify, Resend, or production authentication.
+- Approved 17 focused PNG baselines covering the distinct Admin and Employee sign-ins, both primary workspaces in light and dark themes, People Directory and Create Employee, Admin Accounts and Invite Administrator, Security Center and Create Alert, Employee Request Center and New Request, both mobile navigation systems, and the responsive Create Employee dialog.
+- Added a horizontal-overflow assertion to every approved state and a real rendered axe color-contrast check before each screenshot comparison.
+- Fixed contrast defects exposed only by browser rendering: muted light-theme text, table metadata and headers, success/warning chips, administrator field-state labels, dark-theme action/status accents, and the Employee dark-theme top bar.
+- Verified the real Admin portal in the built-in browser at the app panel’s live width; its heading rendered correctly and the document width matched the viewport width.
+- Kept `visual.html` outside the production Vite entry graph, so the fictional visual-test harness is not emitted by the normal `npm run build` output.
+
+The rendered gate runs ten Playwright scenarios and compares 17 approved screenshots. Use `npm run test:visual` for normal verification. Use `npm run test:visual:update` only for intentional UI changes, then visually inspect every changed baseline before accepting it.
+
 ## Verification gates passed
 
 ```bash
 npm run typecheck
 npm run lint
 npm run test
+npm run test:visual
 npm run build
 git diff --check
 ```
@@ -197,9 +210,8 @@ The automated suite contains 67 passing tests across twelve files. The local bro
 
 ## Recommended next continuation
 
-1. Add repeatable screenshot comparison and rendered color-contrast automation for the two portal shells and their highest-risk workflows.
-2. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
-3. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
+1. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
+2. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
 
 ## Security boundary
 

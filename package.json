@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:visual && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
@@ -21,7 +23,9 @@
     "react-router-dom": "7.18.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",

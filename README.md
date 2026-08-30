@@ -32,12 +32,17 @@ The application does not bundle login credentials. Create fictional Supabase Aut
 ## Verification
 
 ```bash
+npx playwright install chromium
 npm run typecheck
 npm run lint
+npm run test
+npm run test:visual
 npm run build
 npm run check
 npm run preview
 ```
+
+`npm run test:visual` renders fictional, in-memory Admin and Employee states in Chromium. It compares approved desktop/mobile light and dark screenshots, checks horizontal overflow, and runs axe’s rendered WCAG color-contrast rule without contacting Supabase or another production service. When an intentional UI change is visually reviewed, update the approved images with `npm run test:visual:update` and inspect the changed PNG files before committing them.
 
 ## Repository safety
 
