@@ -4,6 +4,7 @@ import {
   BookOpenCheck,
   BriefcaseBusiness,
   CalendarDays,
+  CalendarRange,
   CheckCircle2,
   CircleHelp,
   Clock3,
@@ -195,23 +196,76 @@ function TimeAndSchedule({ onNavigate }: NavigateProps) {
 function EmployeeLeave() {
   const { data, user, submitLeave } = useHrms()
   const [showRequest, setShowRequest] = useState(false)
+  const [leaveSaving, setLeaveSaving] = useState(false)
   const [form, setForm] = useState({ type: 'Vacation', startDate: '', endDate: '', reason: '' })
   if (!data || !user) return null
   const requests = data.leaveRequests.filter((item) => item.employeeId === user.id)
   const days = inclusiveDays(form.startDate, form.endDate)
   const today = new Date().toISOString().slice(0, 10)
+  const balance = availableLeave(requests)
+  const requestReady = days > 0 && days <= 30 && form.reason.trim().length >= 3
+  const remainingBalance = Math.max(0, balance - days)
+  const leaveGuidance: Record<string, string> = {
+    Vacation: 'Plan ahead when possible so your team can arrange coverage.',
+    Sick: 'Use this when illness or recovery prevents you from working.',
+    Emergency: 'For urgent, unexpected circumstances that require time away.',
+    Other: 'Explain the leave purpose clearly so HR can route it correctly.',
+  }
+
+  const closeLeaveRequest = () => {
+    if (leaveSaving) return
+    setShowRequest(false)
+    setForm({ type: 'Vacation', startDate: '', endDate: '', reason: '' })
+  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!days || days > 30) return
+    if (!requestReady) return
+    setLeaveSaving(true)
     try {
       await submitLeave({ ...form, employeeId: user.id })
       setShowRequest(false)
       setForm({ type: 'Vacation', startDate: '', endDate: '', reason: '' })
     } catch { /* Keep the form open for correction. */ }
+    finally { setLeaveSaving(false) }
   }
 
-  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${availableLeave(requests)} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={() => setShowRequest(false)}><form className="form-grid" onSubmit={submit}><label>Leave type<select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select></label><label>Calculated duration<input value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} disabled /></label><label>Start date<input type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} required /></label><label>End date<input type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></label><label className="span-2">Reason<textarea minLength={3} maxLength={500} rows={4} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} required /></label>{days > 30 && <p className="form-error span-2">A single request may cover at most 30 days.</p>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowRequest(false)}>Cancel</button><button className="button button-primary" disabled={!days || days > 30}>Submit securely</button></div></form></Modal>}</div>
+  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${balance} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={closeLeaveRequest} size="large">
+    <form className="leave-request-shell" onSubmit={submit} aria-busy={leaveSaving}>
+      <section className="leave-request-intro">
+        <span><CalendarRange /></span>
+        <div><small>Time-away planning</small><h3>Plan your leave with clarity</h3><p>Choose your dates, confirm the calculated duration, and send one protected request to your HR approval queue.</p></div>
+        <div className="leave-balance-pill"><small>Available balance</small><strong>{balance} days</strong></div>
+      </section>
+
+      <div className="leave-request-content">
+        <section className="leave-request-fields">
+          <header className="leave-section-heading"><span>01</span><div><small>Leave details</small><h4>What time away do you need?</h4></div></header>
+          <label className="leave-field leave-type-field"><span>Leave type <em>Required</em></span><div className="leave-control"><CalendarDays /><select aria-label="Leave type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select></div><small>{leaveGuidance[form.type]}</small></label>
+
+          <header className="leave-section-heading leave-schedule-heading"><span>02</span><div><small>Schedule</small><h4>Choose the dates to reserve</h4></div></header>
+          <div className="leave-date-grid">
+            <label className="leave-field"><span>Start date <em>Required</em></span><div className="leave-control"><CalendarDays /><input aria-label="Start date" type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: event.target.value > form.endDate ? '' : form.endDate })} required /></div></label>
+            <label className="leave-field"><span>End date <em>Required</em></span><div className="leave-control"><CalendarDays /><input aria-label="End date" type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></div></label>
+          </div>
+          <label className="leave-duration-field"><span><Clock3 /></span><div><small>Calculated duration</small><input aria-label="Calculated duration" value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} readOnly /></div><Badge tone={days > 30 ? 'danger' : days ? 'success' : 'neutral'}>{days > 30 ? 'Over limit' : days ? 'Ready' : 'Waiting'}</Badge></label>
+          {days > 30 && <p className="form-error leave-request-error">A single request may cover at most 30 calendar days. Please shorten the date range.</p>}
+
+          <header className="leave-section-heading leave-reason-heading"><span>03</span><div><small>Context</small><h4>Help your approver understand</h4></div></header>
+          <label className="leave-field leave-reason-field"><span>Reason <em>Required</em></span><div className="leave-control"><FileText /><textarea aria-label="Reason" minLength={3} maxLength={500} rows={4} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Briefly explain your leave request…" required /></div><small>{form.reason.length}/500 characters</small></label>
+        </section>
+
+        <aside className="leave-request-preview" aria-label="Leave request preview">
+          <header><span><ShieldCheck /></span><div><small>Protected request preview</small><h4>Review before sending</h4></div></header>
+          <div className="leave-preview-calendar"><small>{form.type} leave</small><strong>{days ? `${days} day${days === 1 ? '' : 's'}` : 'Dates pending'}</strong><span>{form.startDate ? formatDate(form.startDate) : 'Start date'} <i>→</i> {form.endDate ? formatDate(form.endDate) : 'End date'}</span></div>
+          <dl><div><dt>Requested by</dt><dd>{user.firstName} {user.lastName}</dd></div><div><dt>Current balance</dt><dd>{balance} days</dd></div><div><dt>Estimated after approval</dt><dd>{days ? `${remainingBalance} days` : '—'}</dd></div><div><dt>Approval status</dt><dd><Badge tone="warning">Pending review</Badge></dd></div></dl>
+          <div className="leave-request-privacy"><ShieldCheck /><p><strong>Private HR workflow.</strong> Only you and authorized HR approvers can view this request. The decision synchronizes to your leave history.</p></div>
+        </aside>
+      </div>
+
+      <footer className="leave-request-footer"><div><Clock3 /><p><strong>Review your dates carefully.</strong> Approved requests affect your displayed leave balance.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={closeLeaveRequest} disabled={leaveSaving}>Cancel</button><button className="button button-primary" disabled={!requestReady || leaveSaving}>{leaveSaving ? 'Submitting securely…' : 'Submit leave request'}</button></div></footer>
+    </form>
+  </Modal>}</div>
 }
 
 function RequestCenter() {

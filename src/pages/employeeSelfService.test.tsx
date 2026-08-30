@@ -63,6 +63,32 @@ describe('Employee self-service provider boundaries', () => {
     }))
   })
 
+  it('blocks oversized leave ranges and clears the private draft when cancelled', async () => {
+    const user = userEvent.setup()
+    const submitLeave = vi.fn(async () => emptySnapshot)
+    renderEmployee({ submitLeave })
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
+    await user.click(screen.getByRole('button', { name: 'New leave request' }))
+    let dialog = screen.getByRole('dialog', { name: 'Request leave' })
+    const submit = within(dialog).getByRole('button', { name: 'Submit leave request' })
+    expect(submit).toBeDisabled()
+
+    fireEvent.change(within(dialog).getByLabelText('Start date'), { target: { value: futureDate(2) } })
+    fireEvent.change(within(dialog).getByLabelText('End date'), { target: { value: futureDate(40) } })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Planned family travel')
+    expect(within(dialog).getByText(/at most 30 calendar days/)).toBeVisible()
+    expect(submit).toBeDisabled()
+    expect(submitLeave).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'New leave request' }))
+    dialog = screen.getByRole('dialog', { name: 'Request leave' })
+    expect(within(dialog).getByLabelText('Start date')).toHaveValue('')
+    expect(within(dialog).getByLabelText('End date')).toHaveValue('')
+    expect(within(dialog).getByLabelText('Reason')).toHaveValue('')
+    expect(within(dialog).getByLabelText('Leave type')).toHaveValue('Vacation')
+  })
+
   it('creates a private HR request with its classification and requested correction', async () => {
     const user = userEvent.setup()
     const submitRequest = vi.fn(async () => emptySnapshot)

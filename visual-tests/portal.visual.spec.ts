@@ -284,6 +284,26 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'employee-new-request-dark-desktop.png')
   })
 
+  test('premium employee leave request', async ({ page }) => {
+    await prepare(page, 'employee')
+    await page.getByRole('button', { name: 'Leave', exact: true }).click()
+    await page.getByRole('button', { name: 'New leave request' }).click()
+    await expect(page.getByRole('dialog', { name: 'Request leave' })).toBeVisible()
+    await capture(page, 'employee-leave-request-desktop.png')
+
+    await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Leave', exact: true }).click()
+    await page.getByRole('button', { name: 'New leave request' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Request leave' })
+    await dialog.getByLabel('Leave type').selectOption('Vacation')
+    await dialog.getByLabel('Start date').fill('2026-09-03')
+    await dialog.getByLabel('End date').fill('2026-09-05')
+    await dialog.getByLabel('Reason').fill('Family commitment outside the city')
+    await expect(dialog.getByLabel('Calculated duration')).toHaveValue('3 days')
+    await expect(dialog.getByRole('button', { name: 'Submit leave request' })).toBeEnabled()
+    await capture(page, 'employee-leave-request-dark-desktop.png')
+  })
+
   test('premium employee password change', async ({ page }) => {
     await prepare(page, 'employee')
     await page.getByRole('button', { name: 'Account Security' }).click()
@@ -350,6 +370,18 @@ test.describe('responsive mobile baselines', () => {
     await page.getByRole('button', { name: 'New request' }).click()
     await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
     await capture(page, 'employee-new-request-mobile.png')
+  })
+
+  test('employee leave request dialog', async ({ page }) => {
+    await prepare(page, 'employee', mobile, 'dark')
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Leave', exact: true }).click()
+    await page.getByRole('button', { name: 'New leave request' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Request leave' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'employee-leave-request-dark-mobile.png')
   })
 
   test('employee password change dialog', async ({ page }) => {
