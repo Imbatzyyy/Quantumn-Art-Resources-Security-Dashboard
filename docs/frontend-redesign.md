@@ -58,6 +58,18 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Expanded the shared HRMS snapshot and operation contracts to cover schedules, notifications, announcements, request comments, lifecycle cases/tasks, employee self-service actions, and Admin people-operations decisions.
 - Kept the Supabase provider implementation, database schema, RLS policies, Auth configuration, and production environment unchanged.
 
+## Phase 4 Admin operations migration
+
+- Migrated the remaining Admin Action Center to strict TypeScript while preserving its realtime date/time, operational metrics, priority queue, workforce coverage, approval and security summaries, attendance exceptions, and audit feed.
+- Extracted Payroll Runs into a strict TypeScript feature module with explicit payroll stages, protected generation, controlled stage transitions, release confirmations, and existing Supabase-backed operations intact.
+- Extracted Performance into a strict TypeScript feature module covering review cycles, private review drafts, publishing, employee goals, and calibrated score fields.
+- Extracted Documents & Policy into a strict TypeScript feature module while preserving document sensitivity, audience, acknowledgement, expiry, and publishing behavior.
+- Extracted Analytics & Reports into a strict TypeScript feature module with typed workforce, attendance, request, payroll, and audit CSV exports, including audit evidence for report generation.
+- Extracted Communications into a strict TypeScript feature module while preserving announcement audience, priority, scheduling, expiry, and employee-visible delivery behavior.
+- Converted the Admin portal router and role-aware page dispatch to strict TypeScript. All visible Admin and Employee feature pages are now routed through TypeScript modules.
+- Expanded the shared HRMS contract with typed payroll-run, performance-cycle, goal, document, announcement, and reporting operations.
+- Evaluated the legacy Supabase context migration and deliberately retained its JavaScript implementation for this checkpoint. Its historical operation signatures need a typed provider facade before conversion; changing them during a UI migration would create unnecessary authentication, Realtime, and data-mutation risk.
+
 ## Verification gates passed
 
 ```bash
@@ -67,7 +79,7 @@ npm run build
 git diff --check
 ```
 
-The Phase 1 browser-loaded local app reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to 275 KB; Admin and Employee feature bundles now load on demand. Phase 2 keeps the initial JavaScript bundle at approximately 275 KB while adding the migrated feature modules.
+The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, protected portal routes redirect correctly, and the browser reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to 275 KB; Admin and Employee feature bundles continue to load on demand. In Phase 4, the initial bundle remains approximately 275 KB, the Employee feature bundle is approximately 65 KB, and the Admin feature bundle is approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -81,8 +93,8 @@ The Phase 1 browser-loaded local app reported no console warnings or errors. The
 
 ## Recommended next continuation
 
-1. Extract Payroll, Performance, Documents, Analytics, Communications, and the Admin Action Center from `AdminPortal.jsx` into strict TypeScript modules.
-2. Migrate `HrmsContext.jsx` and the data-provider boundary to typed operation contracts in small, verified slices.
+1. Introduce a typed Supabase provider facade that normalizes the existing operation signatures without changing database behavior.
+2. Migrate `HrmsContext.jsx` through that facade in small, separately verified slices.
 3. Add component-level accessibility, keyboard-navigation, and responsive tests for the new feature modules.
 4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
 5. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.

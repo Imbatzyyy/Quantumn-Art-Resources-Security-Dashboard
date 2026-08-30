@@ -72,6 +72,26 @@ export interface PayrollRecord {
   deductions: number
   net: number
   status: string
+  runId?: number
+}
+
+export type PayrollStage = 'Draft' | 'Validation' | 'Approved' | 'Released' | 'Paid' | 'Locked'
+
+export interface PayrollRunRecord {
+  id: number
+  period: string
+  status: PayrollStage
+  employeeCount: number
+  grossTotal: number
+  netTotal: number
+  deductionRate: number
+  approvedBy?: string
+  releasedAt?: string
+}
+
+export interface PayrollGenerationInput {
+  period: string
+  deductionRate: number
 }
 
 export interface BenefitRecord {
@@ -109,7 +129,42 @@ export interface PerformanceRecord {
   rating: string
   status: string
   comments?: string
+  cycleId?: number | string
 }
+
+export interface PerformanceCycleRecord {
+  id: number
+  title: string
+  period: string
+  status: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface PerformanceCycleInput {
+  title: string
+  period: string
+  status: string
+  startDate: string
+  endDate: string
+}
+
+export interface PerformanceReviewInput {
+  id?: string
+  employeeId: string
+  cycleId: number | string
+  period: string
+  score: number
+  goalProgress: number
+  quality: number
+  productivity: number
+  teamwork: number
+  comments: string
+  rating?: string
+  status?: string
+}
+
+export type GoalInput = Omit<GoalRecord, 'id'>
 
 export interface DocumentRecord {
   id: string
@@ -123,6 +178,25 @@ export interface DocumentRecord {
   sensitive: boolean
   period?: string
   createdAt: string
+}
+
+export interface DocumentInput {
+  employeeId: string
+  title: string
+  type: string
+  period: string
+  content: string
+  filename: string
+  version: string
+  requiresAck: boolean
+  sensitive: boolean
+  expiresOn: string
+}
+
+export interface AnnouncementInput {
+  title: string
+  content: string
+  priority: string
 }
 
 export interface DocumentAcknowledgementRecord {
@@ -429,6 +503,8 @@ export interface HrmsSnapshot {
   requestComments: RequestCommentRecord[]
   lifecycleCases: LifecycleCaseRecord[]
   lifecycleTasks: LifecycleTaskRecord[]
+  payrollRuns: PayrollRunRecord[]
+  performanceCycles: PerformanceCycleRecord[]
 }
 
 export interface ToastMessage {
@@ -475,6 +551,14 @@ export interface HrmsContextValue {
   createLifecycleCase: (input: LifecycleCaseInput) => Promise<unknown>
   updateLifecycleTask: (id: string, status: string) => Promise<unknown>
   completeInitialPassword: (input: { currentPassword: string; newPassword: string }) => Promise<PortalIdentity>
+  generatePayroll: (input: PayrollGenerationInput) => Promise<unknown>
+  transitionPayrollRun: (id: number, status: PayrollStage) => Promise<unknown>
+  savePerformance: (input: PerformanceReviewInput) => Promise<unknown>
+  publishPerformance: (id: string) => Promise<unknown>
+  createPerformanceCycle: (input: PerformanceCycleInput) => Promise<unknown>
+  saveGoal: (input: GoalInput) => Promise<unknown>
+  createDocument: (input: DocumentInput) => Promise<unknown>
+  addAnnouncement: (input: AnnouncementInput) => Promise<unknown>
 }
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
