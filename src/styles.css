@@ -1044,13 +1044,15 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .leave-control textarea { min-height: 92px; padding: .8rem 0; resize: vertical; line-height: 1.5; }
 .leave-control textarea::placeholder { color: var(--text-faint); opacity: .8; }
 .leave-date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.leave-duration-field { margin-top: .75rem; min-height: 60px; padding: .65rem .75rem; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: .65rem; border: 1px solid color-mix(in srgb,var(--blue) 14%,var(--border)); border-radius: 15px; background: color-mix(in srgb,var(--blue-soft) 46%,var(--surface)); }
+.leave-duration-field { position: relative; margin-top: .75rem; min-height: 60px; padding: .65rem 5.9rem .65rem .75rem; display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: .65rem; border: 1px solid color-mix(in srgb,var(--blue) 14%,var(--border)); border-radius: 15px; background: color-mix(in srgb,var(--blue-soft) 46%,var(--surface)); }
 .leave-duration-field > span { width: 38px; height: 38px; display: grid; place-items: center; color: var(--blue); border-radius: 12px; background: var(--surface); }
 .leave-duration-field > span svg { width: 18px; }
 .leave-duration-field > div { min-width: 0; display: grid; gap: .08rem; }
 .leave-duration-field small { color: var(--text-faint); font-size: .5rem; font-weight: 850; text-transform: uppercase; letter-spacing: .07em; }
 .leave-duration-field input { width: 100%; padding: 0; color: var(--text); border: 0; outline: 0; background: transparent; font: inherit; font-size: .72rem; font-weight: 850; }
-.leave-duration-field .badge { white-space: nowrap; }
+.leave-duration-field .badge { position: absolute; top: 50%; right: .65rem; width: auto; min-width: 70px; min-height: 30px; padding: .34rem .62rem; display: inline-flex; align-items: center; justify-content: center; color: var(--text-soft); border: 1px solid color-mix(in srgb,var(--text-faint) 13%,var(--border)); border-radius: 999px; background: var(--surface); font-size: .55rem; line-height: 1; white-space: nowrap; box-shadow: 0 5px 14px rgba(7,35,57,.07); transform: translateY(-50%); }
+.leave-duration-field .badge-success { color: var(--green); border-color: color-mix(in srgb,var(--green) 18%,var(--border)); background: var(--green-soft); }
+.leave-duration-field .badge-danger { color: var(--red); border-color: color-mix(in srgb,var(--red) 18%,var(--border)); background: var(--red-soft); }
 .leave-request-error { margin: .55rem 0 0; }
 .leave-reason-field .leave-control { align-items: start; }
 .leave-reason-field .leave-control > svg { margin-top: .82rem; }
@@ -1110,8 +1112,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .leave-request-intro { min-height: 218px; grid-template-columns: 1fr; }
   .leave-request-intro > span { display: none; }
   .leave-request-intro .leave-balance-pill { grid-column: 1; }
-  .leave-duration-field { grid-template-columns: 38px minmax(0,1fr); }
-  .leave-duration-field .badge { grid-column: 2; justify-self: start; }
+  .leave-duration-field { gap: .5rem; padding-left: .6rem; padding-right: 5.35rem; }
+  .leave-duration-field .badge { right: .55rem; min-width: 64px; padding-inline: .5rem; }
 }
 .empty-state.compact { min-height: 160px; padding: 1.4rem; }
 .login-back-button { margin: -.2rem auto 0; }
