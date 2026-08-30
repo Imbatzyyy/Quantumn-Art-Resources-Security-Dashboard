@@ -5,6 +5,7 @@ const configuration = validateAuthenticatedE2eConfiguration(process.env)
 
 export default defineConfig({
   testDir: './authenticated-tests',
+  globalSetup: './authenticated-tests/global.setup.ts',
   outputDir: './test-results/authenticated',
   fullyParallel: false,
   workers: 1,

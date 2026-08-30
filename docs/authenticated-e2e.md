@@ -11,6 +11,8 @@ Run it only against either:
 
 The safety gate rejects ordinary production hostnames, including `quantumnhr.com` and a primary `*.netlify.app` site. Remote targets must use HTTPS and have the Netlify deploy-preview or branch-preview hostname shape. Both identities must end in `@quantum.test`, the data classification must be exactly `fictional-classroom-only`, and each password must be at least 12 characters.
 
+Before opening a browser, the harness also calls `/api/health` and requires the remote deployment to identify itself as a Netlify deploy/branch preview with `qa-preview` environment metadata. Its server-side Supabase URL must resolve to the exact isolated project reference named in `E2E_EXPECTED_SUPABASE_PROJECT_REF`. The known production Quantum HRMS project reference is rejected even if every other setting appears valid.
+
 Do not point a deploy preview at the production Supabase project. Authentication creates and then closes a tracked security session, so even this read-oriented test belongs only in an isolated test environment.
 
 ## Configure without committing credentials
@@ -20,6 +22,8 @@ cp .env.e2e.example .env.e2e
 ```
 
 Fill the ignored `.env.e2e` file with the isolated preview URL and the two classroom-only passwords. Never use personal credentials or a production administrator account.
+
+Configure the preview deployment itself with `QUANTUM_ENVIRONMENT=qa-preview`, the isolated project values for both the browser-safe and server-only Supabase variables, and an `APP_URL` matching the preview origin. Do not copy production Supabase values into a preview.
 
 ## Run
 
@@ -40,5 +44,6 @@ The command fails closed before opening a browser when configuration is missing 
 - The Employee identity is redirected away from the Admin workspace.
 - Both sessions can sign out cleanly.
 - No HTTP 5xx response or browser console error occurs during either journey.
+- The health preflight proves the preview context and explicitly approved isolated Supabase project match before authentication begins.
 
 MFA is intentionally not automated with a stored TOTP secret. If the isolated account requires MFA, the harness stops and reports that an account-owner-approved test factor is required.
