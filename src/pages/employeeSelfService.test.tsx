@@ -88,6 +88,25 @@ describe('Employee self-service provider boundaries', () => {
     }))
   })
 
+  it('preserves a private HR request draft when the protected provider rejects submission', async () => {
+    const user = userEvent.setup()
+    const submitRequest = vi.fn(async () => { throw new Error('Rejected by provider') })
+    renderEmployee({ submitRequest })
+    await user.click(screen.getByRole('button', { name: 'Request Center' }))
+    await user.click(screen.getByRole('button', { name: 'New request' }))
+    const dialog = screen.getByRole('dialog', { name: 'Create an HR request' })
+    const subject = within(dialog).getByLabelText('Subject')
+    const details = within(dialog).getByLabelText('Details')
+    await user.type(subject, 'Missing attendance record')
+    await user.type(details, 'My approved shift is missing from the attendance register.')
+    fireEvent.submit(dialog.querySelector('form')!)
+
+    await waitFor(() => expect(submitRequest).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
+    expect(subject).toHaveValue('Missing attendance record')
+    expect(details).toHaveValue('My approved shift is missing from the attendance register.')
+  })
+
   it('adds an employee-visible request response and cancels only an eligible request', async () => {
     const user = userEvent.setup()
     const addRequestComment = vi.fn(async () => emptySnapshot)
