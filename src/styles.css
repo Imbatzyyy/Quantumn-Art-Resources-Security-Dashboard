@@ -556,13 +556,41 @@ svg { flex: 0 0 auto; }
 .collapse-button svg { width: 17px; transition: transform 180ms; }
 .topbar-actions { display: flex; align-items: center; gap: .6rem; }
 .topbar-search { width: min(27vw, 310px); height: 40px; position: relative; display: flex; align-items: center; gap: .5rem; padding: 0 .7rem; border: 1px solid var(--border); border-radius: 11px; color: var(--text-faint); background: var(--surface-soft); }
+.topbar-search:focus-within { border-color: color-mix(in srgb, var(--blue) 42%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue-soft) 65%, transparent); }
 .topbar-search input { min-width: 0; width: 100%; border: 0; outline: none; color: var(--text); background: transparent; }
+.topbar-search kbd { display: none; padding: .16rem .32rem; color: var(--text-faint); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font: 700 .58rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.topbar-search:focus-within kbd { display: inline-block; }
 .portal-search-results { position: absolute; top: calc(100% + .5rem); right: 0; width: 100%; min-width: 230px; padding: .35rem; display: grid; gap: .2rem; border: 1px solid var(--border); border-radius: 11px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-lg); }
 .portal-search-results button { width: 100%; padding: .65rem .7rem; display: flex; align-items: center; gap: .55rem; color: var(--text); border: 0; border-radius: 8px; background: transparent; text-align: left; }
-.portal-search-results button:hover { color: var(--blue); background: var(--blue-soft); }
+.portal-search-results button:hover, .portal-search-results button.active { color: var(--blue); background: var(--blue-soft); }
+.portal-search-results button > span { min-width: 0; display: grid; gap: .08rem; }
+.portal-search-results button strong { color: inherit; font-size: .72rem; }
+.portal-search-results button small { color: var(--text-faint); font-size: .58rem; }
+.portal-search-results button:hover small, .portal-search-results button.active small { color: color-mix(in srgb, var(--blue) 72%, var(--text)); }
 .portal-search-results > span { padding: .75rem; color: var(--text-faint); font-size: .78rem; text-align: center; }
+.notification-control { position: relative; }
 .notification-button { position: relative; }
 .notification-button span { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 .25rem; display: grid; place-items: center; color: white; background: var(--red); border: 2px solid var(--surface); border-radius: 99px; font-size: .62rem; font-weight: 800; }
+.admin-attention-menu { width: min(380px, calc(100vw - 2rem)); position: absolute; top: calc(100% + .65rem); right: 0; overflow: hidden; color: var(--text); border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: 0 22px 52px rgba(4,18,34,.2); }
+.admin-attention-menu > header { padding: .85rem .9rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); background: linear-gradient(135deg,color-mix(in srgb,var(--blue-soft) 70%,var(--surface)),color-mix(in srgb,var(--green-soft) 45%,var(--surface))); }
+.admin-attention-menu > header > div { display: grid; gap: .08rem; }
+.admin-attention-menu > header small { color: var(--text-faint); font-size: .56rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.admin-attention-menu > header strong { font-size: .8rem; }
+.admin-attention-menu > header em { padding: .28rem .48rem; color: var(--red); border-radius: 999px; background: color-mix(in srgb,var(--red) 10%,var(--surface)); font-size: .62rem; font-style: normal; font-weight: 850; white-space: nowrap; }
+.admin-attention-list { padding: .35rem; display: grid; gap: .2rem; }
+.admin-attention-list > button { width: 100%; min-width: 0; padding: .65rem; display: grid; grid-template-columns: 34px minmax(0,1fr) auto; align-items: center; gap: .6rem; color: var(--text); border: 0; border-radius: 11px; background: transparent; text-align: left; }
+.admin-attention-list > button:hover, .admin-attention-list > button:focus-visible { background: var(--surface-soft); outline: none; }
+.admin-attention-list > button > span:nth-child(2) { min-width: 0; display: grid; gap: .12rem; }
+.admin-attention-list > button strong { font-size: .7rem; }
+.admin-attention-list > button small { color: var(--text-faint); font-size: .57rem; line-height: 1.35; }
+.admin-attention-list > button > em { min-width: 25px; height: 25px; display: grid; place-items: center; color: var(--text); border-radius: 9px; background: var(--surface-muted); font-size: .63rem; font-style: normal; font-weight: 850; }
+.attention-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; }
+.attention-icon svg { width: 16px; }
+.attention-approvals { color: var(--amber); background: var(--amber-soft); }
+.attention-security { color: var(--red); background: color-mix(in srgb,var(--red) 10%,transparent); }
+.admin-attention-menu > footer { padding: .68rem .85rem; display: flex; align-items: center; justify-content: space-between; gap: .7rem; border-top: 1px solid var(--border); background: var(--surface-soft); }
+.admin-attention-menu > footer button { padding: 0; color: var(--blue); border: 0; background: transparent; font-size: .65rem; font-weight: 800; }
+.admin-attention-menu > footer small { color: var(--text-faint); font-size: .53rem; white-space: nowrap; }
 .portal-content { padding: 2rem; }
 .page-stack { display: grid; gap: 1.5rem; max-width: 1480px; margin: 0 auto; }
 .sidebar-collapsed { grid-template-columns: 84px minmax(0, 1fr); }
@@ -1273,6 +1301,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .portal-content { padding: 1rem; }
   .topbar { height: 68px; padding: 0 1rem; }
   .topbar-title span { display: none; }
+  .admin-attention-menu { position: fixed; top: 62px; right: .75rem; left: .75rem; width: auto; }
+  .admin-attention-menu > footer { align-items: flex-start; flex-direction: column; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .section-actions .button { width: 100%; }
   .welcome-banner { min-height: 240px; align-items: flex-start; flex-direction: column; }

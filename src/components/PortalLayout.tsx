@@ -1,13 +1,15 @@
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   Bell,
   CalendarDays,
   ChevronLeft,
+  ClipboardCheck,
   LogOut,
   Menu,
   Moon,
   RotateCcw,
   Search,
+  ShieldAlert,
   Sun,
   X,
 } from 'lucide-react'
@@ -30,6 +32,9 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [highlightedResult, setHighlightedResult] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const searchInput = useRef<HTMLInputElement>(null)
   const [theme, setTheme] = useState<ThemeMode>(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   const portal = user?.portal === 'admin' ? 'admin' : 'employee'
   const isAdmin = portal === 'admin'
@@ -43,6 +48,19 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     document.documentElement.dataset.theme = theme
   }, [theme])
 
+  useEffect(() => {
+    const focusPortalSearch = (event: globalThis.KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setNotificationsOpen(false)
+        setSearchOpen(true)
+        searchInput.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', focusPortalSearch)
+    return () => document.removeEventListener('keydown', focusPortalSearch)
+  }, [])
+
   const visibleAlerts = user?.portal === 'admin'
     ? (data?.securityAlerts ?? [])
     : (data?.securityAlerts.filter((alert) => alert.employeeId === user?.id) ?? [])
@@ -54,8 +72,18 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     ? (data?.leaveRequests?.filter((item) => item.status === 'Pending').length ?? 0)
       + (data?.employeeRequests?.filter((item) => ['Submitted', 'Under Review', 'More Information'].includes(item.status)).length ?? 0)
     : 0
+  const pendingLeaveCount = isAdmin
+    ? data?.leaveRequests?.filter((item) => item.status === 'Pending').length ?? 0
+    : 0
+  const openRequestCount = isAdmin
+    ? data?.employeeRequests?.filter((item) => ['Submitted', 'Under Review', 'More Information'].includes(item.status)).length ?? 0
+    : 0
+  const attentionCount = isAdmin ? pendingApprovals + newAlerts : unreadNotifications
   const searchResults = search.trim()
-    ? items.filter((item) => item.label.toLowerCase().includes(search.trim().toLowerCase()))
+    ? items.filter((item) => {
+      const query = search.trim().toLowerCase()
+      return item.label.toLowerCase().includes(query) || item.group?.toLowerCase().includes(query)
+    })
     : []
 
   const navigate = (id: string) => {
@@ -63,12 +91,22 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     setMobileOpen(false)
     setSearch('')
     setSearchOpen(false)
+    setNotificationsOpen(false)
+    setHighlightedResult(0)
   }
 
   const searchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && searchResults[0]) {
+    if (event.key === 'ArrowDown' && searchResults.length) {
       event.preventDefault()
-      navigate(searchResults[0].id)
+      setHighlightedResult((value) => (value + 1) % searchResults.length)
+    }
+    if (event.key === 'ArrowUp' && searchResults.length) {
+      event.preventDefault()
+      setHighlightedResult((value) => (value - 1 + searchResults.length) % searchResults.length)
+    }
+    if (event.key === 'Enter' && searchResults[highlightedResult]) {
+      event.preventDefault()
+      navigate(searchResults[highlightedResult].id)
     }
     if (event.key === 'Escape') {
       setSearch('')
@@ -139,38 +177,87 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
           </div>
           <div className="topbar-actions">
             <div className="topbar-date" aria-label={`Today is ${currentDate}`}><CalendarDays size={16} /><span>{currentDate}</span></div>
-            <label className="topbar-search" onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}>
+            <div className="topbar-search" onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}>
               <Search size={17} />
               <input
+                ref={searchInput}
                 type="search"
+                role="combobox"
                 placeholder="Find a portal page"
                 aria-label="Find a portal page"
+                aria-autocomplete="list"
+                aria-controls="portal-search-results"
+                aria-expanded={searchOpen && Boolean(search.trim())}
+                aria-activedescendant={searchResults[highlightedResult] ? `portal-search-${searchResults[highlightedResult].id}` : undefined}
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value)
                   setSearchOpen(true)
+                  setNotificationsOpen(false)
+                  setHighlightedResult(0)
                 }}
                 onFocus={() => setSearchOpen(true)}
                 onKeyDown={searchKeyDown}
               />
+              <kbd aria-hidden="true">⌘K</kbd>
               {searchOpen && search && (
-                <div className="portal-search-results" role="listbox" aria-label="Matching portal pages">
-                  {searchResults.map(({ id, label, icon: Icon }) => (
-                    <button type="button" key={id} onMouseDown={() => navigate(id)}>
+                <div id="portal-search-results" className="portal-search-results" role="listbox" aria-label="Matching portal pages">
+                  {searchResults.map(({ id, label, icon: Icon, group }, index) => (
+                    <button
+                      id={`portal-search-${id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={index === highlightedResult}
+                      className={index === highlightedResult ? 'active' : ''}
+                      key={id}
+                      onMouseEnter={() => setHighlightedResult(index)}
+                      onMouseDown={() => navigate(id)}
+                    >
                       <Icon size={16} />
-                      <span>{label}</span>
+                      <span><strong>{label}</strong><small>{group}</small></span>
                     </button>
                   ))}
                   {searchResults.length === 0 && <span>No matching page</span>}
                 </div>
               )}
-            </label>
-            <button className="icon-button notification-button" aria-label={`${isAdmin ? pendingApprovals + newAlerts : unreadNotifications} items need attention`} onClick={() => onNavigate(isAdmin ? 'action-center' : 'inbox')}>
-              <Bell size={19} />
-              {(isAdmin ? pendingApprovals + newAlerts : unreadNotifications) > 0 && (
-                <span>{isAdmin ? pendingApprovals + newAlerts : unreadNotifications}</span>
+            </div>
+            <div className="notification-control" onBlur={() => window.setTimeout(() => setNotificationsOpen(false), 120)}>
+              <button
+                className="icon-button notification-button"
+                aria-label={isAdmin ? `Open admin notifications, ${attentionCount} items need attention` : `${attentionCount} unread notifications`}
+                aria-expanded={isAdmin ? notificationsOpen : undefined}
+                aria-controls={isAdmin ? 'admin-attention-menu' : undefined}
+                onClick={() => {
+                  if (!isAdmin) {
+                    onNavigate('inbox')
+                    return
+                  }
+                  setSearchOpen(false)
+                  setNotificationsOpen((value) => !value)
+                }}
+              >
+                <Bell size={19} />
+                {attentionCount > 0 && <span>{attentionCount > 99 ? '99+' : attentionCount}</span>}
+              </button>
+              {isAdmin && notificationsOpen && (
+                <section id="admin-attention-menu" className="admin-attention-menu" aria-label="Administrator attention center">
+                  <header><div><small>Live work queue</small><strong>Administrator attention</strong></div><em>{attentionCount} open</em></header>
+                  <div className="admin-attention-list">
+                    <button type="button" onMouseDown={() => navigate('approvals')}>
+                      <span className="attention-icon attention-approvals"><ClipboardCheck /></span>
+                      <span><strong>Approvals and HR cases</strong><small>{pendingLeaveCount} leave request{pendingLeaveCount === 1 ? '' : 's'} · {openRequestCount} employee case{openRequestCount === 1 ? '' : 's'}</small></span>
+                      <em>{pendingApprovals}</em>
+                    </button>
+                    <button type="button" onMouseDown={() => navigate('security')}>
+                      <span className="attention-icon attention-security"><ShieldAlert /></span>
+                      <span><strong>New security alerts</strong><small>Untriaged events requiring administrator review</small></span>
+                      <em>{newAlerts}</em>
+                    </button>
+                  </div>
+                  <footer><button type="button" onMouseDown={() => navigate('action-center')}>Open full Action Center</button><small>Updated through Supabase realtime</small></footer>
+                </section>
               )}
-            </button>
+            </div>
             <button className="icon-button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Toggle color theme">
               {theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}
             </button>

@@ -46,6 +46,18 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'admin-action-center-desktop.png')
   })
 
+  test('admin portal search and attention controls', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Open admin notifications, 3 items need attention' }).click()
+    await expect(page.getByLabel('Administrator attention center')).toBeVisible()
+    await capture(page, 'admin-attention-menu-desktop.png')
+
+    await page.getByRole('button', { name: 'Open admin notifications, 3 items need attention' }).click()
+    await page.getByRole('combobox', { name: 'Find a portal page' }).fill('security')
+    await expect(page.getByRole('option', { name: /Security Center/ })).toBeVisible()
+    await capture(page, 'admin-portal-search-desktop.png')
+  })
+
   test('people directory and employee creation', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'People Directory' }).click()
@@ -255,6 +267,13 @@ test.describe('responsive mobile baselines', () => {
     await page.getByRole('button', { name: 'Open menu' }).click()
     await expect(page.getByRole('navigation', { name: 'Portal navigation' })).toBeVisible()
     await capture(page, 'admin-navigation-mobile.png')
+  })
+
+  test('admin attention menu', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open admin notifications, 3 items need attention' }).click()
+    await expect(page.getByLabel('Administrator attention center')).toBeVisible()
+    await capture(page, 'admin-attention-menu-mobile.png')
   })
 
   test('employee navigation', async ({ page }) => {
