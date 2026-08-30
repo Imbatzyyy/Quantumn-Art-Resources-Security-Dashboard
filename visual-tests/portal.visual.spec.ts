@@ -3,6 +3,21 @@ import { expect, test, type Page } from '@playwright/test'
 
 const fixedTime = new Date('2026-08-30T01:30:00.000Z')
 
+const employeeDestinations = [
+  { slug: 'my-day', label: 'My Day' },
+  { slug: 'time-schedule', label: 'Time & Schedule' },
+  { slug: 'leave', label: 'Leave' },
+  { slug: 'request-center', label: 'Request Center' },
+  { slug: 'action-inbox', label: 'Action Inbox' },
+  { slug: 'pay-benefits', label: 'Pay & Benefits' },
+  { slug: 'goals-growth', label: 'Goals & Growth' },
+  { slug: 'documents', label: 'Documents' },
+  { slug: 'hr-help-center', label: 'HR Help Center' },
+  { slug: 'my-journey', label: 'My Journey' },
+  { slug: 'account-security', label: 'Account Security' },
+  { slug: 'my-profile', label: 'My Profile' },
+] as const
+
 async function prepare(page: Page, screen: string, viewport = { width: 1440, height: 900 }, theme: 'light' | 'dark' = 'light') {
   await page.setViewportSize(viewport)
   await page.clock.setFixedTime(fixedTime)
@@ -30,6 +45,13 @@ async function capture(page: Page, name: string) {
   await expectNoHorizontalOverflow(page)
   await expectRenderedContrast(page)
   await expect(page).toHaveScreenshot(name)
+}
+
+async function navigateEmployeePage(page: Page, label: string, mobile = false) {
+  if (label === 'My Day') return
+  if (mobile) await page.getByRole('button', { name: 'Open menu' }).click()
+  await page.locator('.portal-nav button').filter({ hasText: label }).click()
+  await expect(page.locator('.topbar-title strong')).toHaveText(label)
 }
 
 test.describe('premium desktop baselines', () => {
@@ -268,6 +290,14 @@ test.describe('premium desktop baselines', () => {
     await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
     await capture(page, 'employee-my-day-dark-desktop.png')
   })
+
+  test('every employee destination remains dark-mode compatible', async ({ page }) => {
+    await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')
+    for (const destination of employeeDestinations) {
+      await navigateEmployeePage(page, destination.label)
+      await capture(page, `employee-${destination.slug}-dark-desktop.png`)
+    }
+  })
 })
 
 test.describe('responsive mobile baselines', () => {
@@ -301,6 +331,22 @@ test.describe('responsive mobile baselines', () => {
     await page.getByRole('button', { name: 'New request' }).click()
     await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
     await capture(page, 'employee-new-request-mobile.png')
+  })
+
+  test('every employee destination remains usable in mobile dark mode', async ({ page }) => {
+    await prepare(page, 'employee', mobile, 'dark')
+    for (const destination of employeeDestinations) {
+      await navigateEmployeePage(page, destination.label, true)
+      await expectNoHorizontalOverflow(page)
+      await expectRenderedContrast(page)
+    }
+
+    const accountControls = page.locator('.personal-security-controls article')
+    await navigateEmployeePage(page, 'Account Security', true)
+    await expect(accountControls.first()).toBeVisible()
+    const firstControl = await accountControls.first().boundingBox()
+    expect(firstControl?.width ?? 0).toBeGreaterThan(300)
+    await capture(page, 'employee-account-security-dark-mobile.png')
   })
 
   test('employee creation dialog', async ({ page }) => {

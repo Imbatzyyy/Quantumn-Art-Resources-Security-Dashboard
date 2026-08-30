@@ -79,7 +79,12 @@
 }
 
 :root[data-theme='dark'] .portal-shell-admin { --workspace-accent: #8db8ff; }
-:root[data-theme='dark'] .portal-shell-employee { --workspace-accent: #75d5ca; }
+:root[data-theme='dark'] .portal-shell-employee {
+  --workspace-accent: #75d5ca;
+  --workspace-accent-soft: #123c3a;
+  color-scheme: dark;
+  background: var(--bg);
+}
 :root[data-theme='dark'] .portal-shell-employee .topbar {
   border-color: var(--border);
   background: rgba(23, 32, 45, .94);
@@ -335,13 +340,26 @@
     #f3f8f8;
 }
 
+:root[data-theme='dark'] .portal-shell-employee .portal-main,
+:root[data-theme='dark'] .portal-shell-employee .portal-content { background: var(--bg); }
 :root[data-theme='dark'] .portal-shell-employee .portal-sidebar { color: var(--text); border-color: var(--border); background: linear-gradient(180deg, #152536, #11212f); }
 :root[data-theme='dark'] .portal-shell-employee .sidebar-brand img { filter: brightness(0) invert(1); }
+:root[data-theme='dark'] .portal-shell-employee .sidebar-brand,
+:root[data-theme='dark'] .portal-shell-employee .sidebar-footer { border-color: var(--border); }
+:root[data-theme='dark'] .portal-shell-employee .sidebar-brand-lockup span,
+:root[data-theme='dark'] .portal-shell-employee .nav-group-label { color: #79949d; }
+:root[data-theme='dark'] .portal-shell-employee .mobile-close { color: var(--text); }
 :root[data-theme='dark'] .portal-shell-employee .profile-card { border-color: var(--border); background: rgba(255,255,255,.05); }
 :root[data-theme='dark'] .portal-shell-employee .profile-card strong { color: var(--text); }
+:root[data-theme='dark'] .portal-shell-employee .profile-card span,
+:root[data-theme='dark'] .portal-shell-employee .profile-card small { color: var(--text-soft); }
 :root[data-theme='dark'] .portal-shell-employee .portal-nav button,
 :root[data-theme='dark'] .portal-shell-employee .sidebar-footer button { color: var(--text-soft); }
-:root[data-theme='dark'] .portal-shell-employee .portal-content { background: var(--bg); }
+:root[data-theme='dark'] .portal-shell-employee .portal-nav button:hover { color: #8ee4da; background: rgba(55, 181, 167, .09); }
+:root[data-theme='dark'] .portal-shell-employee .portal-nav button.active { color: #8ee4da; background: linear-gradient(90deg, rgba(42, 170, 156, .19), rgba(42, 170, 156, .07)); }
+:root[data-theme='dark'] .portal-shell-employee .workspace-status { border-color: #315149; background: #183c36; }
+:root[data-theme='dark'] .portal-shell-employee .workspace-status strong { color: #91ead7; }
+:root[data-theme='dark'] .portal-shell-employee .workspace-status small { color: #9bbeb6; }
 
 .employee-dashboard { gap: 1.3rem; }
 .employee-day-hero {
@@ -756,10 +774,29 @@
 :root[data-theme='dark'] .portal-shell-employee .account-security-page > .section-heading h1 { color: var(--text); }
 :root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .section-heading p,
 :root[data-theme='dark'] .portal-shell-employee .account-security-page > .section-heading p { color: var(--text-soft); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .stats-grid .stat-card,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > .stats-grid .stat-card,
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .panel,
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > div > .panel,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > .panel,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > div > .panel { border-color: var(--border); }
 :root[data-theme='dark'] .portal-shell-employee .employee-feature-page .panel-header,
 :root[data-theme='dark'] .employee-documents-page .document-card,
 :root[data-theme='dark'] .employee-pay-page .benefit-grid > article { background: var(--surface); }
-:root[data-theme='dark'] .employee-profile-page .profile-page input { border-color: var(--border); background: var(--surface-soft); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page th { color: var(--text-faint); background: var(--surface-soft); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page tbody tr:hover { background: var(--surface-soft); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page .privacy-banner { color: #8db8ff; border-color: #34567d; background: linear-gradient(135deg, #172d48, #182a3a); }
+:root[data-theme='dark'] .employee-time-page .premium-clock-panel { border-color: var(--border); background: radial-gradient(circle at 92% 0%, rgba(55, 177, 163, .1), transparent 35%), linear-gradient(135deg, var(--surface), var(--surface-soft)); }
+:root[data-theme='dark'] .employee-time-page .schedule-strip article { color: var(--text); border-color: var(--border); background: var(--surface-soft); }
+:root[data-theme='dark'] .employee-time-page .schedule-strip article.today { border-color: #397f75; background: color-mix(in srgb, var(--teal-soft) 72%, var(--surface)); }
+:root[data-theme='dark'] .employee-inbox-page .notification-feed > button.unread { background: linear-gradient(90deg, #163433, var(--surface)); box-shadow: inset 4px 0 #42b9ab; }
+:root[data-theme='dark'] .employee-inbox-page .notification-icon,
+:root[data-theme='dark'] .employee-documents-page .document-icon { color: #7ee0d3; background: #153c39; }
+:root[data-theme='dark'] .employee-help-page .help-grid .panel:hover { border-color: #3b746e; box-shadow: 0 16px 32px rgba(0, 0, 0, .2); }
+:root[data-theme='dark'] .employee-profile-page .profile-page input { color: var(--text); border-color: var(--border); background: var(--surface-soft); -webkit-text-fill-color: var(--text); }
+:root[data-theme='dark'] .employee-profile-page .profile-page input:disabled { color: var(--text-soft); opacity: 1; -webkit-text-fill-color: var(--text-soft); }
+:root[data-theme='dark'] .employee-profile-page .profile-hero > span { color: #a9c9ff; background: #183762; }
+:root[data-theme='dark'] .account-security-page .security-tabs button.active { color: #8db8ff; background: var(--surface); }
 
 @media (max-width: 1080px) {
   .people-directory-page > .section-heading,

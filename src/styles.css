@@ -1053,8 +1053,21 @@ body:has(.modal-backdrop) { overflow: hidden; }
 
 @media (max-width: 620px) {
   .account-protection-hero, .security-command-hero { padding: 1.1rem; border-radius: 18px; }
-  .personal-security-controls > article, .coverage-list > article, .security-control-register > article { align-items: flex-start; flex-wrap: wrap; }
-  .personal-security-controls > article .button, .personal-security-controls > article > .badge, .coverage-list > article > .badge, .security-control-register > article > .badge { margin-left: 58px; }
+  .personal-security-controls > article, .coverage-list > article, .security-control-register > article {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: start;
+  }
+  .personal-security-controls > article .button,
+  .personal-security-controls > article > .badge,
+  .coverage-list > article > .badge,
+  .security-control-register > article > .badge {
+    width: max-content;
+    max-width: 100%;
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
+  }
   .personal-security-timeline article { grid-template-columns: 38px minmax(0,1fr); }
   .personal-security-timeline time { grid-column: 2; }
   .zap-scan-list article { grid-template-columns: 40px minmax(0,1fr); }
@@ -2381,6 +2394,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .employee-request-create-footer .button-primary:disabled { color: #536274; border: 1px solid #c8d0da; background: #edf0f4; box-shadow: none; opacity: 1; }
 :root[data-theme='dark'] .employee-request-create-intro small,:root[data-theme='dark'] .employee-request-section-heading small { color: #72ded0; }
 :root[data-theme='dark'] .employee-request-field > span:first-child em { color: #a9c9ff; background: rgba(62,122,218,.22); }
+:root[data-theme='dark'] .employee-request-priority label.active.priority-normal span,:root[data-theme='dark'] .employee-request-priority label.active.priority-normal small { color: #a9c9ff; }
 :root[data-theme='dark'] .employee-request-priority label.active.priority-high span,:root[data-theme='dark'] .employee-request-priority label.active.priority-high small { color: #ffd27a; }
 :root[data-theme='dark'] .employee-request-priority label.active.priority-urgent span,:root[data-theme='dark'] .employee-request-priority label.active.priority-urgent small { color: #ff9aa6; }
 :root[data-theme='dark'] .employee-request-create-footer .button-primary:disabled { color: #bdc8d5; border-color: #43546a; background: #26384a; }
