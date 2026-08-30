@@ -121,6 +121,16 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Detected and fixed a duplicate banner landmark in the Security Center alert composer by removing its nested semantic header while preserving the premium visual treatment.
 - Increased the deterministic frontend suite from 28 to 36 passing tests across eight files, with accessibility checks running inside the standard `npm run check` gate.
 
+## Phase 10 core HR operations regression coverage
+
+- Added provider-boundary coverage for explicit leave approval and the selected approval outcome.
+- Added schedule-assignment coverage for employee, date, shift, work mode, location, and administrator notes.
+- Added lifecycle coverage proving that starting an Offboarding case creates an accountable checklist and does not directly deactivate access from the UI.
+- Added payroll coverage that keeps draft generation separate from an explicitly confirmed stage transition.
+- Added HR-document coverage for audience, content metadata, acknowledgement requirements, and sensitive-record classification.
+- Added performance-cycle coverage for period, lifecycle status, and protected provider submission.
+- Increased the deterministic frontend suite from 36 to 42 passing tests across nine files without contacting Supabase or Netlify.
+
 ## Verification gates passed
 
 ```bash
@@ -131,7 +141,7 @@ npm run build
 git diff --check
 ```
 
-The automated suite contains 36 passing tests across eight files. The earlier local browser smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 9, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
+The automated suite contains 42 passing tests across nine files. The earlier local browser smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 10, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -145,7 +155,7 @@ The automated suite contains 36 passing tests across eight files. The earlier lo
 
 ## Recommended next continuation
 
-1. Add focused interaction tests for attendance, approvals, lifecycle, payroll, performance, documents, and employee request workflows.
+1. Add focused interaction tests for employee attendance, leave, HR requests, profile updates, goals, document acknowledgements, and notification workflows.
 2. Add responsive visual-regression coverage and rendered color-contrast checks for the two portal shells and their highest-risk workflows.
 3. Generate database types from the Supabase schema and apply them to table and RPC calls without changing the schema.
 4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
