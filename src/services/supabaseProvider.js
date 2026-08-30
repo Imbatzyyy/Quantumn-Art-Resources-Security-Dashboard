@@ -3,6 +3,9 @@ import { validatePermanentPassword } from '../utils/passwordPolicy.js'
 
 const sessionKey = (authUserId) => `quantum-hrms-session-${authUserId}`
 
+/** @returns {'admin' | 'employee'} */
+const portalForRole = (role) => role === 'employee' ? 'employee' : 'admin'
+
 const currentBrowserSessionCode = (authUserId) => {
   if (!authUserId || typeof window === 'undefined') return ''
   const key = sessionKey(authUserId)
@@ -579,7 +582,7 @@ export const supabaseProvider = {
     }
     return {
       ...profile,
-      portal: profile.role === 'employee' ? 'employee' : 'admin',
+      portal: portalForRole(profile.role),
       mustChangePassword: session.user.app_metadata?.must_change_password === true,
       mustSetPassword: session.user.app_metadata?.must_set_password === true,
     }
@@ -599,7 +602,7 @@ export const supabaseProvider = {
       if (!['Active', 'On Leave'].includes(profile.status)) {
         throw new Error('This account is inactive. Contact an HR administrator.')
       }
-      const resolvedPortal = profile.role === 'employee' ? 'employee' : 'admin'
+      const resolvedPortal = portalForRole(profile.role)
 
       if (resolvedPortal !== portal) {
         await client.auth.signOut()
@@ -622,7 +625,7 @@ export const supabaseProvider = {
         const factor = factors.totp?.[0]
         if (!factor) throw new Error('Your multi-factor authentication setup is incomplete. Contact an administrator.')
         return {
-          mfaRequired: true,
+          mfaRequired: /** @type {true} */ (true),
           factorId: factor.id,
           portal: resolvedPortal,
           email: profile.email,
@@ -661,7 +664,7 @@ export const supabaseProvider = {
     if (error) throw new Error('The authenticator code is invalid or expired.')
 
     const profile = await getProfileByAuthId((await currentSession()).user.id)
-    const resolvedPortal = profile.role === 'employee' ? 'employee' : 'admin'
+    const resolvedPortal = portalForRole(profile.role)
     if (resolvedPortal !== portal) {
       await client.auth.signOut()
       throw new Error('This account cannot access the selected portal.')

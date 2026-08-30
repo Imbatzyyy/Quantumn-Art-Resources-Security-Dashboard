@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -17,42 +17,51 @@ import { Link, useNavigate } from 'react-router-dom'
 import logoWhite from '../../assets/images/mainlogo.png'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
 import { useHrms } from '../state/useHrms.js'
+import type { AuthenticationResult, MfaChallenge, PortalKind } from '../types/hrms.js'
 
-export default function LoginPage({ portal }) {
+const errorMessage = (reason: unknown) => reason instanceof Error
+  ? reason.message
+  : 'The account could not be verified. Please try again.'
+
+const isMfaChallenge = (result: AuthenticationResult): result is MfaChallenge =>
+  'mfaRequired' in result
+
+export default function LoginPage({ portal }: { portal: PortalKind }) {
   const { login, verifyMfaLogin, logout } = useHrms()
   const navigate = useNavigate()
   const isAdmin = portal === 'admin'
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [mfaChallenge, setMfaChallenge] = useState(null)
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null)
   const [authenticatorCode, setAuthenticatorCode] = useState('')
   const [form, setForm] = useState({
     email: '',
     password: '',
   })
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitting(true)
     setError('')
     try {
       const result = await login({ ...form, portal })
-      if (result?.mfaRequired) {
+      if (isMfaChallenge(result)) {
         setMfaChallenge(result)
         setForm((current) => ({ ...current, password: '' }))
         return
       }
       navigate(`/${portal}`)
-    } catch (reason) {
-      setError(reason.message)
+    } catch (reason: unknown) {
+      setError(errorMessage(reason))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const submitMfa = async (event) => {
+  const submitMfa = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!mfaChallenge) return
     setSubmitting(true)
     setError('')
     try {
@@ -62,8 +71,8 @@ export default function LoginPage({ portal }) {
         portal,
       })
       navigate(`/${portal}`)
-    } catch (reason) {
-      setError(reason.message)
+    } catch (reason: unknown) {
+      setError(errorMessage(reason))
     } finally {
       setSubmitting(false)
     }
@@ -205,7 +214,7 @@ export default function LoginPage({ portal }) {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   pattern="[0-9]{6}"
-                  maxLength="6"
+                  maxLength={6}
                   placeholder="000000"
                   value={authenticatorCode}
                   onChange={(event) => setAuthenticatorCode(event.target.value.replace(/\D/g, '').slice(0, 6))}

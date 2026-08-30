@@ -1,15 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { dataProvider } from '../services/dataProvider.js'
 import { HrmsState } from './HrmsState.js'
+import type {
+  HrmsContextValue,
+  HrmsSnapshot,
+  MfaChallenge,
+  PortalIdentity,
+  ToastMessage,
+  ToastTone,
+} from '../types/hrms.js'
 
-export function HrmsProvider({ children }) {
-  const [data, setData] = useState(null)
-  const [user, setUser] = useState(null)
+const errorMessage = (error: unknown) => error instanceof Error
+  ? error.message
+  : 'The request could not be completed.'
+
+const isMfaChallenge = (result: PortalIdentity | MfaChallenge): result is MfaChallenge =>
+  'mfaRequired' in result
+
+export function HrmsProvider({ children }: { children: ReactNode }) {
+  const [data, setData] = useState<HrmsSnapshot | null>(null)
+  const [user, setUser] = useState<PortalIdentity | null>(null)
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const toastSequence = useRef(0)
 
-  const notify = useCallback((message, tone = 'success') => {
+  const notify = useCallback((message: string, tone: ToastTone = 'success') => {
     toastSequence.current += 1
     setToast({ id: toastSequence.current, message, tone, exiting: false })
   }, [])
@@ -48,11 +63,11 @@ export function HrmsProvider({ children }) {
           setUser(restoredUser)
           setData(snapshot)
         }
-      } catch (error) {
+      } catch (error: unknown) {
         if (active) {
           setUser(null)
           setData(null)
-          notify(error.message, 'error')
+          notify(errorMessage(error), 'error')
         }
       } finally {
         if (active) setLoading(false)
@@ -111,7 +126,7 @@ export function HrmsProvider({ children }) {
     if (!user) return undefined
 
     const timeoutMs = user.portal === 'admin' ? 15 * 60 * 1000 : 30 * 60 * 1000
-    let timeout
+    let timeout: number | undefined
     const expire = async () => {
       try {
         if (dataProvider.signOut) await dataProvider.signOut()
@@ -135,19 +150,19 @@ export function HrmsProvider({ children }) {
     }
   }, [notify, user])
 
-  const run = async (operation, successMessage) => {
+  const run = async (operation: () => Promise<HrmsSnapshot>, successMessage?: string) => {
     try {
       const snapshot = await operation()
       setData(snapshot)
       if (successMessage) notify(successMessage)
       return snapshot
-    } catch (error) {
-      notify(error.message || 'The request could not be completed.', 'error')
+    } catch (error: unknown) {
+      notify(errorMessage(error), 'error')
       throw error
     }
   }
 
-  const value = {
+  const value: HrmsContextValue = {
       data,
       user,
       loading,
@@ -155,7 +170,7 @@ export function HrmsProvider({ children }) {
       notify,
       async login(credentials) {
         const authenticated = await dataProvider.authenticate(credentials)
-        if (authenticated?.mfaRequired) return authenticated
+        if (isMfaChallenge(authenticated)) return authenticated
         if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = await dataProvider.getSnapshot()
         setUser(authenticated)
@@ -247,10 +262,7 @@ export function HrmsProvider({ children }) {
       savePerformance: (input) => run(() => dataProvider.savePerformance(input), 'Performance review saved.'),
       publishPerformance: (id) => run(() => dataProvider.publishPerformance(id), 'Performance review published to the employee.'),
       createPerformanceCycle: (input) => run(() => dataProvider.createPerformanceCycle(input), 'Performance cycle created.'),
-      recordActivity: (input) => run(() => dataProvider.recordActivity({
-        ...input,
-        actor: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
-      })),
+      recordActivity: (input) => run(() => dataProvider.recordActivity(input)),
       refreshData: () => run(
         () => dataProvider.refresh ? dataProvider.refresh() : dataProvider.getSnapshot(),
         'Latest records loaded.',

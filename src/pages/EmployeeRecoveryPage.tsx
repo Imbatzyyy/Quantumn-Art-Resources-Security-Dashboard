@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,30 +12,33 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
-import { requireSupabase } from '../services/supabaseClient.js'
+import { isSupabaseConfigured, requireSupabase } from '../services/supabaseClient.js'
 
-const strongPassword = (password) =>
+const strongPassword = (password: string) =>
   password.length >= 12 &&
   /[a-z]/.test(password) &&
   /[A-Z]/.test(password) &&
   /\d/.test(password) &&
   /[^A-Za-z0-9]/.test(password)
 
-export default function EmployeeRecoveryPage({ mode }) {
+export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'update' }) {
   const navigate = useNavigate()
   const isUpdate = mode === 'update'
+  const recoveryUnavailable = isUpdate && !isSupabaseConfigured
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [checkingLink, setCheckingLink] = useState(isUpdate)
+  const [checkingLink, setCheckingLink] = useState(isUpdate && isSupabaseConfigured)
   const [recoveryReady, setRecoveryReady] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(recoveryUnavailable
+    ? 'Secure account recovery is not configured in this preview environment.'
+    : '')
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    if (!isUpdate) return undefined
+    if (!isUpdate || !isSupabaseConfigured) return undefined
 
     const client = requireSupabase()
     let active = true
@@ -63,7 +66,7 @@ export default function EmployeeRecoveryPage({ mode }) {
     }
   }, [isUpdate])
 
-  const requestReset = async (event) => {
+  const requestReset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitting(true)
     setError('')
@@ -86,14 +89,14 @@ export default function EmployeeRecoveryPage({ mode }) {
         throw new Error('The recovery email could not be sent. Please try again shortly.')
       }
       setSuccess('If this email belongs to an employee account, a secure password-reset link has been sent.')
-    } catch (reason) {
-      setError(reason.message)
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : 'The recovery email could not be sent.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const updatePassword = async (event) => {
+  const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
     setSuccess('')
@@ -152,7 +155,7 @@ export default function EmployeeRecoveryPage({ mode }) {
 
           {isUpdate && !checkingLink && !recoveryReady && !success && (
             <div className="form-error" role="alert">
-              This recovery link is invalid or has expired. Request a new email to continue.
+              {error || 'This recovery link is invalid or has expired. Request a new email to continue.'}
             </div>
           )}
 

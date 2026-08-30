@@ -2,11 +2,11 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useHrms } from './state/useHrms.js'
 
-const LoginPage = lazy(() => import('./pages/LoginPage.jsx'))
-const EmployeeRecoveryPage = lazy(() => import('./pages/EmployeeRecoveryPage.jsx'))
+const LoginPage = lazy(() => import('./pages/LoginPage.js'))
+const EmployeeRecoveryPage = lazy(() => import('./pages/EmployeeRecoveryPage.js'))
 const AdminPortal = lazy(() => import('./pages/AdminPortal.js'))
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.js'))
-const AdminInviteSetupPage = lazy(() => import('./pages/AdminInviteSetupPage.jsx'))
+const AdminInviteSetupPage = lazy(() => import('./pages/AdminInviteSetupPage.js'))
 
 function WorkspaceLoading() {
   return <div className="app-loading"><span /><p>Preparing your secure workspace…</p></div>

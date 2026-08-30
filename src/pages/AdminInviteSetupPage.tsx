@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { ArrowRight, CheckCircle2, Circle, Eye, EyeOff, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoWhite from '../../assets/images/mainlogo.png'
-import { requireSupabase } from '../services/supabaseClient.js'
+import { isSupabaseConfigured, requireSupabase } from '../services/supabaseClient.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -12,7 +13,7 @@ import {
   validatePermanentPassword,
 } from '../utils/passwordPolicy.js'
 
-const roleLabels = {
+const roleLabels: Record<string, string> = {
   admin: 'System Administrator',
   hr_admin: 'HR Administrator',
   payroll_admin: 'Payroll Administrator',
@@ -23,19 +24,23 @@ const roleLabels = {
 export default function AdminInviteSetupPage() {
   const { user, completeAdminInvitation } = useHrms()
   const navigate = useNavigate()
-  const [checking, setChecking] = useState(true)
+  const [checking, setChecking] = useState(isSupabaseConfigured)
   const [ready, setReady] = useState(false)
   const [metadata, setMetadata] = useState({ email: '', firstName: '', lastName: '', role: '' })
   const [form, setForm] = useState({ password: '', confirmPassword: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(isSupabaseConfigured
+    ? ''
+    : 'Secure administrator invitations are not configured in this preview environment.')
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return undefined
+
     const client = requireSupabase()
     let active = true
-    const inspect = async (session) => {
+    const inspect = async (session: Session | null) => {
       if (!active) return
       const invited = session?.user?.app_metadata?.must_set_password === true
       setReady(invited)
@@ -62,7 +67,7 @@ export default function AdminInviteSetupPage() {
   const matches = Boolean(form.confirmPassword) && form.password === form.confirmPassword
   const readyToSubmit = Object.values(checks).every(Boolean) && matches
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
     const policyError = validatePermanentPassword(form.password, context)
@@ -73,8 +78,8 @@ export default function AdminInviteSetupPage() {
       await completeAdminInvitation({ newPassword: form.password })
       setSuccess(true)
       window.setTimeout(() => navigate('/admin/login', { replace: true }), 1500)
-    } catch (reason) {
-      setError(reason.message || 'The invitation could not be completed.')
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : 'The invitation could not be completed.')
     } finally {
       setSubmitting(false)
     }
@@ -95,7 +100,7 @@ export default function AdminInviteSetupPage() {
           <p>{success ? 'You will be redirected to the administrator sign-in page.' : `Complete the personal invitation for ${roleLabels[metadata.role] || 'your assigned role'}.`}</p>
 
           {checking && <div className="recovery-status"><span className="status-spinner" /><div><strong>Verifying invitation</strong><small>Checking the secure Supabase session.</small></div></div>}
-          {!checking && !ready && !success && <div className="form-error" role="alert">This invitation is invalid, expired, or has already been completed. Ask your System Administrator to issue a new invitation.</div>}
+          {!checking && !ready && !success && <div className="form-error" role="alert">{error || 'This invitation is invalid, expired, or has already been completed. Ask your System Administrator to issue a new invitation.'}</div>}
           {success && <div className="recovery-success"><CheckCircle2 /><div><strong>Password created</strong><p>Use your invited email and new password to sign in.</p></div></div>}
 
           {ready && !success && (

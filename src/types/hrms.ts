@@ -33,7 +33,44 @@ export interface PortalIdentity {
   mustChangePassword?: boolean
 }
 
-export interface EmployeeRecord extends PortalIdentity {
+export interface LoginCredentials {
+  email: string
+  password: string
+  portal: PortalKind
+}
+
+export interface MfaLoginInput {
+  factorId: string
+  code: string
+  portal: PortalKind
+}
+
+export interface MfaChallenge {
+  mfaRequired: true
+  factorId: string
+  portal: PortalKind
+  email: string
+}
+
+export type AuthenticationResult = PortalIdentity | MfaChallenge
+
+export interface PasswordChangeInput {
+  currentPassword: string
+  newPassword: string
+  confirmPassword?: string
+}
+
+export interface InitialPasswordInput {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface AdminInvitationCompletionInput {
+  newPassword: string
+}
+
+export interface EmployeeRecord extends Omit<PortalIdentity, 'portal'> {
+  portal?: PortalKind
   email: string
   role: string
   status: string
@@ -392,12 +429,14 @@ export interface MfaStatus {
   enabled: boolean
   factorId: string | null
   currentLevel: string
+  friendlyName?: string
 }
 
 export interface MfaEnrollment {
   factorId: string
   qrCode: string
   secret: string
+  uri?: string
 }
 
 export interface AuditRecord {
@@ -508,9 +547,69 @@ export interface HrmsSnapshot {
 }
 
 export interface ToastMessage {
+  id: number
   message: string
   tone: 'success' | 'error' | 'warning' | 'info'
   exiting?: boolean
+}
+
+export type ToastTone = ToastMessage['tone']
+
+export interface ActivityInput {
+  action: string
+  target: string
+}
+
+export interface HrmsDataProvider {
+  getSnapshot: () => Promise<HrmsSnapshot>
+  refresh?: () => Promise<HrmsSnapshot>
+  subscribeToChanges?: (onChange: () => void | Promise<void>) => (() => void) | undefined
+  getCurrentUser: () => Promise<PortalIdentity | null>
+  authenticate: (credentials: LoginCredentials) => Promise<AuthenticationResult>
+  verifyMfaLogin: (input: MfaLoginInput) => Promise<PortalIdentity>
+  signOut?: () => Promise<void>
+  recordCurrentSession?: () => Promise<string | null>
+  getMfaStatus: () => Promise<MfaStatus>
+  getOrganizationSecuritySummary: () => Promise<OrganizationSecuritySummary>
+  beginMfaEnrollment: () => Promise<MfaEnrollment>
+  verifyMfaEnrollment: (input: { factorId: string; code: string }) => Promise<MfaStatus>
+  disableMfa: (factorId: string | null) => Promise<MfaStatus>
+  addEmployee: (input: EmployeeProvisionInput) => Promise<HrmsSnapshot>
+  inviteAdminAccount: (input: AdminInviteInput) => Promise<HrmsSnapshot>
+  completeAdminInvitation: (input: AdminInvitationCompletionInput) => Promise<unknown>
+  completeInitialPassword: (input: InitialPasswordInput) => Promise<HrmsSnapshot>
+  updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<HrmsSnapshot>
+  submitLeave: (input: LeaveRequestInput) => Promise<HrmsSnapshot>
+  reviewLeave: (id: string, status: string) => Promise<HrmsSnapshot>
+  submitRequest: (input: EmployeeRequestInput) => Promise<HrmsSnapshot>
+  reviewRequest: (id: string, status: string, reason: string) => Promise<HrmsSnapshot>
+  addRequestComment: (id: string, body: string, internal?: boolean) => Promise<HrmsSnapshot>
+  cancelRequest: (id: string) => Promise<HrmsSnapshot>
+  markNotificationRead: (id: string) => Promise<HrmsSnapshot>
+  markAllNotificationsRead: () => Promise<HrmsSnapshot>
+  acknowledgeDocument: (id: string) => Promise<HrmsSnapshot>
+  updateGoalProgress: (id: string, progress: number) => Promise<HrmsSnapshot>
+  clock: (employeeId?: string) => Promise<HrmsSnapshot>
+  updateAlert: (id: string, status: string) => Promise<HrmsSnapshot>
+  addSecurityAlert: (input: SecurityAlertInput) => Promise<HrmsSnapshot>
+  respondToAlert: (id: string, action: string, note?: string) => Promise<HrmsSnapshot>
+  updateSecurityInvestigation: (input: SecurityInvestigationInput) => Promise<HrmsSnapshot>
+  importZapReport: (input: ZapImportInput) => Promise<HrmsSnapshot>
+  endSession: (id: string) => Promise<HrmsSnapshot>
+  changePassword: (input: PasswordChangeInput) => Promise<HrmsSnapshot>
+  addAnnouncement: (input: AnnouncementInput) => Promise<HrmsSnapshot>
+  createDocument: (input: DocumentInput) => Promise<HrmsSnapshot>
+  saveSchedule: (input: ScheduleInput) => Promise<HrmsSnapshot>
+  saveBenefit: (input: BenefitInput) => Promise<HrmsSnapshot>
+  saveGoal: (input: GoalInput) => Promise<HrmsSnapshot>
+  createLifecycleCase: (input: LifecycleCaseInput) => Promise<HrmsSnapshot>
+  updateLifecycleTask: (id: string, status: string) => Promise<HrmsSnapshot>
+  generatePayroll: (input: PayrollGenerationInput) => Promise<HrmsSnapshot>
+  transitionPayrollRun: (id: number, status: PayrollStage) => Promise<HrmsSnapshot>
+  savePerformance: (input: PerformanceReviewInput) => Promise<HrmsSnapshot>
+  publishPerformance: (id: string) => Promise<HrmsSnapshot>
+  createPerformanceCycle: (input: PerformanceCycleInput) => Promise<HrmsSnapshot>
+  recordActivity: (input: ActivityInput) => Promise<HrmsSnapshot>
 }
 
 export interface HrmsContextValue {
@@ -518,9 +617,13 @@ export interface HrmsContextValue {
   data: HrmsSnapshot | null
   loading: boolean
   toast: ToastMessage | null
+  notify: (message: string, tone?: ToastTone) => void
+  login: (credentials: LoginCredentials) => Promise<AuthenticationResult>
+  verifyMfaLogin: (input: MfaLoginInput) => Promise<PortalIdentity>
   logout: () => Promise<void>
   refreshData: () => Promise<unknown>
   inviteAdminAccount: (input: AdminInviteInput) => Promise<unknown>
+  completeAdminInvitation: (input: AdminInvitationCompletionInput) => Promise<unknown>
   addSecurityAlert: (input: SecurityAlertInput) => Promise<unknown>
   updateSecurityInvestigation: (input: SecurityInvestigationInput) => Promise<unknown>
   endSession: (id: string) => Promise<unknown>
@@ -528,7 +631,8 @@ export interface HrmsContextValue {
   recordActivity: (input: { action: string; target: string }) => Promise<unknown>
   getOrganizationSecuritySummary: () => Promise<OrganizationSecuritySummary>
   respondToAlert: (id: string, action: string, note?: string) => Promise<unknown>
-  changePassword: (input: { currentPassword: string; newPassword: string; confirmPassword?: string }) => Promise<unknown>
+  updateAlert: (id: string, status: string) => Promise<unknown>
+  changePassword: (input: PasswordChangeInput) => Promise<unknown>
   getMfaStatus: () => Promise<MfaStatus>
   beginMfaEnrollment: () => Promise<MfaEnrollment>
   verifyMfaEnrollment: (input: { factorId: string; code: string }) => Promise<MfaStatus>
@@ -550,7 +654,7 @@ export interface HrmsContextValue {
   reviewRequest: (id: string, status: string, reason: string) => Promise<unknown>
   createLifecycleCase: (input: LifecycleCaseInput) => Promise<unknown>
   updateLifecycleTask: (id: string, status: string) => Promise<unknown>
-  completeInitialPassword: (input: { currentPassword: string; newPassword: string }) => Promise<PortalIdentity>
+  completeInitialPassword: (input: InitialPasswordInput) => Promise<PortalIdentity | null>
   generatePayroll: (input: PayrollGenerationInput) => Promise<unknown>
   transitionPayrollRun: (id: number, status: PayrollStage) => Promise<unknown>
   savePerformance: (input: PerformanceReviewInput) => Promise<unknown>
