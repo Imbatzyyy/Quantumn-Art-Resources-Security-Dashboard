@@ -111,6 +111,25 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'publish-announcement-dark-desktop.png')
   })
 
+  test('premium protected HR document publishing', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'Documents & Policy' }).click()
+    await page.getByRole('button', { name: 'Publish document' }).click()
+    await expect(page.getByRole('dialog', { name: 'Publish HR document' })).toBeVisible()
+    await capture(page, 'publish-hr-document-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'Documents & Policy' }).click()
+    await page.getByRole('button', { name: 'Publish document' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Publish HR document' })
+    await dialog.getByLabel('Title').fill('Remote Work Security Policy')
+    await dialog.getByLabel('Filename').fill('remote-work-security-policy.txt')
+    await dialog.getByLabel('Document text').fill('Use approved devices and report unfamiliar account activity immediately.')
+    await dialog.getByLabel('Sensitive employee record').click()
+    await expect(dialog.getByRole('heading', { name: 'Secure delivery preview' })).toBeVisible()
+    await capture(page, 'publish-hr-document-dark-desktop.png')
+  })
+
   test('premium payroll draft review', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
@@ -243,6 +262,18 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'publish-announcement-mobile.png')
+  })
+
+  test('protected HR document publishing dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'Documents & Policy' }).click()
+    await page.getByRole('button', { name: 'Publish document' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Publish HR document' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'publish-hr-document-mobile.png')
   })
 
   test('employee request review dialog', async ({ page }) => {
