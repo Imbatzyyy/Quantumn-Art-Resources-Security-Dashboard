@@ -31,6 +31,14 @@ Configure the preview deployment itself with `QUANTUM_ENVIRONMENT=qa-preview`, t
 npm run test:e2e
 ```
 
+For the recommended subscription-free local environment, start Colima once and run the complete database plus authenticated gate:
+
+```bash
+npm run test:qa:local
+```
+
+The local runner generates both passwords in memory, verifies the Auth-to-profile links, supplies the credentials directly to Playwright, and destroys the temporary web process afterward. No `.env.e2e` file is required. See [local-free-qa.md](local-free-qa.md).
+
 The command fails closed before opening a browser when configuration is missing or the target, identities, classification, or password length violates the isolation policy. Failure traces, screenshots, and videos are written only to ignored local test-result folders.
 
 ## What is verified

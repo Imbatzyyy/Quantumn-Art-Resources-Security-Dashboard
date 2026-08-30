@@ -9,6 +9,8 @@ In the Supabase dashboard, open **SQL Editor** and run all migrations in filenam
 - `supabase/migrations/20260825090000_quantum_hrms.sql`
 - `supabase/migrations/20260825110000_complete_workflows.sql`
 - `supabase/migrations/20260825150000_premium_hrms.sql`
+- `supabase/migrations/20260829114500_people_directory_realtime.sql`
+- `supabase/migrations/20260829180000_unified_security_center.sql`
 
 They create the HRMS tables, fictional data, unified requests, schedules, benefits, goals, lifecycle cases, payroll runs, performance cycles, documents, notifications, workflow RPCs, audit triggers, grants, and Row-Level Security policies.
 
@@ -67,3 +69,7 @@ For this controlled demonstration:
 ## Security boundary
 
 The publishable key identifies the Supabase project; it is not an authorization secret. Supabase Auth supplies the user's access token, while PostgreSQL Row-Level Security decides which rows and operations that user may access. The privileged secret key exists only in Netlify's server-side environment and is used by one endpoint after that endpoint independently verifies the caller is an active HR administrator. Employee, payroll, request, document, workflow, and security data are never stored in browser storage.
+
+## Free local QA
+
+Use the local Supabase workflow for authenticated automation, migration resets, and OWASP ZAP active scanning. It does not consume another hosted Free-plan project and fails closed if its runner sees a non-local Supabase URL. See [local-free-qa.md](local-free-qa.md).

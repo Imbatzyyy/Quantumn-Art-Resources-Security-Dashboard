@@ -45,4 +45,20 @@ describe('deployment health metadata', () => {
     expect(body.environment).toBe('production')
     expect(body.supabase).toEqual({ configured: false, projectRef: null })
   })
+
+  it('uses an explicit non-secret local project identity for isolated QA', async () => {
+    vi.stubEnv('CONTEXT', 'dev')
+    vi.stubEnv('SUPABASE_URL', 'http://127.0.0.1:54321')
+    vi.stubEnv('SUPABASE_PROJECT_REF', 'localquantumhrmsqa01')
+    vi.stubEnv('QUANTUM_ENVIRONMENT', 'local')
+
+    const response = await health()
+    const body = await response.json() as HealthBody
+
+    expect(body).toMatchObject({
+      environment: 'local',
+      deploymentContext: 'dev',
+      supabase: { configured: true, projectRef: 'localquantumhrmsqa01' },
+    })
+  })
 })

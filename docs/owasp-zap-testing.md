@@ -3,7 +3,7 @@
 ## Authorized scope
 
 - Production passive baseline: `https://quantumnhr.com`
-- Active scanning: isolated Netlify deploy preview with fictional test data
+- Active scanning: local Supabase/Vite QA or an isolated Netlify deploy preview with fictional test data
 - Out of scope: Supabase, Netlify, Cloudflare, Resend, and third-party dashboards
 
 ## Safety rules
@@ -33,6 +33,33 @@ ZAP_STAGING_TARGET="https://DEPLOY-ID--quantumnartresources.netlify.app" \
 ```
 
 The script refuses the production domain.
+
+## Active local scan — recommended Free-plan workflow
+
+Start the local QA application:
+
+```bash
+npm run local:app
+```
+
+In another terminal, run ZAP from Docker against the host-only address:
+
+```bash
+ZAP_STAGING_TARGET="http://host.docker.internal:4175" \
+  ./security/zap/run-active-staging.sh
+```
+
+The active-scan script permits only this exact local Docker target or the authorized Netlify preview pattern. It rejects the production domain. Local setup and shutdown commands are documented in [local-free-qa.md](local-free-qa.md).
+
+## Latest verified local active scan
+
+- Completed: 30 August 2026
+- ZAP version: 2.17.0
+- Authorized target: local Docker-to-host address only
+- Crawled URLs: 5
+- Active/passive rule results: 141 passed, 0 failed, 0 warnings
+- Informational observation: `Non-Storable Content` on five dynamic responses; risk code 0
+- Evidence: local JSON and HTML reports generated successfully and excluded from Git
 
 Do not use the unique URL of a production deploy as the staging target when it still connects to the production Supabase project. The preview must use separate test environment variables and fictional accounts.
 

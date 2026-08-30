@@ -23,7 +23,7 @@ const resolveEnvironment = (context) => {
 
 export default async () => {
   const deploymentContext = env('CONTEXT') ?? 'unknown'
-  const supabaseProjectRef = projectRefFromUrl(env('SUPABASE_URL'))
+  const supabaseProjectRef = env('SUPABASE_PROJECT_REF') || projectRefFromUrl(env('SUPABASE_URL'))
 
   return new globalThis.Response(
     JSON.stringify({

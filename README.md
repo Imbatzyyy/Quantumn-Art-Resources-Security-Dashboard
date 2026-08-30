@@ -46,6 +46,14 @@ npm run preview
 
 Authenticated role-isolation QA is deliberately separate from `npm run check` because it requires an isolated Netlify deploy/branch preview, a separate fictional Supabase test project, and the two local-only classroom passwords. See [docs/authenticated-e2e.md](docs/authenticated-e2e.md). The harness rejects production hostnames, non-`@quantum.test` identities, the production Supabase project, and any preview whose server health metadata does not match the explicitly approved isolated backend before opening a browser.
 
+The recommended subscription-free route is the local Supabase gate:
+
+```bash
+npm run test:qa:local
+```
+
+It applies the migrations locally, runs pgTAP RLS/schema verification, creates two fictional Auth users with process-only random passwords, and executes real Admin/Employee Playwright journeys without touching hosted Supabase. See [docs/local-free-qa.md](docs/local-free-qa.md).
+
 ## Repository safety
 
 Only production source, migrations, tests, documentation, and required brand assets belong in version control. Local Netlify state, environment files, generated builds, deployment archives, Supabase CLI cache, temporary documents, legacy XAMPP code, SQL dumps, uploaded demo data, and generated OWASP ZAP reports are excluded by `.gitignore`.

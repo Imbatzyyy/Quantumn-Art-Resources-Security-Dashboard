@@ -14,6 +14,13 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "test:e2e": "node --env-file-if-exists=.env.e2e node_modules/@playwright/test/cli.js test --config playwright.authenticated.config.ts",
+    "test:e2e:local": "node scripts/run-local-authenticated-qa.mjs",
+    "test:db:local": "supabase test db --local",
+    "test:qa:local": "npm run local:supabase:start && npm run test:db:local && npm run test:e2e:local",
+    "local:app": "node scripts/start-local-qa.mjs",
+    "local:supabase:start": "supabase start",
+    "local:supabase:reset": "supabase db reset --local",
+    "local:supabase:stop": "supabase stop",
     "check": "npm run typecheck && npm run lint && npm run test && npm run test:visual && npm run build"
   },
   "dependencies": {
@@ -39,6 +46,7 @@
     "eslint-plugin-react-refresh": "0.5.4",
     "globals": "17.11.0",
     "happy-dom": "^20.12.0",
+    "supabase": "2.116.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.68.0",
     "vite": "8.2.2",

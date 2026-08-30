@@ -16,6 +16,7 @@ npm-debug.log*
 *.zip
 tmp/
 supabase/.temp/
+supabase/.branches/
 security/zap/reports/*.html
 security/zap/reports/*.json
 

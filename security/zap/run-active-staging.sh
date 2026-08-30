@@ -2,11 +2,12 @@
 set -euo pipefail
 target="${ZAP_STAGING_TARGET:-}"
 output_dir="${1:-security/zap/reports}"
-[[ -n "$target" ]] || { echo "Set ZAP_STAGING_TARGET to an isolated deploy-preview URL." >&2; exit 2; }
+[[ -n "$target" ]] || { echo "Set ZAP_STAGING_TARGET to the authorized local QA or isolated deploy-preview URL." >&2; exit 2; }
 case "$target" in
   https://quantumnhr.com*|https://www.quantumnhr.com*) echo "Refusing active scan against production." >&2; exit 3 ;;
   https://*--quantumnartresources.netlify.app) ;;
-  *) echo "Refusing scan: target is outside the authorized deploy-preview scope." >&2; exit 4 ;;
+  http://host.docker.internal:4175) ;;
+  *) echo "Refusing scan: target is outside the authorized local/preview scope." >&2; exit 4 ;;
 esac
 mkdir -p "$output_dir"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -26,6 +27,6 @@ else
   echo "Install Docker or set ZAP_HOME to an OWASP ZAP installation." >&2
   exit 5
 fi
-echo "Authorized staging-only active scan completed."
+echo "Authorized local/staging-only active scan completed."
 echo "JSON: ${output_dir}/${json_name}"
 echo "HTML: ${output_dir}/${html_name}"
