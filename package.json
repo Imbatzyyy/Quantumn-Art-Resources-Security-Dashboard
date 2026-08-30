@@ -18,6 +18,7 @@
     "test:mutations:local": "node scripts/run-local-mutation-qa.mjs",
     "test:db:local": "supabase test db --local",
     "test:qa:local": "npm run local:supabase:start && npm run test:db:local && npm run test:e2e:local && npm run test:mutations:local",
+    "demo:prepare:local": "npm run local:supabase:start && node scripts/prepare-local-demo.mjs",
     "local:app": "node scripts/start-local-qa.mjs",
     "local:supabase:start": "supabase start",
     "local:supabase:reset": "supabase db reset --local",

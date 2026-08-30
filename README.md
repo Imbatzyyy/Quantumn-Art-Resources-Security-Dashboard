@@ -54,6 +54,8 @@ npm run test:qa:local
 
 It applies the migrations locally, runs pgTAP RLS/schema verification, creates fictional Auth users with process-only random passwords, executes real Admin/Employee Playwright journeys, and performs disposable employee, invitation, approval, security, ZAP-import, and Realtime mutation checks without touching hosted Supabase or Resend. See [docs/local-free-qa.md](docs/local-free-qa.md).
 
+For a repeatable classroom presentation, run `npm run demo:prepare:local` and follow [docs/professor-demo.md](docs/professor-demo.md). The command creates random fictional credentials in an ignored, owner-readable local file and never modifies the hosted Supabase project.
+
 ## Repository safety
 
 Only production source, migrations, tests, documentation, and required brand assets belong in version control. Local Netlify state, environment files, generated builds, deployment archives, Supabase CLI cache, temporary documents, legacy XAMPP code, SQL dumps, uploaded demo data, and generated OWASP ZAP reports are excluded by `.gitignore`.
