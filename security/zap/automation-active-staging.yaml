@@ -1,0 +1,36 @@
+env:
+  contexts:
+    - name: Quantum HRMS isolated staging assessment
+      urls: [__TARGET__]
+      includePaths: [__TARGET__.*]
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+jobs:
+  - type: spider
+    parameters:
+      context: Quantum HRMS isolated staging assessment
+      url: __TARGET__
+      maxDuration: 2
+      maxDepth: 8
+  - type: passiveScan-wait
+    parameters: { maxDuration: 5 }
+  - type: activeScan
+    parameters:
+      context: Quantum HRMS isolated staging assessment
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 3
+      threadPerHost: 2
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: __OUTPUT_DIR__
+      reportFile: __HTML_REPORT__
+      reportTitle: Quantum HRMS Authorized OWASP ZAP Staging Assessment
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: __OUTPUT_DIR__
+      reportFile: __JSON_REPORT__
+      reportTitle: Quantum HRMS Authorized OWASP ZAP Staging Assessment

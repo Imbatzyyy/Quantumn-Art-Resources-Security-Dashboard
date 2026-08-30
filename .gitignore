@@ -1,0 +1,35 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.netlify/
+.DS_Store
+npm-debug.log*
+*.log
+*.zip
+tmp/
+supabase/.temp/
+security/zap/reports/*.html
+security/zap/reports/*.json
+
+# Legacy XAMPP prototype retained locally for historical reference only.
+# The production application is the React/Vite + Netlify + Supabase source.
+/SQL FILE/
+/backend/
+/css/
+/js/
+/admin-dashboard.html
+/admin-login.html
+/employee-dashboard.html
+/employee-login.html
+
+# Unused legacy/demo images, including personal profile photographs.
+/assets/images/Admin.jpg
+/assets/images/BGMAIN.jpg
+/assets/images/DAVID.png
+/assets/images/JACOB.png
+/assets/images/JB.png
+/assets/images/PRINCE.JPG
+/assets/images/mainlogo_orange.png

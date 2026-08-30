@@ -1,0 +1,30 @@
+env:
+  contexts:
+    - name: Quantum HRMS authorized baseline
+      urls: [__TARGET__]
+      includePaths: [__TARGET__.*]
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+jobs:
+  - type: spider
+    parameters:
+      context: Quantum HRMS authorized baseline
+      url: __TARGET__
+      maxDuration: 2
+      maxDepth: 8
+  - type: passiveScan-wait
+    parameters: { maxDuration: 5 }
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: __OUTPUT_DIR__
+      reportFile: __HTML_REPORT__
+      reportTitle: Quantum HRMS Authorized OWASP ZAP Baseline
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: __OUTPUT_DIR__
+      reportFile: __JSON_REPORT__
+      reportTitle: Quantum HRMS Authorized OWASP ZAP Baseline
