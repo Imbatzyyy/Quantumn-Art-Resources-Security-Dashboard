@@ -94,16 +94,28 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Closed remaining nullability gaps for expired sessions, missing invited-account email, unresolved current-user identity, absent MFA factors, and optional goal-record identifiers.
 - Migrated CSV download, date/money formatting, status tones, inclusive-day calculation, and password-policy utilities to TypeScript.
 
+## Phase 7 automated frontend regression coverage
+
+- Added Vitest with an isolated browser-like test environment and Testing Library assertions for React 19 components.
+- Added deterministic test fixtures for the complete HRMS context, all 24 snapshot collections, administrator identity, and employee identity without connecting to production Supabase.
+- Added unit coverage for password-policy scoring and guidance, CSV escaping, date/money/status formatting, inclusive-day calculations, and Supabase row normalization.
+- Added route-level regression coverage for the distinct Admin and Employee login experiences, accessible authentication fields, password visibility, private Employee recovery navigation, and the absence of cross-portal discovery links.
+- Added fail-closed coverage for unconfigured Employee password recovery and Admin invitation/password setup routes.
+- Added protected-route coverage for authentication restoration, signed-out redirects, employee separation from the Admin workspace, and required first-login Admin password setup.
+- Integrated the 17-test regression suite into `npm run check` so typechecking, linting, tests, and the production build must all pass together.
+- Kept every test local and deterministic: no Supabase data, Auth account, email, Netlify deployment, DNS record, or production configuration is read or changed.
+
 ## Verification gates passed
 
 ```bash
 npm run typecheck
 npm run lint
+npm run test
 npm run build
 git diff --check
 ```
 
-The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 6, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression. The small shared-bundle increase covers runtime validation at the Supabase row boundary.
+The automated suite contains 17 passing tests across five files. The earlier local browser smoke test covers `/`, `/employee/login`, `/admin/login`, `/employee/forgot-password`, `/employee/reset-password`, `/admin/setup-password`, `/employee`, and `/admin`. Both login experiences render after the authentication bootstrap settles, recovery/invitation routes fail closed when local Supabase variables are unavailable, protected portal routes redirect correctly, and the final browser run reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to approximately 277 KB; Admin and Employee feature bundles continue to load on demand. In Phase 7, the Employee feature bundle remains approximately 65 KB and the Admin feature bundle remains approximately 138 KB before gzip compression.
 
 ## Deliberately unchanged
 
@@ -117,8 +129,8 @@ The local route smoke test covers `/`, `/employee/login`, `/admin/login`, `/empl
 
 ## Recommended next continuation
 
-1. Add component-level accessibility, keyboard-navigation, responsive, and provider-boundary tests.
-2. Add automated route/error-boundary tests for authentication bootstrap and unconfigured preview behavior.
+1. Add focused interaction tests for the People Directory, Create Employee workflow, Admin Accounts, Security Center, and Employee self-service forms using a mocked provider boundary.
+2. Add automated accessibility checks and responsive visual regression coverage for the two portal shells and their highest-risk workflows.
 3. Generate database types from the Supabase schema and apply them to table and RPC calls without changing the schema.
 4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
 5. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
