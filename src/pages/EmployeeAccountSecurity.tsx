@@ -1,28 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   AlertTriangle, CheckCircle2, Clock3, Eye, KeyRound, Laptop, LockKeyhole,
   LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck,
 } from 'lucide-react'
-import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.tsx'
+import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, validatePermanentPassword } from '../utils/passwordPolicy.js'
 import { statusTone } from '../utils/format.js'
+import type { MfaEnrollment, MfaStatus, SecurityAlertSummary, SessionRecord } from '../types/hrms.js'
 
-const severityTone = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' }
+const severityTone: Record<string, string> = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'neutral' }
 const tabs = ['Overview', 'My alerts', 'My sessions', 'Security history']
-const when = (value) => value ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila' }).format(new Date(value)) : 'Not recorded'
+const when = (value?: string) => value ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila' }).format(new Date(value)) : 'Not recorded'
+const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback
+type EnrollmentState = ({ manage: true } | (MfaEnrollment & { manage?: false })) | null
 
 export default function EmployeeAccountSecurity() {
   const {
-    data, user, refreshData, respondToAlert, endSession, changePassword,
+    data: snapshot, user: identity, refreshData, respondToAlert, endSession, changePassword,
     getMfaStatus, beginMfaEnrollment, verifyMfaEnrollment, disableMfa,
   } = useHrms()
+  const data = snapshot!
+  const user = identity!
   const [activeTab, setActiveTab] = useState('Overview')
-  const [selectedAlert, setSelectedAlert] = useState(null)
-  const [selectedSession, setSelectedSession] = useState(null)
-  const [mfaStatus, setMfaStatus] = useState({ enabled: false, currentLevel: 'aal1', factorId: null })
+  const [selectedAlert, setSelectedAlert] = useState<SecurityAlertSummary | null>(null)
+  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null)
+  const [mfaStatus, setMfaStatus] = useState<MfaStatus>({ enabled: false, currentLevel: 'aal1', factorId: null })
   const [mfaLoading, setMfaLoading] = useState(true)
-  const [mfaEnrollment, setMfaEnrollment] = useState(null)
+  const [mfaEnrollment, setMfaEnrollment] = useState<EnrollmentState>(null)
   const [mfaCode, setMfaCode] = useState('')
   const [mfaError, setMfaError] = useState('')
   const [mfaSaving, setMfaSaving] = useState(false)
@@ -52,29 +57,32 @@ export default function EmployeeAccountSecurity() {
 
   const beginMfa = async () => {
     setMfaSaving(true); setMfaError('')
-    try { setMfaEnrollment(await beginMfaEnrollment()) } catch (error) { setMfaError(error.message) } finally { setMfaSaving(false) }
+    try { setMfaEnrollment(await beginMfaEnrollment()) } catch (error) { setMfaError(errorMessage(error, 'Authenticator setup could not be started.')) } finally { setMfaSaving(false) }
   }
-  const confirmMfa = async (event) => {
+  const confirmMfa = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setMfaSaving(true); setMfaError('')
+    if (!mfaEnrollment || 'manage' in mfaEnrollment) return setMfaSaving(false)
     try {
       setMfaStatus(await verifyMfaEnrollment({ factorId: mfaEnrollment.factorId, code: mfaCode }))
       setMfaEnrollment(null); setMfaCode(''); await refreshData()
-    } catch (error) { setMfaError(error.message) } finally { setMfaSaving(false) }
+    } catch (error) { setMfaError(errorMessage(error, 'The authenticator code could not be verified.')) } finally { setMfaSaving(false) }
   }
   const removeMfa = async () => {
     setMfaSaving(true); setMfaError('')
     try { setMfaStatus(await disableMfa(mfaStatus.factorId)); setMfaEnrollment(null); await refreshData() }
-    catch (error) { setMfaError(error.message) } finally { setMfaSaving(false) }
+    catch (error) { setMfaError(errorMessage(error, 'MFA could not be disabled.')) } finally { setMfaSaving(false) }
   }
-  const answerAlert = async (action) => {
+  const answerAlert = async (action: string) => {
+    if (!selectedAlert) return
     await respondToAlert(selectedAlert.id, action)
     setSelectedAlert(null)
   }
   const revokeOthers = async () => {
-    await endSession(selectedSession?.id)
+    if (!selectedSession) return
+    await endSession(selectedSession.id)
     setSelectedSession(null)
   }
-  const submitPassword = async (event) => {
+  const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setPasswordError('')
     const problem = validatePermanentPassword(passwordForm.newPassword, {
       currentPassword: passwordForm.currentPassword, email: user.email, firstName: user.firstName, lastName: user.lastName,
@@ -84,14 +92,14 @@ export default function EmployeeAccountSecurity() {
     try {
       await changePassword(passwordForm)
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); setShowPassword(false)
-    } catch (error) { setPasswordError(error.message) }
+    } catch (error) { setPasswordError(errorMessage(error, 'The password could not be changed.')) }
   }
 
   const timeline = useMemo(() => [
     ...alerts.map((item) => ({ id: `a-${item.id}`, at: item.createdAt, icon: AlertTriangle, title: item.title, detail: `${item.severity} alert · ${item.status}` })),
     ...responses.map((item) => ({ id: `r-${item.id}`, at: item.createdAt, icon: UserCheck, title: item.action, detail: `Response to ${item.alertId}` })),
-    ...sessions.map((item) => ({ id: `s-${item.id}`, at: item.createdAt, icon: Laptop, title: item.current ? 'Current browser session' : 'Browser session recorded', detail: `${item.device} · ${item.location}` })),
-  ].sort((a, b) => new Date(b.at) - new Date(a.at)), [alerts, responses, sessions])
+    ...sessions.map((item) => ({ id: `s-${item.id}`, at: item.createdAt ?? item.lastSeenAt ?? '', icon: Laptop, title: item.current ? 'Current browser session' : 'Browser session recorded', detail: `${item.device} · ${item.location}` })),
+  ].sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()), [alerts, responses, sessions])
 
   return <div className="page-stack account-security-page">
     <SectionHeading eyebrow="Your private account protection" title="Account Security" description="Protect your own sign-in, review personal security activity, and remove devices you do not recognize." actions={<button className="button button-secondary" onClick={refreshData}><RefreshCw size={17} />Refresh my activity</button>} />
@@ -135,7 +143,7 @@ export default function EmployeeAccountSecurity() {
 
     {selectedSession && <Modal title="End other sessions" onClose={() => setSelectedSession(null)}><div className="session-review"><span><LogOut /></span><div><h3>Sign out every other browser?</h3><p>This browser remains signed in. Supabase will revoke your other refresh sessions and the HRMS will record your security action.</p></div><div className="modal-actions"><button className="button button-secondary" onClick={() => setSelectedSession(null)}>Cancel</button><button className="button button-primary danger-button" onClick={revokeOthers}>End other sessions</button></div></div></Modal>}
 
-    {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button></div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength="6" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
+    {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button></div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
 
     {showPassword && <Modal title="Change your password" onClose={() => setShowPassword(false)}><form className="form-grid" onSubmit={submitPassword}><label className="span-2">Current password<input type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} required /></label><label className="span-2">New private password<input type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} required /><small className="form-note">Use a unique passphrase of at least {PASSWORD_MIN_LENGTH} characters.</small></label><label className="span-2">Confirm password<input type="password" autoComplete="new-password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })} required /></label>{passwordError && <p className="form-error span-2">{passwordError}</p>}<div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setShowPassword(false)}>Cancel</button><button className="button button-primary">Update my password</button></div></form></Modal>}
   </div>

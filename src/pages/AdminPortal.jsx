@@ -3,8 +3,6 @@ import {
   Activity,
   BarChart3,
   BellRing,
-  BriefcaseBusiness,
-  Building2,
   CalendarCheck,
   CalendarClock,
   CalendarDays,
@@ -14,22 +12,15 @@ import {
   ClipboardCheck,
   ClipboardList,
   Clock3,
-  ContactRound,
-  Copy,
   Download,
-  Eye,
-  EyeOff,
   FileCheck2,
   FileText,
   FolderLock,
   Gauge,
-  KeyRound,
-  MapPin,
   Megaphone,
   MessageSquareText,
   PhilippinePeso,
   Plus,
-  Search,
   ShieldCheck,
   Star,
   Target,
@@ -45,8 +36,9 @@ import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableS
 import { useHrms } from '../state/useHrms.js'
 import { downloadCsv } from '../utils/downloads.js'
 import { formatDate, formatDateTime, formatMoney, statusTone } from '../utils/format.js'
-import AdminSecurityCenter from './AdminSecurityCenter.jsx'
-import AdminAccounts from './AdminAccounts.jsx'
+import AdminSecurityCenter from './AdminSecurityCenter.js'
+import AdminAccounts from './AdminAccounts.js'
+import PeopleDirectory from './PeopleDirectory.js'
 
 const navItems = [
   { id: 'action-center', label: 'Action Center', icon: Gauge, badge: 'approvals', group: 'Workspace' },
@@ -172,191 +164,6 @@ function ActionCenter({ onNavigate }) {
       <section className="panel admin-audit-panel"><div className="panel-header"><div><span className="panel-kicker">Protected evidence</span><h2>Recent sensitive activity</h2><p>Authenticated database actions preserved for review.</p></div><button className="text-button" onClick={() => onNavigate('analytics')}>Open audit reports</button></div><div className="activity-feed">{data.auditLog.slice(0, 8).map((entry) => <article key={entry.id}><span><Activity /></span><div><strong>{entry.action}</strong><p>{entry.actor} · {entry.target}</p></div><time>{entry.time}</time></article>)}</div></section>
     </div>
   )
-}
-
-function PeopleDirectory({ onNavigate }) {
-  const { data, addEmployee, updateEmployee, saveBenefit } = useHrms()
-  const [query, setQuery] = useState('')
-  const [showAdd, setShowAdd] = useState(false)
-  const [selectedId, setSelectedId] = useState(null)
-  const [tab, setTab] = useState('summary')
-  const [benefitEmployee, setBenefitEmployee] = useState(null)
-  const [creating, setCreating] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState(null)
-  const [editForm, setEditForm] = useState(null)
-  const emptyForm = {
-    firstName: '', middleName: '', lastName: '', preferredName: '', email: '', phone: '',
-    department: 'Operations', position: '', employmentType: 'Full-time',
-    workArrangement: 'On-site', workLocation: 'Main Office', costCenter: '', managerId: '',
-    salary: 35000, hireDate: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()),
-    emergencyContactName: '', emergencyContactRelationship: '', emergencyContactPhone: '',
-    temporaryPassword: '',
-  }
-  const [form, setForm] = useState(emptyForm)
-  const [benefitForm, setBenefitForm] = useState({ type: 'Health', provider: '', planName: '', employeeShare: 0, employerShare: 0, status: 'Active', effectiveDate: new Date().toISOString().slice(0, 10) })
-  const selected = data.employees.find((employee) => employee.id === selectedId)
-  const employees = data.employees.filter((employee) => `${employee.id} ${employee.firstName} ${employee.lastName} ${employee.email} ${employee.department} ${employee.position}`.toLowerCase().includes(query.toLowerCase()))
-  const eligibleManagers = data.employees.filter((employee) =>
-    ['admin', 'hr_admin'].includes(employee.role) &&
-    ['Active', 'On Leave'].includes(employee.status),
-  )
-
-  const submit = async (event) => {
-    event.preventDefault()
-    setCreating(true)
-    try { await addEmployee(form); setShowAdd(false); setForm(emptyForm) } catch { /* Keep form open. */ }
-    finally { setCreating(false) }
-  }
-  const openEditor = (employee) => {
-    setEditForm({
-      firstName: employee.firstName, middleName: employee.middleName, lastName: employee.lastName,
-      preferredName: employee.preferredName, phone: employee.phone, department: employee.department,
-      position: employee.position, employmentType: employee.employmentType,
-      workArrangement: employee.workArrangement, workLocation: employee.workLocation,
-      costCenter: employee.costCenter, managerId: employee.managerId, salary: employee.salary,
-      hireDate: employee.hireDate, emergencyContactName: employee.emergencyContactName,
-      emergencyContactRelationship: employee.emergencyContactRelationship,
-      emergencyContactPhone: employee.emergencyContactPhone,
-    })
-    setEditingEmployee(employee)
-    setSelectedId(null)
-  }
-  const submitEdit = async (event) => {
-    event.preventDefault()
-    try { await updateEmployee(editingEmployee.id, editForm); setEditingEmployee(null); setEditForm(null) } catch { /* Keep form open. */ }
-  }
-  const submitBenefit = async (event) => {
-    event.preventDefault()
-    try { await saveBenefit({ ...benefitForm, employeeId: benefitEmployee }); setBenefitEmployee(null) } catch { /* Keep form open. */ }
-  }
-
-  return (
-    <div className="page-stack">
-      <SectionHeading eyebrow="Employee 360" title="People Directory" description="A single, role-aware profile for employment, time, pay, growth, documents, and account safety." actions={<button className="button button-primary" onClick={() => setShowAdd(true)}><Plus />Add employee</button>} />
-      <div className="stats-grid stats-grid-3"><StatCard icon={Users} label="People records" value={data.employees.length} tone="blue" /><StatCard icon={Building2} label="Departments" value={new Set(data.employees.map((item) => item.department)).size} tone="green" /><StatCard icon={UserRoundCheck} label="Active accounts" value={data.employees.filter((item) => item.status === 'Active').length} tone="purple" /></div>
-      <section className="panel"><div className="panel-header panel-header-wrap"><div><h2>Organization directory</h2><p>Select a person to open the complete employee record.</p></div><label className="compact-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by person, ID, or team" /></label></div>{employees.length ? <TableShell><thead><tr><th>Employee</th><th>Department</th><th>Position</th><th>Work setup</th><th>Access role</th><th>Status</th><th></th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="table-person"><span>{employee.firstName[0]}{employee.lastName[0]}</span><div><strong>{employee.preferredName || employee.firstName} {employee.lastName}</strong><small>{employee.id} · {employee.email}</small></div></div></td><td>{employee.department}</td><td>{employee.position}</td><td><strong>{employee.employmentType}</strong><small className="table-subtitle">{employee.workArrangement} · {employee.workLocation}</small></td><td><Badge tone={employee.role === 'employee' ? 'neutral' : 'info'}>{employee.role.replaceAll('_', ' ')}</Badge></td><td><Badge tone={statusTone(employee.status)}>{employee.status}</Badge></td><td><button className="text-button" onClick={() => { setSelectedId(employee.id); setTab('summary') }}>Open 360°</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={Users} title={query ? 'No matching employee' : 'No employee records yet'} text={query ? 'Try a different name, ID, department, or position.' : 'Create the first employee account to begin building the organization directory.'} />}</section>
-
-      {showAdd && <Modal title="Create employee account" onClose={() => !creating && setShowAdd(false)} size="large"><EmployeeForm form={form} setForm={setForm} managers={eligibleManagers} onSubmit={submit} onCancel={() => setShowAdd(false)} busy={creating} /></Modal>}
-      {editingEmployee && editForm && <Modal title={`Edit ${editingEmployee.firstName} ${editingEmployee.lastName}`} onClose={() => setEditingEmployee(null)} size="large"><EmployeeEditForm form={editForm} setForm={setEditForm} managers={eligibleManagers.filter((item) => item.id !== editingEmployee.id)} onSubmit={submitEdit} onCancel={() => setEditingEmployee(null)} /></Modal>}
-      {selected && <Modal title="Employee 360°" onClose={() => setSelectedId(null)} size="large"><div className="employee-360"><div className="profile-detail-head employee-360-head"><span>{selected.firstName[0]}{selected.lastName[0]}</span><div><h2>{selected.preferredName || selected.firstName} {selected.lastName}</h2><p>{selected.position} · {selected.department}</p><div className="inline-badges"><Badge tone={statusTone(selected.status)}>{selected.status}</Badge><Badge tone="neutral">{selected.id}</Badge></div></div></div><div className="tab-row" role="tablist">{['summary', 'time', 'pay', 'growth', 'documents', 'access'].map((item) => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div><Employee360Tab tab={tab} employee={selected} data={data} onAddBenefit={() => setBenefitEmployee(selected.id)} /><div className="modal-actions">{selected.role === 'employee' && <button className="button button-secondary" onClick={() => openEditor(selected)}>Edit employee</button>}{selected.role === 'employee' && selected.status === 'Active' && <button className="button button-secondary danger-text" onClick={() => { setSelectedId(null); onNavigate('lifecycle') }}><Workflow />Start secure offboarding</button>}{selected.role === 'employee' && selected.status === 'Inactive' && <button className="button button-secondary" onClick={async () => { try { await updateEmployee(selected.id, { status: 'Active' }) } catch { /* Toast handles it. */ } }}>Reactivate account</button>}<button className="button button-primary" onClick={() => setSelectedId(null)}>Done</button></div></div></Modal>}
-      {benefitEmployee && <Modal title="Add benefit record" onClose={() => setBenefitEmployee(null)}><form className="form-grid" onSubmit={submitBenefit}><label>Benefit type<input value={benefitForm.type} onChange={(event) => setBenefitForm({ ...benefitForm, type: event.target.value })} required /></label><label>Provider<input value={benefitForm.provider} onChange={(event) => setBenefitForm({ ...benefitForm, provider: event.target.value })} /></label><label className="span-2">Plan name<input value={benefitForm.planName} onChange={(event) => setBenefitForm({ ...benefitForm, planName: event.target.value })} required /></label><label>Employee share<input type="number" min="0" value={benefitForm.employeeShare} onChange={(event) => setBenefitForm({ ...benefitForm, employeeShare: event.target.value })} /></label><label>Employer share<input type="number" min="0" value={benefitForm.employerShare} onChange={(event) => setBenefitForm({ ...benefitForm, employerShare: event.target.value })} /></label><label>Effective date<input type="date" value={benefitForm.effectiveDate} onChange={(event) => setBenefitForm({ ...benefitForm, effectiveDate: event.target.value })} required /></label><label>Status<select value={benefitForm.status} onChange={(event) => setBenefitForm({ ...benefitForm, status: event.target.value })}><option>Active</option><option>Pending</option><option>Inactive</option></select></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setBenefitEmployee(null)}>Cancel</button><button className="button button-primary">Save benefit</button></div></form></Modal>}
-    </div>
-  )
-}
-
-const secureTemporaryPassword = () => {
-  const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%&*?']
-  const all = groups.join('')
-  const values = new Uint32Array(16)
-  window.crypto.getRandomValues(values)
-  const characters = groups.map((group, index) => group[values[index] % group.length])
-  for (let index = 4; index < values.length; index += 1) characters.push(all[values[index] % all.length])
-  return characters
-    .map((character, index) => ({ character, order: values[index] }))
-    .sort((left, right) => left.order - right.order)
-    .map(({ character }) => character)
-    .join('')
-}
-
-function EmployeeForm({ form, setForm, managers, onSubmit, onCancel, busy }) {
-  const [showPassword, setShowPassword] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const field = (key) => ({ value: form[key], onChange: (event) => setForm({ ...form, [key]: event.target.value }) })
-  const generatePassword = () => {
-    setForm({ ...form, temporaryPassword: secureTemporaryPassword() })
-    setShowPassword(true)
-    setCopied(false)
-  }
-  const copyPassword = async () => {
-    if (!form.temporaryPassword) return
-    await navigator.clipboard.writeText(form.temporaryPassword)
-    setCopied(true)
-  }
-
-  return (
-    <div className="employee-create-shell">
-      <div className="employee-create-intro">
-        <span><ShieldCheck /></span>
-        <div><strong>Secure employee provisioning</strong><p>Creates one Supabase Auth login and one role-scoped HR profile. No password is stored in the HR database.</p></div>
-        <Badge tone="success">Least privilege</Badge>
-      </div>
-      <form className="employee-create-form" onSubmit={onSubmit}>
-        <section className="employee-form-section">
-          <div className="employee-form-heading"><ContactRound /><div><h3>Personal identity</h3><p>Use the employee’s legal work record; optional names improve everyday display.</p></div></div>
-          <div className="form-grid employee-field-grid">
-            <label>First name<input maxLength="80" autoComplete="given-name" {...field('firstName')} required /></label>
-            <label>Middle name <small>Optional</small><input maxLength="80" autoComplete="additional-name" {...field('middleName')} /></label>
-            <label>Last name<input maxLength="80" autoComplete="family-name" {...field('lastName')} required /></label>
-            <label>Preferred name <small>Optional</small><input maxLength="80" {...field('preferredName')} /></label>
-            <label>Work email<input type="email" maxLength="254" autoComplete="off" {...field('email')} required /></label>
-            <label>Mobile number<input type="tel" minLength="7" maxLength="30" placeholder="+63 912 345 6789" autoComplete="tel" {...field('phone')} required /></label>
-          </div>
-        </section>
-
-        <section className="employee-form-section">
-          <div className="employee-form-heading"><BriefcaseBusiness /><div><h3>Employment assignment</h3><p>Core organization, reporting, location, and compensation information.</p></div></div>
-          <div className="form-grid employee-field-grid">
-            <label>Department<select {...field('department')}><option>Operations</option><option>Human Resources</option><option>Finance</option><option>Technology</option><option>Sales & Marketing</option><option>Creative</option></select></label>
-            <label>Position<input maxLength="120" {...field('position')} required /></label>
-            <label>Employment type<select {...field('employmentType')}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></label>
-            <label>Work arrangement<select {...field('workArrangement')}><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label>
-            <label>Work location<input maxLength="120" placeholder="Main Office" {...field('workLocation')} required /></label>
-            <label>Cost center <small>Optional</small><input maxLength="60" placeholder="Example: OPS-100" {...field('costCenter')} /></label>
-            <label>Start date<input type="date" {...field('hireDate')} required /></label>
-            <label>Reports to <small>Optional</small><select {...field('managerId')}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select></label>
-            <label className="span-2">Monthly base salary<input type="number" min="1" max="999999999" step="0.01" {...field('salary')} required /><small className="field-privacy">Restricted to authorized HR and payroll roles.</small></label>
-          </div>
-        </section>
-
-        <section className="employee-form-section">
-          <div className="employee-form-heading"><ContactRound /><div><h3>Emergency contact</h3><p>Optional and visible only to authorized HR roles.</p></div></div>
-          <div className="form-grid employee-field-grid employee-field-grid-3">
-            <label>Contact name <small>Optional</small><input maxLength="120" {...field('emergencyContactName')} /></label>
-            <label>Relationship <small>Optional</small><input maxLength="60" placeholder="Example: Parent" {...field('emergencyContactRelationship')} /></label>
-            <label>Contact number <small>Optional</small><input type="tel" minLength="7" maxLength="30" {...field('emergencyContactPhone')} /></label>
-          </div>
-        </section>
-
-        <section className="employee-form-section employee-access-section">
-          <div className="employee-form-heading"><KeyRound /><div><h3>Employee portal access</h3><p>The employee can sign in only at the employee portal and may change this temporary password later.</p></div></div>
-          <label className="secure-password-field">Temporary password<div><input type={showPassword ? 'text' : 'password'} minLength="12" maxLength="128" autoComplete="new-password" {...field('temporaryPassword')} required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff /> : <Eye />}</button><button type="button" onClick={copyPassword} aria-label="Copy password"><Copy /></button></div></label>
-          <div className="password-tools"><button className="button button-secondary" type="button" onClick={generatePassword}>Generate strong password</button><span>{copied ? 'Copied securely.' : '12+ characters with uppercase, lowercase, number, and symbol.'}</span></div>
-        </section>
-
-        <div className="employee-create-footer">
-          <div><ShieldCheck /><span>Server-validated · Auth-linked · RLS-protected · Audit logged</span></div>
-          <div className="modal-actions"><button className="button button-secondary" type="button" onClick={onCancel} disabled={busy}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? 'Creating secure account…' : 'Create employee & login'}</button></div>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-function EmployeeEditForm({ form, setForm, managers, onSubmit, onCancel }) {
-  const field = (key) => ({ value: form[key], onChange: (event) => setForm({ ...form, [key]: event.target.value }) })
-  return <form className="employee-create-form employee-edit-form" onSubmit={onSubmit}><section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Identity and contact</h3><p>Login email is intentionally not editable here because it is tied to Supabase Auth.</p></div></div><div className="form-grid employee-field-grid"><label>First name<input maxLength="80" {...field('firstName')} required /></label><label>Middle name <small>Optional</small><input maxLength="80" {...field('middleName')} /></label><label>Last name<input maxLength="80" {...field('lastName')} required /></label><label>Preferred name <small>Optional</small><input maxLength="80" {...field('preferredName')} /></label><label className="span-2">Mobile number<input type="tel" minLength="7" maxLength="30" {...field('phone')} required /></label></div></section><section className="employee-form-section"><div className="employee-form-heading"><MapPin /><div><h3>Employment assignment</h3><p>Changes synchronize to the employee’s portal immediately.</p></div></div><div className="form-grid employee-field-grid"><label>Department<input maxLength="100" {...field('department')} required /></label><label>Position<input maxLength="120" {...field('position')} required /></label><label>Employment type<select {...field('employmentType')}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></label><label>Work arrangement<select {...field('workArrangement')}><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label><label>Work location<input maxLength="120" {...field('workLocation')} required /></label><label>Cost center<input maxLength="60" {...field('costCenter')} /></label><label>Start date<input type="date" {...field('hireDate')} required /></label><label>Reports to<select {...field('managerId')}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select></label><label className="span-2">Monthly base salary<input type="number" min="1" step="0.01" {...field('salary')} required /></label></div></section><section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Emergency contact</h3><p>Optional and restricted to authorized HR roles.</p></div></div><div className="form-grid employee-field-grid employee-field-grid-3"><label>Name<input maxLength="120" {...field('emergencyContactName')} /></label><label>Relationship<input maxLength="60" {...field('emergencyContactRelationship')} /></label><label>Phone<input type="tel" minLength="7" maxLength="30" {...field('emergencyContactPhone')} /></label></div></section><div className="employee-create-footer"><div><ShieldCheck /><span>Changes are protected by Supabase RLS and recorded in the audit trail.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><button className="button button-primary">Save employee details</button></div></div></form>
-}
-
-function Employee360Tab({ tab, employee, data, onAddBenefit }) {
-  const attendance = data.attendance.filter((item) => item.employeeId === employee.id)
-  const payroll = data.payroll.filter((item) => item.employeeId === employee.id)
-  const benefits = data.benefits.filter((item) => item.employeeId === employee.id)
-  const goals = data.goals.filter((item) => item.employeeId === employee.id)
-  const performance = data.performance.filter((item) => item.employeeId === employee.id)
-  const documents = data.documents.filter((item) => item.employeeId === employee.id || !item.employeeId)
-  const acknowledgements = data.documentAcknowledgements.filter((item) => item.employeeId === employee.id)
-  const alerts = data.securityAlerts.filter((item) => item.employeeId === employee.id)
-  const sessions = data.sessions.filter((item) => item.employeeId === employee.id)
-
-  if (tab === 'summary') {
-    const manager = data.employees.find((item) => item.id === employee.managerId)
-    return <div className="profile-detail"><dl className="detail-grid"><div><dt>Employee ID</dt><dd>{employee.id}</dd></div><div><dt>Work email</dt><dd>{employee.email}</dd></div><div><dt>Legal name</dt><dd>{[employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ')}</dd></div><div><dt>Preferred name</dt><dd>{employee.preferredName || '—'}</dd></div><div><dt>Phone</dt><dd>{employee.phone}</dd></div><div><dt>Start date</dt><dd>{formatDate(employee.hireDate)}</dd></div><div><dt>Department</dt><dd>{employee.department}</dd></div><div><dt>Position</dt><dd>{employee.position}</dd></div><div><dt>Employment type</dt><dd>{employee.employmentType}</dd></div><div><dt>Work setup</dt><dd>{employee.workArrangement} · {employee.workLocation}</dd></div><div><dt>Manager</dt><dd>{manager ? `${manager.firstName} ${manager.lastName}` : 'Not assigned'}</dd></div><div><dt>Cost center</dt><dd>{employee.costCenter || '—'}</dd></div><div><dt>Emergency contact</dt><dd>{employee.emergencyContactName || 'Not provided'}</dd></div><div><dt>Emergency phone</dt><dd>{employee.emergencyContactPhone || '—'}</dd></div></dl><div className="mini-stats"><article><span>Open requests</span><strong>{data.employeeRequests.filter((item) => item.employeeId === employee.id && openRequestStatuses.includes(item.status)).length}</strong></article><article><span>Leave pending</span><strong>{data.leaveRequests.filter((item) => item.employeeId === employee.id && item.status === 'Pending').length}</strong></article><article><span>Active goals</span><strong>{goals.filter((item) => item.status === 'Active').length}</strong></article></div></div>
-  }
-  if (tab === 'time') return <div className="compact-record-list">{attendance.slice(0, 8).map((item) => <article key={item.id}><div><strong>{formatDate(item.date)}</strong><p>{item.clockIn ?? '—'}–{item.clockOut ?? 'Open'} · {item.hours.toFixed(1)} hrs</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}{!attendance.length && <EmptyState icon={Clock3} title="No attendance records" text="Clock activity will appear here." />}</div>
-  if (tab === 'pay') return <div className="employee-360-stack"><div className="subsection-title"><div><h3>Payroll</h3><p>Visible only to authorized payroll roles</p></div><strong>{payroll[0] ? formatMoney(payroll[0].net) : '—'}</strong></div>{payroll.length ? <div className="compact-record-list">{payroll.slice(0, 4).map((item) => <article key={item.id}><div><strong>{item.period}</strong><p>Gross {formatMoney(item.gross)} · Net {formatMoney(item.net)}</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}</div> : <EmptyState icon={PhilippinePeso} title="No payroll records" text="Generated payroll runs will appear here according to the employee’s access scope." />}<div className="subsection-title"><div><h3>Benefits</h3><p>{benefits.length} plan records</p></div><button className="button button-secondary" onClick={onAddBenefit}><Plus />Add benefit</button></div>{benefits.length ? <div className="compact-record-list">{benefits.map((item) => <article key={item.id}><div><strong>{item.planName}</strong><p>{item.type} · Employer {formatMoney(item.employerShare)}</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}</div> : <EmptyState icon={BriefcaseBusiness} title="No benefit records" text="Add a benefit plan when enrollment information is available." />}</div>
-  if (tab === 'growth') return <div className="employee-360-stack">{goals.length ? <div className="compact-record-list">{goals.map((item) => <article key={item.id}><div><strong>{item.title}</strong><p>{item.category} · Due {formatDate(item.dueDate)}</p></div><strong>{item.progress}%</strong></article>)}</div> : <EmptyState icon={Target} title="No active goals" text="Goals assigned from Performance will appear here." />}{performance.map((item) => <div className="decision-note" key={item.id}><Star /><div><strong>{item.period} · {item.score}/100</strong><p>{item.rating} · {item.status}</p></div></div>)}</div>
-  if (tab === 'documents') return documents.length ? <div className="compact-record-list">{documents.map((item) => { const acknowledged = acknowledgements.some((ack) => ack.documentId === item.id); return <article key={item.id}><div><strong>{item.title}</strong><p>{item.type} · Version {item.version}</p></div>{item.requiresAck ? <Badge tone={acknowledged ? 'success' : 'warning'}>{acknowledged ? 'Acknowledged' : 'Due'}</Badge> : <Badge tone="neutral">Available</Badge>}</article> })}</div> : <EmptyState icon={FolderLock} title="No employee documents" text="Employee-specific and organization-wide documents will appear here." />
-  return <div className="employee-360-stack"><div className="mini-stats"><article><span>Open alerts</span><strong>{alerts.filter((item) => item.status !== 'Resolved').length}</strong></article><article><span>Sessions</span><strong>{sessions.length}</strong></article><article><span>Access role</span><strong className="small-value">{employee.role}</strong></article></div>{alerts.length ? <div className="compact-record-list">{alerts.slice(0, 5).map((item) => <article key={item.id}><div><strong>{item.title}</strong><p>{item.time}</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}</div> : <EmptyState icon={ShieldCheck} title="No security alerts" text="New account-security events will appear here for authorized review." />}</div>
 }
 
 function TimeOperations() {

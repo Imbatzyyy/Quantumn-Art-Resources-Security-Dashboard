@@ -475,3 +475,311 @@
   .admin-metric-grid .stat-card, .employee-metric-grid .stat-card { min-height: 115px; }
   .topbar-actions { gap: .35rem; }
 }
+
+/* Phase 2: people operations, privileged identity, security operations,
+   and the complete employee self-service suite. */
+
+.people-directory-page,
+.admin-accounts-page,
+.security-operations-page { gap: 1.2rem; }
+
+.people-directory-page > .section-heading,
+.admin-accounts-page > .section-heading,
+.security-operations-page > .section-heading {
+  min-height: 142px;
+  padding: 1.5rem 1.65rem;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--blue-soft) 90%, transparent), transparent 36%),
+    linear-gradient(140deg, var(--surface), color-mix(in srgb, var(--surface-soft) 85%, var(--blue-soft)));
+  box-shadow: 0 16px 38px rgba(24, 47, 76, .075);
+}
+
+.people-directory-page > .section-heading h1,
+.admin-accounts-page > .section-heading h1,
+.security-operations-page > .section-heading h1 { font-size: clamp(2rem, 3.2vw, 2.85rem); }
+
+.people-directory-page > .section-heading p,
+.admin-accounts-page > .section-heading p,
+.security-operations-page > .section-heading p { max-width: 800px; line-height: 1.6; }
+
+.people-add-button {
+  min-height: 52px;
+  padding-inline: 1.2rem;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #316ed9, #1f54bc);
+  box-shadow: 0 12px 26px rgba(35, 91, 196, .24);
+}
+
+.people-assurance-strip {
+  min-height: 86px;
+  padding: 1rem 1.2rem;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .9rem;
+  color: #e8f8f5;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 94% 0%, rgba(94, 223, 205, .2), transparent 34%),
+    linear-gradient(115deg, #142438, #184659 72%, #17675f);
+  box-shadow: 0 16px 34px rgba(11, 35, 55, .15);
+}
+
+.people-assurance-strip > span:not(.badge) {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  color: #7fe0d2;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .07);
+}
+
+.people-assurance-strip div { min-width: 0; }
+.people-assurance-strip strong { color: white; }
+.people-assurance-strip p { margin: .22rem 0 0; color: rgba(255, 255, 255, .62); font-size: .76rem; line-height: 1.5; }
+.people-assurance-strip > .badge { color: #d9fff8; border: 1px solid rgba(126, 237, 216, .23); background: rgba(5, 38, 52, .32); }
+
+.people-metric-grid .stat-card {
+  min-height: 130px;
+  border-radius: 20px;
+  box-shadow: 0 11px 28px rgba(25, 48, 77, .065);
+}
+
+.people-directory-panel { border-radius: 23px; box-shadow: 0 17px 40px rgba(24, 47, 76, .075); }
+.people-directory-panel .panel-header { min-height: 96px; }
+.people-search { width: min(100%, 390px); min-height: 46px; padding-inline: .9rem; border-radius: 14px; background: var(--surface); }
+.people-directory-panel table { min-width: 1040px; }
+.people-directory-panel th { height: 48px; color: var(--text-faint); background: color-mix(in srgb, var(--surface-soft) 88%, var(--blue-soft)); font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; }
+.people-directory-panel td { min-height: 74px; padding-block: .9rem; }
+.people-directory-panel tbody tr { transition: background .16s ease, box-shadow .16s ease; }
+.people-directory-panel tbody tr:hover { background: color-mix(in srgb, var(--blue-soft) 30%, var(--surface)); box-shadow: inset 3px 0 var(--blue); }
+.people-directory-panel .table-person > span { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(145deg, #e8f0ff, #dce9ff); }
+.people-open-button { padding: .48rem .68rem; border: 1px solid color-mix(in srgb, var(--blue) 16%, var(--border)); border-radius: 10px; background: var(--blue-soft); white-space: nowrap; }
+
+.employee-provision-steps {
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 1;
+  padding-top: .85rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .55rem;
+  border-top: 1px solid rgba(255, 255, 255, .11);
+}
+
+.employee-provision-steps > span {
+  min-height: 38px;
+  padding: .45rem .58rem;
+  display: flex;
+  align-items: center;
+  gap: .48rem;
+  color: rgba(255, 255, 255, .68);
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 11px;
+  background: rgba(2, 24, 40, .2);
+  font-size: .63rem;
+  font-weight: 760;
+}
+
+.employee-provision-steps b {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: #092b42;
+  border-radius: 7px;
+  background: #7fe1d2;
+  font-size: .61rem;
+}
+
+.modal-large:has(.employee-create-shell) { width: min(100%, 1040px); }
+.employee-create-intro { min-height: 190px; grid-template-columns: 60px minmax(0, 1fr) auto; }
+.employee-create-form { padding: 1.55rem; gap: 1.35rem; }
+.employee-form-section { padding: 1.45rem; border-radius: 25px; }
+.employee-form-section:not(.employee-access-section) { background: linear-gradient(150deg, var(--surface), color-mix(in srgb, var(--surface-soft) 88%, var(--blue-soft))); }
+.employee-field-grid label { padding: .2rem; }
+.employee-create-form input,
+.employee-create-form select,
+.employee-create-form textarea { min-height: 58px; }
+.employee-create-footer { padding: 1.05rem 1.2rem; }
+
+.admin-accounts-page > .section-heading {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(135, 96, 220, .1), transparent 38%),
+    linear-gradient(140deg, var(--surface), color-mix(in srgb, var(--surface-soft) 84%, var(--purple-soft)));
+}
+
+.admin-access-banner { min-height: 98px; border-radius: 22px; box-shadow: 0 18px 42px rgba(4, 34, 53, .17); }
+.admin-accounts-page > .stats-grid .stat-card { border-radius: 20px; }
+.admin-accounts-page > .panel { border-radius: 23px; box-shadow: 0 15px 34px rgba(24, 47, 76, .07); }
+.admin-role-catalog { padding: 1rem; gap: .85rem; }
+.admin-role-catalog article { min-height: 210px; border-radius: 18px; background: linear-gradient(145deg, var(--surface), var(--surface-soft)); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.admin-role-catalog article:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--blue) 25%, var(--border)); box-shadow: 0 15px 30px rgba(24, 47, 76, .1); }
+.admin-role-catalog article > span { width: 48px; height: 48px; border-radius: 15px; }
+.admin-accounts-page table { min-width: 920px; }
+
+.modal-large:has(.admin-invite-modal-shell) { width: min(100%, 1040px); border-radius: 28px; }
+.admin-invite-modal-shell { background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--purple-soft) 75%, transparent), transparent 31%), var(--surface-soft); }
+.admin-account-form { padding: 1.4rem; }
+.admin-identity-section,
+.admin-account-form > section:not(.admin-identity-section) { padding: 1.25rem; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: 0 12px 28px rgba(19, 42, 69, .055); }
+.admin-identity-grid { gap: 1rem; }
+.admin-field-card { border-radius: 20px; }
+.admin-role-selector > label { border-radius: 19px; background: linear-gradient(145deg, var(--surface), var(--surface-soft)); }
+.admin-role-selector > label.selected { background: linear-gradient(145deg, color-mix(in srgb, var(--teal-soft) 78%, var(--surface)), var(--surface)); }
+
+.security-operations-page > .section-heading {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(35, 153, 145, .12), transparent 36%),
+    linear-gradient(140deg, var(--surface), color-mix(in srgb, var(--surface-soft) 82%, var(--teal-soft)));
+}
+
+.security-operations-page .security-command-hero { min-height: 122px; border-radius: 24px; }
+.security-operations-tabs { position: sticky; top: 88px; z-index: 12; padding: .45rem; border-radius: 18px; background: color-mix(in srgb, var(--surface) 91%, transparent); box-shadow: 0 12px 32px rgba(20, 45, 70, .09); backdrop-filter: blur(16px); }
+.security-operations-tabs button { min-height: 47px; border-radius: 13px; }
+.security-operations-tabs button.active { color: white; background: linear-gradient(135deg, #2873d6, #1657b8); box-shadow: 0 8px 20px rgba(36, 96, 195, .2); }
+.security-operations-page .stat-card { border-radius: 20px; }
+.security-operations-page .panel { border-radius: 23px; box-shadow: 0 14px 34px rgba(21, 46, 73, .07); }
+.security-overview-grid { gap: 1.2rem; }
+.security-priority-list > button { min-height: 78px; }
+.coverage-list article { min-height: 78px; }
+.security-alert-inbox .alert-list { padding: .85rem; gap: .7rem; }
+.security-alert-inbox .security-alert { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: 0 8px 22px rgba(17, 42, 70, .045); }
+.zap-assurance-banner { min-height: 96px; border-radius: 22px; }
+.zap-import-panel { border-radius: 25px !important; }
+.zap-drop-zone { min-height: 195px; border-radius: 24px; }
+.premium-security-form { border-radius: 22px; }
+
+/* Employee feature suite */
+.employee-feature-page,
+.account-security-page { gap: 1.2rem; }
+
+.portal-shell-employee .employee-feature-page > .section-heading,
+.portal-shell-employee .account-security-page > .section-heading {
+  min-height: 156px;
+  padding: 1.5rem 1.65rem;
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  border: 1px solid #dae9e7;
+  border-radius: 27px;
+  background:
+    radial-gradient(circle at 91% 0%, rgba(49, 173, 160, .14), transparent 35%),
+    radial-gradient(circle at 50% 130%, rgba(63, 119, 201, .07), transparent 40%),
+    linear-gradient(135deg, #fff, #f0f8f7);
+  box-shadow: 0 16px 38px rgba(30, 73, 82, .075);
+}
+
+.portal-shell-employee .employee-feature-page > .section-heading::after,
+.portal-shell-employee .account-security-page > .section-heading::after {
+  content: '';
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -92px;
+  top: -105px;
+  border: 1px solid rgba(40, 158, 145, .12);
+  border-radius: 50%;
+  box-shadow: 0 0 0 36px rgba(40, 158, 145, .025), 0 0 0 72px rgba(40, 158, 145, .012);
+}
+
+.portal-shell-employee .employee-feature-page > .section-heading > *,
+.portal-shell-employee .account-security-page > .section-heading > * { position: relative; z-index: 1; }
+.portal-shell-employee .employee-feature-page > .section-heading h1,
+.portal-shell-employee .account-security-page > .section-heading h1 { color: #17364f; font-size: clamp(2rem, 3.2vw, 2.8rem); }
+.portal-shell-employee .employee-feature-page > .section-heading p,
+.portal-shell-employee .account-security-page > .section-heading p { max-width: 780px; color: #607982; line-height: 1.6; }
+.portal-shell-employee .employee-feature-page > .section-heading .eyebrow,
+.portal-shell-employee .account-security-page > .section-heading .eyebrow { color: #21877f; }
+.portal-shell-employee .employee-feature-page > .section-heading .button-primary,
+.portal-shell-employee .account-security-page > .section-heading .button-primary { border-color: #218f84; background: linear-gradient(135deg, #2b9d91, #18766f); box-shadow: 0 10px 22px rgba(31, 137, 127, .2); }
+
+.portal-shell-employee .employee-feature-page > .stats-grid .stat-card,
+.portal-shell-employee .account-security-page > .stats-grid .stat-card { min-height: 126px; border-color: #dfeae9; border-radius: 21px; box-shadow: 0 10px 28px rgba(34, 82, 89, .06); }
+.portal-shell-employee .employee-feature-page > .panel,
+.portal-shell-employee .employee-feature-page > div > .panel,
+.portal-shell-employee .account-security-page > .panel,
+.portal-shell-employee .account-security-page > div > .panel { border-color: #dde9e8; border-radius: 23px; box-shadow: 0 13px 32px rgba(34, 82, 89, .06); }
+.portal-shell-employee .employee-feature-page .panel-header { min-height: 84px; background: linear-gradient(145deg, rgba(255, 255, 255, .76), rgba(246, 250, 250, .65)); }
+.portal-shell-employee .employee-feature-page table { min-width: 760px; }
+.portal-shell-employee .employee-feature-page th { height: 46px; color: #73888e; background: #f3f8f7; font-size: .63rem; letter-spacing: .06em; text-transform: uppercase; }
+.portal-shell-employee .employee-feature-page tbody tr:hover { background: #f1f8f7; }
+.portal-shell-employee .employee-feature-page .privacy-banner { border-color: #cfe5e1; border-radius: 18px; background: linear-gradient(135deg, #eaf7f4, #f5fbfa); }
+
+.employee-time-page .premium-clock-panel { min-height: 165px; border-color: #cfe4e1; border-radius: 25px; background: radial-gradient(circle at 92% 0%, rgba(55, 177, 163, .12), transparent 35%), linear-gradient(135deg, #fff, #f0f8f7); }
+.employee-time-page .clock-state > span { border-radius: 16px; }
+.employee-time-page .schedule-strip article { border-color: #dce9e7; border-radius: 17px; background: #f7fbfa; }
+.employee-time-page .schedule-strip article.today { border-color: #8bcfc5; background: #e9f7f4; }
+
+.employee-inbox-page .notification-feed { overflow: hidden; }
+.employee-inbox-page .notification-feed > button { min-height: 92px; }
+.employee-inbox-page .notification-feed > button.unread { background: linear-gradient(90deg, #ebf6f4, #f8fbfb); box-shadow: inset 4px 0 #269589; }
+.employee-inbox-page .notification-icon { color: #21877f; border-radius: 14px; background: #dff1ee; }
+
+.employee-pay-page .payslip-card { padding-bottom: 1rem; overflow: hidden; }
+.employee-pay-page .payslip-head { color: white; background: radial-gradient(circle at 90% 0%, rgba(81, 215, 195, .2), transparent 32%), linear-gradient(120deg, #15314a, #1b6869); }
+.employee-pay-page .benefit-grid > article { min-height: 135px; background: linear-gradient(145deg, #fff, #f7fbfa); }
+.employee-growth-page .premium-performance { border-radius: 26px; }
+.employee-growth-page .performance-metrics .panel { border-radius: 20px; }
+.employee-documents-page .document-card { min-height: 145px; border-radius: 22px; background: linear-gradient(145deg, #fff, #f8fbfb); }
+.employee-documents-page .document-icon { color: #258d84; border-radius: 15px; background: #e1f2ef; }
+.employee-help-page .help-grid .panel { min-height: 230px; border-radius: 22px; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.employee-help-page .help-grid .panel:hover { transform: translateY(-3px); border-color: #aedbd4; box-shadow: 0 16px 32px rgba(34, 93, 90, .1); }
+.employee-journey-page .journey-card { padding: 1.25rem; }
+.employee-profile-page .profile-page { overflow: hidden; }
+.employee-profile-page .profile-hero { min-height: 145px; color: white; background: radial-gradient(circle at 90% 0%, rgba(87, 216, 197, .22), transparent 35%), linear-gradient(120deg, #15314a, #1b6e69); }
+.employee-profile-page .profile-hero p { color: rgba(255, 255, 255, .68); }
+.employee-profile-page .profile-page form { padding: 1.35rem; }
+.employee-profile-page .profile-page input { min-height: 54px; border: 2px solid #dfe9e8; border-radius: 15px; background: #f7fbfa; }
+.employee-profile-page .profile-page input:not(:disabled):focus { border-color: #268f84; box-shadow: 0 0 0 4px rgba(38, 143, 132, .1); }
+
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .section-heading,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > .section-heading { border-color: var(--border); background: radial-gradient(circle at 91% 0%, rgba(49,173,160,.1), transparent 35%), linear-gradient(135deg, var(--surface), var(--surface-soft)); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .section-heading h1,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > .section-heading h1 { color: var(--text); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page > .section-heading p,
+:root[data-theme='dark'] .portal-shell-employee .account-security-page > .section-heading p { color: var(--text-soft); }
+:root[data-theme='dark'] .portal-shell-employee .employee-feature-page .panel-header,
+:root[data-theme='dark'] .employee-documents-page .document-card,
+:root[data-theme='dark'] .employee-pay-page .benefit-grid > article { background: var(--surface); }
+:root[data-theme='dark'] .employee-profile-page .profile-page input { border-color: var(--border); background: var(--surface-soft); }
+
+@media (max-width: 1080px) {
+  .people-directory-page > .section-heading,
+  .admin-accounts-page > .section-heading,
+  .security-operations-page > .section-heading,
+  .portal-shell-employee .employee-feature-page > .section-heading,
+  .portal-shell-employee .account-security-page > .section-heading { align-items: flex-start; flex-direction: column; }
+  .section-actions, .section-actions .button { width: 100%; }
+  .admin-role-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .people-directory-page > .section-heading,
+  .admin-accounts-page > .section-heading,
+  .security-operations-page > .section-heading,
+  .portal-shell-employee .employee-feature-page > .section-heading,
+  .portal-shell-employee .account-security-page > .section-heading { min-height: 0; padding: 1.2rem; border-radius: 21px; }
+  .people-assurance-strip { grid-template-columns: 44px minmax(0, 1fr); border-radius: 18px; }
+  .people-assurance-strip > span:not(.badge) { width: 44px; height: 44px; }
+  .people-assurance-strip > .badge { grid-column: 2; justify-self: start; }
+  .employee-provision-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-create-intro { min-height: 230px; }
+  .admin-role-catalog { grid-template-columns: 1fr; }
+  .security-operations-tabs { top: 76px; }
+  .portal-shell-employee .employee-feature-page > .section-heading h1,
+  .portal-shell-employee .account-security-page > .section-heading h1 { font-size: 2rem; }
+}
+
+@media (max-width: 480px) {
+  .employee-provision-steps { grid-template-columns: 1fr; }
+  .employee-create-intro { min-height: 330px; }
+  .people-search { width: 100%; }
+}

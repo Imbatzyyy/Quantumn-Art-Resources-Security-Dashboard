@@ -22,7 +22,7 @@ Modernize Quantum HRMS with React 19, TypeScript, Vite, and two distinct premium
 
 The two portals share accessibility, typography, spacing, and component-quality standards, but they do not share an identical theme or information density.
 
-## Completed in this checkpoint
+## Phase 1 foundation
 
 - Created `redesign/react19-typescript-premium` from the stable production baseline.
 - Added TypeScript 5.9 and React 19 type packages.
@@ -36,6 +36,18 @@ The two portals share accessibility, typography, spacing, and component-quality 
 - Added route-level lazy loading so Admin and Employee are separate production chunks.
 - Added a single verification command: `npm run check`.
 
+## Phase 2 feature migration and redesign
+
+- Extracted People Directory and the complete Create Employee flow from the legacy Admin portal into a strict TypeScript feature module.
+- Preserved employee creation, first-login temporary password handling, employee profile editing, reactivation, benefit assignment, lifecycle navigation, and Employee 360° data views.
+- Redesigned People Directory around a trusted realtime employee record, clearer workforce metrics, a premium searchable directory, and stronger profile actions.
+- Redesigned employee provisioning as a responsive four-stage workflow: identity, employment, emergency contact, and portal access.
+- Migrated Admin Accounts & Roles to strict TypeScript and redesigned its role catalog, privileged-account directory, identity cards, least-privilege role selection, and secure invitation flow.
+- Migrated Admin Security Center to strict TypeScript while preserving alert investigation, session controls, audit export, organization MFA posture, OWASP ZAP report import, scan history, findings, and governance controls.
+- Migrated Employee Account Security to strict TypeScript, including personal alerts, session review, password changes, authenticator MFA enrollment/verification/removal, and the employee security timeline.
+- Applied the Employee visual system to Time & Attendance, Leave, Requests, Inbox, Pay & Benefits, Growth, Documents, Help, Journey, Profile, and Account Security pages.
+- Extended typed Supabase-facing contracts for employee, administrator, security, session, MFA, OWASP ZAP, audit, payroll, benefit, document, and performance records. No database schema or RLS policy was changed.
+
 ## Verification gates passed
 
 ```bash
@@ -45,7 +57,7 @@ npm run build
 git diff --check
 ```
 
-The browser-loaded local app reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to 275 KB; Admin and Employee feature bundles now load on demand.
+The Phase 1 browser-loaded local app reported no console warnings or errors. The route-level split reduced the initial production JavaScript bundle from approximately 508 KB to 275 KB; Admin and Employee feature bundles now load on demand. Phase 2 keeps the initial JavaScript bundle at approximately 275 KB while adding the migrated feature modules.
 
 ## Deliberately unchanged
 
@@ -59,12 +71,11 @@ The browser-loaded local app reported no console warnings or errors. The route-l
 
 ## Recommended next continuation
 
-1. Migrate `HrmsContext.jsx`, `AdminPortal.jsx`, and `EmployeePortal.jsx` to strict TypeScript in small, verified slices.
-2. Redesign the People Directory, Create Employee flow, Admin Accounts, and Security Center using the new Admin visual system.
-3. Redesign Employee Time, Leave, Requests, Pay, Documents, Account Security, and Profile using the new Employee visual system.
-4. Add component-level accessibility and responsive tests for the new shells.
-5. Run authenticated browser QA with explicit permission to use a fictional classroom-only test account.
-6. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
+1. Continue extracting the remaining Admin and Employee feature pages from `AdminPortal.jsx` and `EmployeePortal.jsx` into strict TypeScript modules.
+2. Migrate `HrmsContext.jsx` and the data-provider boundary to typed operation contracts in small, verified slices.
+3. Add component-level accessibility, keyboard-navigation, and responsive tests for the new feature modules.
+4. Run authenticated browser QA with an explicitly authorized fictional classroom-only test account.
+5. Create a Netlify deploy preview, verify Supabase/Netlify behavior, then merge to `main` only after approval.
 
 ## Security boundary
 

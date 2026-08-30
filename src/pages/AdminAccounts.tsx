@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import {
   BadgeCheck,
   Building2,
@@ -15,11 +15,23 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.tsx'
+import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { statusTone } from '../utils/format.js'
+import type { AdminInviteInput } from '../types/hrms.js'
 
-const adminRoles = {
+type AdminRoleKey = AdminInviteInput['role']
+
+interface AdminRoleDefinition {
+  label: string
+  short: string
+  description: string
+  permissions: string[]
+  icon: typeof Crown
+  tone: string
+}
+
+const adminRoles: Record<AdminRoleKey, AdminRoleDefinition> = {
   admin: {
     label: 'System Administrator',
     short: 'Full system control',
@@ -62,18 +74,20 @@ const adminRoles = {
   },
 }
 
-const emptyForm = { firstName: '', lastName: '', email: '', phone: '', role: 'hr_admin', confirmed: false }
+const emptyForm: AdminInviteInput = { firstName: '', lastName: '', email: '', phone: '', role: 'hr_admin', confirmed: false }
 
 export default function AdminAccounts() {
   const { data, user, inviteAdminAccount } = useHrms()
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  if (!data || !user) return null
+
   const accounts = data.employees.filter((employee) => employee.role !== 'employee')
   const activeAccounts = accounts.filter((account) => account.status === 'Active').length
   const representedRoles = new Set(accounts.map((account) => account.role)).size
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!form.confirmed) return
     setSubmitting(true)
@@ -113,7 +127,7 @@ export default function AdminAccounts() {
 
       <section className="panel">
         <div className="panel-header"><div><h2>Privileged account directory</h2><p>Profile and access-role changes synchronize from Supabase in real time.</p></div><Badge tone="success">Live</Badge></div>
-        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
+        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
       </section>
 
       {showInvite && (
@@ -128,29 +142,29 @@ export default function AdminAccounts() {
                     <span className="admin-field-icon"><UserRound /></span>
                     <span className="admin-field-copy"><strong>First name</strong><small>Legal or preferred given name</small></span>
                     <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input maxLength="80" autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} placeholder="Enter first name" required /></span>
+                    <span className="admin-field-control"><input maxLength={80} autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} placeholder="Enter first name" required /></span>
                   </label>
                   <label className="admin-field-card">
                     <span className="admin-field-icon"><UserRound /></span>
                     <span className="admin-field-copy"><strong>Last name</strong><small>Official family or surname</small></span>
                     <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input maxLength="80" autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} placeholder="Enter last name" required /></span>
+                    <span className="admin-field-control"><input maxLength={80} autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} placeholder="Enter last name" required /></span>
                   </label>
                   <label className="admin-field-card">
                     <span className="admin-field-icon email"><Mail /></span>
                     <span className="admin-field-copy"><strong>Work email</strong><small>Invitation and sign-in address</small></span>
                     <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input type="email" maxLength="254" autoComplete="off" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" required /></span>
+                    <span className="admin-field-control"><input type="email" maxLength={254} autoComplete="off" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" required /></span>
                   </label>
                   <label className="admin-field-card">
                     <span className="admin-field-icon phone"><Phone /></span>
                     <span className="admin-field-copy"><strong>Mobile number</strong><small>Account recovery contact</small></span>
                     <span className="admin-field-state optional">Optional</span>
-                    <span className="admin-field-control"><input type="tel" minLength="7" maxLength="30" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+63 912 345 6789" /></span>
+                    <span className="admin-field-control"><input type="tel" minLength={7} maxLength={30} autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+63 912 345 6789" /></span>
                   </label>
                 </div>
               </section>
-              <section><div className="employee-form-heading"><ShieldCheck /><div><h3>Access role</h3><p>Select the smallest role that supports the administrator’s actual responsibilities.</p></div></div><div className="admin-role-selector">{Object.entries(adminRoles).map(([key, role]) => { const Icon = role.icon; return <label className={form.role === key ? 'selected' : ''} key={key}><input type="radio" name="admin-role" value={key} checked={form.role === key} onChange={(event) => setForm({ ...form, role: event.target.value })} /><span><Icon /></span><div><strong>{role.label}</strong><small>{role.description}</small><ul>{role.permissions.map((permission) => <li key={permission}><Check />{permission}</li>)}</ul></div></label> })}</div></section>
+              <section><div className="employee-form-heading"><ShieldCheck /><div><h3>Access role</h3><p>Select the smallest role that supports the administrator’s actual responsibilities.</p></div></div><div className="admin-role-selector">{Object.entries(adminRoles).map(([key, role]) => { const Icon = role.icon; return <label className={form.role === key ? 'selected' : ''} key={key}><input type="radio" name="admin-role" value={key} checked={form.role === key} onChange={(event) => setForm({ ...form, role: event.target.value as AdminRoleKey })} /><span><Icon /></span><div><strong>{role.label}</strong><small>{role.description}</small><ul>{role.permissions.map((permission) => <li key={permission}><Check />{permission}</li>)}</ul></div></label> })}</div></section>
               <label className="privileged-confirmation"><input type="checkbox" checked={form.confirmed} onChange={(event) => setForm({ ...form, confirmed: event.target.checked })} required /><span><strong>I verified this recipient and role assignment.</strong><small>The invitation grants privileged HRMS access after the recipient creates a password.</small></span></label>
               <div className="admin-invite-delivery"><MailCheck /><div><strong>What the recipient receives</strong><p>A branded email from the verified Quantum HRMS sender with one personal, time-limited button to accept the invitation and create a private password.</p></div></div>
               <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowInvite(false)} disabled={submitting}>Cancel</button><button className="button button-primary" disabled={submitting || !form.confirmed}>{submitting ? 'Creating account & sending email…' : 'Create account & send invitation'}</button></div>
