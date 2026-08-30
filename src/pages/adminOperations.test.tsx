@@ -76,7 +76,7 @@ describe('core administrator operation boundaries', () => {
     renderOperation(<AdminLifecycleOperations />, { createLifecycleCase })
     await user.click(screen.getByRole('button', { name: 'Start checklist' }))
     const dialog = screen.getByRole('dialog', { name: 'Start lifecycle checklist' })
-    await user.selectOptions(within(dialog).getByLabelText('Case type'), 'Offboarding')
+    await user.click(within(dialog).getByRole('radio', { name: /Offboarding/ }))
     expect(within(dialog).getByText(/Access is not removed when the case starts/)).toBeVisible()
     fireEvent.submit(dialog.querySelector('form')!)
 

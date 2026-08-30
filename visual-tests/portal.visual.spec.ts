@@ -55,6 +55,21 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'create-employee-desktop.png')
   })
 
+  test('premium lifecycle checklist creation', async ({ page }) => {
+    await prepare(page, 'admin')
+    await page.getByRole('button', { name: 'On/Offboarding' }).click()
+    await page.getByRole('button', { name: 'Start checklist' }).click()
+    await expect(page.getByRole('dialog', { name: 'Start lifecycle checklist' })).toBeVisible()
+    await capture(page, 'create-lifecycle-checklist-desktop.png')
+
+    await prepare(page, 'admin', { width: 1440, height: 900 }, 'dark')
+    await page.getByRole('button', { name: 'On/Offboarding' }).click()
+    await page.getByRole('button', { name: 'Start checklist' }).click()
+    await page.getByRole('radio', { name: /Offboarding/ }).click()
+    await expect(page.getByText('Offboarding checklist preview')).toBeVisible()
+    await capture(page, 'create-lifecycle-checklist-dark-desktop.png')
+  })
+
   test('admin accounts and invitation', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'Admin Accounts & Roles' }).click()
@@ -145,5 +160,17 @@ test.describe('responsive mobile baselines', () => {
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
     await capture(page, 'generate-payroll-draft-mobile.png')
+  })
+
+  test('lifecycle checklist dialog', async ({ page }) => {
+    await prepare(page, 'admin', mobile)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await page.getByRole('button', { name: 'On/Offboarding' }).click()
+    await page.getByRole('button', { name: 'Start checklist' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Start lifecycle checklist' })
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await capture(page, 'create-lifecycle-checklist-mobile.png')
   })
 })
