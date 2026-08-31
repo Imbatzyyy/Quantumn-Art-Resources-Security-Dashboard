@@ -83,6 +83,11 @@ test.describe('premium desktop baselines', () => {
   test('people directory and employee creation', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'People Directory' }).click()
+    const directory = page.getByRole('table')
+    await expect(directory.getByRole('row')).toHaveCount(3)
+    await expect(directory.getByText('Alex Reyes', { exact: true })).toHaveCount(0)
+    await expect(directory.getByText('Maya Santos', { exact: true })).toBeVisible()
+    await expect(directory.getByText('Noah Villanueva', { exact: true })).toBeVisible()
     await capture(page, 'people-directory-desktop.png')
     await page.getByRole('button', { name: 'Create employee & login' }).click()
     await expect(page.getByRole('dialog', { name: 'Create employee account' })).toBeVisible()

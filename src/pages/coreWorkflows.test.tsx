@@ -27,6 +27,80 @@ function renderFeature(node: React.ReactNode, context: HrmsContextValue) {
 }
 
 describe('People Directory protected workflows', () => {
+  const administrators: EmployeeRecord[] = ['admin', 'hr_admin', 'payroll_admin', 'security_admin', 'auditor'].map((role, index) => ({
+    ...employee, id: `ADM-${index}`, firstName: 'Privileged', lastName: `Account ${index}`,
+    email: `privileged-${index}@example.test`, role, department: 'Administration',
+  }))
+
+  it('shows only employee-role profiles and calculates employee-only directory totals', async () => {
+    const user = userEvent.setup()
+    const inactive = { ...employee, id: 'EMP-INACTIVE', firstName: 'Inactive', email: 'inactive@example.test', status: 'Inactive', department: 'Finance' }
+    const onLeave = { ...employee, id: 'EMP-LEAVE', firstName: 'Leave', email: 'leave@example.test', status: 'On Leave' }
+    const records = [employee, inactive, onLeave, ...administrators]
+    renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({
+      user: adminIdentity, data: { ...emptySnapshot, employees: records },
+    }))
+
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByRole('row')).toHaveLength(4)
+    for (const person of [employee, inactive, onLeave]) {
+      expect(within(table).getByText(`${person.firstName} ${person.lastName}`)).toBeVisible()
+    }
+    for (const account of administrators) {
+      expect(within(table).queryByText(`${account.firstName} ${account.lastName}`)).not.toBeInTheDocument()
+    }
+    const metric = (label: string) => screen.getByText(label).closest('article')!.querySelector('strong')
+    expect(metric('Employee records')).toHaveTextContent('3')
+    expect(metric('Departments')).toHaveTextContent('2')
+    expect(metric('Active employees')).toHaveTextContent('1')
+
+    await user.type(screen.getByRole('textbox', { name: 'Search employees' }), 'Privileged')
+    expect(screen.getByText('No matching employee')).toBeVisible()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await user.clear(screen.getByRole('textbox', { name: 'Search employees' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search employees' }), 'jamie')
+    expect(screen.getAllByRole('button', { name: 'Open profile' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
+  })
+
+  it('keeps administrators available as reporting managers without listing them as employees', async () => {
+    const user = userEvent.setup()
+    renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({
+      user: adminIdentity, data: { ...emptySnapshot, employees: administrators },
+    }))
+    expect(screen.getByText('No employee records yet')).toBeVisible()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create employee & login' }))
+    const managers = within(screen.getByRole('dialog')).getByLabelText(/Reports to/)
+    expect(within(managers).getAllByRole('option')).toHaveLength(3)
+    expect(within(managers).getByRole('option', { name: /Privileged Account 0/ })).toBeVisible()
+    expect(within(managers).getByRole('option', { name: /Privileged Account 1/ })).toBeVisible()
+  })
+
+  it('closes a selected employee profile when a realtime role update removes it from the directory', async () => {
+    const user = userEvent.setup()
+    const context = createTestContext({ user: adminIdentity, data: { ...emptySnapshot, employees: [employee] } })
+    const rendered = renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, context)
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
+    rendered.rerender(<HrmsState.Provider value={{ ...context, data: { ...emptySnapshot, employees: [{ ...employee, role: 'hr_admin' }] } }}><PeopleDirectory onNavigate={vi.fn()} /></HrmsState.Provider>)
+    expect(screen.queryByRole('dialog', { name: 'Employee 360°' })).not.toBeInTheDocument()
+    expect(screen.getByText('No employee records yet')).toBeVisible()
+  })
+
+  it('continues showing administrator profiles separately in Admin Accounts', () => {
+    renderFeature(<AdminAccounts />, createTestContext({
+      user: adminIdentity, data: { ...emptySnapshot, employees: [employee, ...administrators] },
+    }))
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByRole('row')).toHaveLength(6)
+    expect(within(table).queryByText('Jamie Santos')).not.toBeInTheDocument()
+    for (const account of administrators) {
+      expect(within(table).getByText(`${account.firstName} ${account.lastName}`)).toBeVisible()
+    }
+  })
+
   it('builds a secure employee payload and calls the provider only on submission', async () => {
     const user = userEvent.setup()
     const addEmployee = vi.fn(async () => emptySnapshot)

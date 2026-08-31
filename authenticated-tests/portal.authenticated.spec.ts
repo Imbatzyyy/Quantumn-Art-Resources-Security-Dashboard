@@ -47,6 +47,10 @@ test('fictional administrator can access Admin operations but not the Employee w
 
   await page.getByRole('button', { name: 'People Directory', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'People Directory' })).toBeVisible()
+  const directoryRoles = page.locator('.people-directory-panel tbody tr td:nth-child(5) .badge')
+  await expect(directoryRoles.first()).toBeVisible()
+  expect(await directoryRoles.allTextContents()).not.toHaveLength(0)
+  for (const role of await directoryRoles.allTextContents()) expect(role).toBe('employee')
 
   await page.goto('/employee')
   await expect(page).toHaveURL(/\/employee\/login$/)

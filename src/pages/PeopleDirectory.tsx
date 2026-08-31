@@ -43,8 +43,11 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
   const [benefitForm, setBenefitForm] = useState<BenefitInput>(emptyBenefit)
   if (!data) return null
 
-  const selected = data.employees.find((employee) => employee.id === selectedId)
-  const employees = data.employees.filter((employee) =>
+  // The shared snapshot also contains privileged accounts for Admin Accounts
+  // and reporting-manager choices. Only employee-role profiles belong here.
+  const employeeRecords = data.employees.filter((employee) => employee.role === 'employee')
+  const selected = employeeRecords.find((employee) => employee.id === selectedId)
+  const employees = employeeRecords.filter((employee) =>
     `${employee.id} ${employee.firstName} ${employee.lastName} ${employee.email} ${employee.department} ${employee.position}`
       .toLowerCase().includes(query.trim().toLowerCase()),
   )
@@ -109,12 +112,12 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
     <SectionHeading eyebrow="Employee intelligence" title="People Directory" description="A secure, role-aware view of every employee relationship and lifecycle record." actions={<button className="button button-primary people-add-button" onClick={() => setShowAdd(true)}><Plus />Create employee & login</button>} />
     <section className="people-assurance-strip"><span><Users /></span><div><strong>One trusted people record</strong><p>Employment, attendance, pay, growth, documents, and access signals remain synchronized through Supabase.</p></div><Badge tone="success">Realtime directory</Badge></section>
     <div className="stats-grid stats-grid-3 people-metric-grid">
-      <StatCard icon={Users} label="People records" value={data.employees.length} detail="Role-scoped profiles" tone="blue" />
-      <StatCard icon={Building2} label="Departments" value={new Set(data.employees.map((item) => item.department)).size} detail="Organization coverage" tone="green" />
-      <StatCard icon={UserRoundCheck} label="Active accounts" value={data.employees.filter((item) => item.status === 'Active').length} detail="Authorized portal access" tone="purple" />
+      <StatCard icon={Users} label="Employee records" value={employeeRecords.length} detail="Employee accounts only" tone="blue" />
+      <StatCard icon={Building2} label="Departments" value={new Set(employeeRecords.map((item) => item.department)).size} detail="Employee department coverage" tone="green" />
+      <StatCard icon={UserRoundCheck} label="Active employees" value={employeeRecords.filter((item) => item.status === 'Active').length} detail="Employee portal access" tone="purple" />
     </div>
     <section className="panel people-directory-panel">
-      <div className="panel-header panel-header-wrap"><div><span className="panel-kicker">Organization records</span><h2>Employee directory</h2><p>Select a person to open the complete 360° record.</p></div><label className="compact-search people-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, employee ID, team, or role" /></label></div>
+      <div className="panel-header panel-header-wrap"><div><span className="panel-kicker">Organization records</span><h2>Employee directory</h2><p>Employees only. Manage administrator access in Admin Accounts.</p></div><label className="compact-search people-search"><Search size={16} /><input aria-label="Search employees" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, employee ID, team, or position" /></label></div>
       {employees.length ? <TableShell><thead><tr><th>Employee</th><th>Department</th><th>Position</th><th>Work setup</th><th>Access role</th><th>Status</th><th /></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td><div className="table-person"><span>{employee.firstName[0]}{employee.lastName[0]}</span><div><strong>{employee.preferredName || employee.firstName} {employee.lastName}</strong><small>{employee.id} · {employee.email}</small></div></div></td><td>{employee.department}</td><td>{employee.position}</td><td><strong>{employee.employmentType ?? '—'}</strong><small className="table-subtitle">{employee.workArrangement ?? '—'} · {employee.workLocation ?? '—'}</small></td><td><Badge tone={employee.role === 'employee' ? 'neutral' : 'info'}>{employee.role.replaceAll('_', ' ')}</Badge></td><td><Badge tone={statusTone(employee.status)}>{employee.status}</Badge></td><td><button className="text-button people-open-button" onClick={() => { setSelectedId(employee.id); setTab('summary') }}>Open profile</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={Users} title={query ? 'No matching employee' : 'No employee records yet'} text={query ? 'Try a different name, ID, department, or position.' : 'Create the first employee account to begin building the organization directory.'} />}
     </section>
 
