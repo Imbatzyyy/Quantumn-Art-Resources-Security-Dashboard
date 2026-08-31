@@ -327,6 +327,17 @@ test.describe('premium desktop baselines', () => {
     await prepare(page, 'employee')
     await page.getByRole('button', { name: 'My Profile' }).click()
     await expect(page.getByRole('heading', { name: 'Maya Santos' })).toBeVisible()
+    for (const label of ['HR managed', 'Connected']) {
+      const status = page.getByText(label, { exact: true })
+      await expect(status).toBeVisible()
+      const dimensions = await status.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        clientHeight: element.clientHeight,
+        scrollWidth: element.scrollWidth,
+      }))
+      expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
+      expect(dimensions.clientWidth).toBeGreaterThan(dimensions.clientHeight)
+    }
     await capture(page, 'employee-profile-desktop.png')
 
     await prepare(page, 'employee', { width: 1440, height: 900 }, 'dark')

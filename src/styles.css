@@ -1466,8 +1466,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .profile-workspace-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(315px,.75fr); align-items: start; gap: 1rem; }
 .profile-record-card,.profile-contact-card,.profile-access-card { padding: 1.2rem; border-radius: 22px; }
 .profile-card-heading { margin-bottom: 1.05rem; display: grid; grid-template-columns: 45px minmax(0,1fr) auto; align-items: center; gap: .75rem; }
-.profile-card-heading > span { width: 45px; height: 45px; display: grid; place-items: center; color: var(--blue); border-radius: 14px; background: var(--blue-soft); }
-.profile-card-heading > span svg { width: 20px; }
+.profile-card-heading > span:not(.badge) { width: 45px; height: 45px; display: grid; place-items: center; color: var(--blue); border-radius: 14px; background: var(--blue-soft); }
+.profile-card-heading > span:not(.badge) svg { width: 20px; }
 .profile-card-heading small { color: var(--blue); }
 .profile-card-heading h2 { margin: .13rem 0; font-size: .9rem; }
 .profile-card-heading p { margin: 0; color: var(--text-faint); font-size: .59rem; line-height: 1.45; }
@@ -1493,8 +1493,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .profile-access-card li { display: flex; align-items: center; gap: .5rem; color: rgba(255,255,255,.75); font-size: .59rem; font-weight: 700; }
 .profile-access-card li svg { width: 16px; color: #86e4d6; }
 .profile-realtime-note { padding: .8rem; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: .65rem; border: 1px solid color-mix(in srgb,var(--green) 14%,var(--border)); border-radius: 17px; background: color-mix(in srgb,var(--green-soft) 38%,var(--surface)); }
-.profile-realtime-note > span { width: 38px; height: 38px; display: grid; place-items: center; color: var(--green); border-radius: 12px; background: var(--surface); }
-.profile-realtime-note > span svg { width: 17px; }
+.profile-realtime-note > span:not(.badge) { width: 38px; height: 38px; display: grid; place-items: center; color: var(--green); border-radius: 12px; background: var(--surface); }
+.profile-realtime-note > span:not(.badge) svg { width: 17px; }
 .profile-realtime-note strong { color: var(--text); font-size: .65rem; }
 .profile-realtime-note p { margin: .1rem 0 0; color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
 .profile-realtime-note .badge { min-width: max-content; }
