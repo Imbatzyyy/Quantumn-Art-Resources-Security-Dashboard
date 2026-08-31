@@ -9,6 +9,7 @@ import { useHrms } from '../state/useHrms.js'
 import { formatDate, formatMoney, statusTone } from '../utils/format.js'
 import { Employee360Summary } from './people/Employee360Summary.js'
 import { EmployeeAvatar } from '../components/EmployeeAvatar.js'
+import { BenefitRecordForm } from './people/BenefitRecordForm.js'
 import type {
   BenefitInput, EmployeeProvisionInput, EmployeeRecord, EmployeeUpdateInput, HrmsSnapshot,
 } from '../types/hrms.js'
@@ -46,6 +47,8 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tab, setTab] = useState<ProfileTab>('summary')
   const [benefitEmployee, setBenefitEmployee] = useState<string | null>(null)
+  const [savingBenefit, setSavingBenefit] = useState(false)
+  const [benefitError, setBenefitError] = useState('')
   const [creating, setCreating] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeRecord | null>(null)
   const [editForm, setEditForm] = useState<EmployeeUpdateInput | null>(null)
@@ -108,13 +111,17 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
 
   const submitBenefit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!benefitEmployee) return
+    if (!benefitEmployee || savingBenefit) return
+    setSavingBenefit(true)
+    setBenefitError('')
     try {
       await saveBenefit({ ...benefitForm, employeeId: benefitEmployee })
       setBenefitEmployee(null)
       setBenefitForm(emptyBenefit())
     } catch {
-      // Preserve the form while the shared toast reports the database response.
+      setBenefitError('The benefit could not be saved. Your entries are still here. Please check your connection and permissions, then try again.')
+    } finally {
+      setSavingBenefit(false)
     }
   }
 
@@ -133,7 +140,7 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
 
     {showAdd && <Modal title="Create employee account" onClose={() => !creating && setShowAdd(false)} size="large"><EmployeeForm form={form} setForm={setForm} managers={eligibleManagers} onSubmit={submit} onCancel={() => setShowAdd(false)} busy={creating} /></Modal>}
     {editingEmployee && editForm && <Modal title={`Edit ${editingEmployee.firstName} ${editingEmployee.lastName}`} onClose={() => setEditingEmployee(null)} size="large"><EmployeeEditForm form={editForm} setForm={setEditForm} managers={eligibleManagers.filter((item) => item.id !== editingEmployee.id)} onSubmit={submitEdit} onCancel={() => setEditingEmployee(null)} /></Modal>}
-    {selected && <Modal title="Employee 360°" onClose={() => setSelectedId(null)} size="large">
+    {selected && !benefitEmployee && <Modal title="Employee 360°" onClose={() => setSelectedId(null)} size="large">
       <div className="employee-360">
         <header className="employee-360-identity">
           <EmployeeAvatar employee={selected} className="employee-360-avatar" />
@@ -151,7 +158,7 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
         </div>
         <div className="employee-360-content" id="employee-360-panel" role="tabpanel" aria-labelledby={`employee-360-tab-${tab}`} tabIndex={0}>
           {tab !== 'summary' && <div className="employee-360-section-intro"><h3>{profileTabs.find((item) => item.id === tab)?.label}</h3><p>Records available for {selected.preferredName || selected.firstName}, within your authorized access.</p></div>}
-          <Employee360Tab tab={tab} employee={selected} data={data} onAddBenefit={() => setBenefitEmployee(selected.id)} />
+          <Employee360Tab tab={tab} employee={selected} data={data} onAddBenefit={() => { setBenefitForm(emptyBenefit()); setBenefitError(''); setBenefitEmployee(selected.id) }} />
         </div>
         <footer className="employee-360-footer"><p><ShieldCheck size={16} />Access-controlled employee record</p><div className="modal-actions">
           {selected.role === 'employee' && selected.status === 'Active' && <button className="button button-secondary danger-text" onClick={() => { setSelectedId(null); onNavigate('lifecycle') }}><Workflow />Start secure offboarding</button>}
@@ -161,7 +168,7 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
         </div></footer>
       </div>
     </Modal>}
-    {benefitEmployee && <Modal title="Add benefit record" onClose={() => setBenefitEmployee(null)}><form className="form-grid" onSubmit={submitBenefit}><label>Benefit type<input value={benefitForm.type} onChange={(event) => setBenefitForm({ ...benefitForm, type: event.target.value })} required /></label><label>Provider<input value={benefitForm.provider} onChange={(event) => setBenefitForm({ ...benefitForm, provider: event.target.value })} /></label><label className="span-2">Plan name<input value={benefitForm.planName} onChange={(event) => setBenefitForm({ ...benefitForm, planName: event.target.value })} required /></label><label>Employee share<input type="number" min={0} value={benefitForm.employeeShare} onChange={(event) => setBenefitForm({ ...benefitForm, employeeShare: event.target.value })} /></label><label>Employer share<input type="number" min={0} value={benefitForm.employerShare} onChange={(event) => setBenefitForm({ ...benefitForm, employerShare: event.target.value })} /></label><label>Effective date<input type="date" value={benefitForm.effectiveDate} onChange={(event) => setBenefitForm({ ...benefitForm, effectiveDate: event.target.value })} required /></label><label>Status<select value={benefitForm.status} onChange={(event) => setBenefitForm({ ...benefitForm, status: event.target.value })}><option>Active</option><option>Pending</option><option>Inactive</option></select></label><div className="modal-actions span-2"><button type="button" className="button button-secondary" onClick={() => setBenefitEmployee(null)}>Cancel</button><button className="button button-primary">Save benefit</button></div></form></Modal>}
+    {benefitEmployee && <Modal title="Add benefit record" onClose={() => !savingBenefit && setBenefitEmployee(null)} dismissible={!savingBenefit}><BenefitRecordForm employee={employeeRecords.find((item) => item.id === benefitEmployee)} form={benefitForm} setForm={setBenefitForm} onSubmit={submitBenefit} onCancel={() => setBenefitEmployee(null)} saving={savingBenefit} error={benefitError} /></Modal>}
   </div>
 }
 

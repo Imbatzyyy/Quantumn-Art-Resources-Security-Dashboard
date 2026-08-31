@@ -826,6 +826,53 @@
   .portal-shell-employee .account-security-page > .section-heading h1 { font-size: 2rem; }
 }
 
+/* Benefit entry prioritizes readable labels and native controls in both themes. */
+.modal:has(.benefit-record-form) { width: min(100%, 800px); border-radius: 22px; }
+.modal:has(.benefit-record-form) .modal-header { padding: 1.2rem 1.6rem; z-index: 3; }
+.modal:has(.benefit-record-form) .modal-header h2 { font-size: 1.3rem; letter-spacing: -.025em; }
+.modal-content:has(> .benefit-record-form) { padding: 0; }
+.benefit-record-form { background: var(--surface); }
+.benefit-record-person { display: flex; align-items: center; gap: .85rem; margin: 1.25rem 1.6rem 0; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); }
+.benefit-record-avatar { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; overflow: hidden; border-radius: 14px; color: var(--text); background: var(--surface-muted); font-weight: 750; }
+.benefit-record-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.benefit-record-person > div { min-width: 0; overflow-wrap: anywhere; }
+.benefit-record-person > div > span { display: block; margin-bottom: .2rem; color: var(--text-soft); font-size: .78rem; }
+.benefit-record-person strong { display: block; color: var(--text); font-size: 1rem; }
+.benefit-record-person p { margin: .2rem 0 0; color: var(--text-soft); font-size: .8rem; }
+.benefit-record-fields { display: grid; gap: 1.35rem; min-width: 0; margin: 0; padding: 1.4rem 1.6rem 1.6rem; border: 0; }
+.benefit-record-fields section + section { border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.benefit-section-heading { margin-bottom: 1rem; }
+.benefit-section-heading h3 { margin: 0 0 .3rem; color: var(--text); font-size: 1rem; letter-spacing: -.015em; }
+.benefit-section-heading p { margin: 0; color: var(--text-soft); font-size: .83rem; line-height: 1.6; }
+.benefit-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.1rem; }
+.benefit-field-grid label { display: block; min-width: 0; color: var(--text); font-size: .88rem; font-weight: 650; line-height: 1.5; }
+.benefit-field-grid .benefit-optional { color: var(--text-soft); font-weight: 400; }
+.benefit-full-width { grid-column: 1 / -1; }
+.benefit-field-grid input, .benefit-field-grid select { display: block; width: 100%; min-width: 0; min-height: 48px; margin-top: .4rem; padding: .7rem .85rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; background: var(--surface-soft); color: var(--text); font: inherit; font-size: 1rem; font-weight: 500; line-height: 1.5; box-shadow: none; }
+.benefit-field-grid input::placeholder { color: var(--text-soft); opacity: 1; font-size: .88rem; font-weight: 400; }
+.benefit-field-grid input:focus, .benefit-field-grid select:focus { outline: 2px solid var(--blue); outline-offset: 2px; border-color: var(--blue); }
+.benefit-field-grid input:disabled, .benefit-field-grid select:disabled { opacity: .75; cursor: wait; }
+.benefit-field-grid select { padding-right: 2rem; }
+.benefit-record-footer { position: sticky; bottom: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1.15rem 1.6rem; border-top: 1px solid var(--border); background: var(--surface); }
+.benefit-record-footer > p { display: flex; align-items: center; gap: .5rem; margin: 0; color: var(--text-soft); font-size: .78rem; line-height: 1.5; }
+.benefit-record-footer > p > svg { flex-shrink: 0; }
+.benefit-record-footer > div { display: flex; gap: .6rem; margin-left: auto; }
+.benefit-record-footer .button { min-height: 46px; padding: .65rem 1.1rem; font-size: .9rem; border-radius: 10px; }
+.benefit-record-error { margin: 0 1.6rem 1.3rem; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--red-soft); color: var(--text); font-size: .88rem; line-height: 1.6; }
+:root[data-theme='dark'] .benefit-field-grid input,
+:root[data-theme='dark'] .benefit-field-grid select { color-scheme: dark; border-color: #45566b; }
+@media (max-width: 600px) {
+  .modal:has(.benefit-record-form) .modal-header { padding: 1rem; }
+  .modal:has(.benefit-record-form) .modal-header h2 { font-size: 1.15rem; }
+  .benefit-record-person { margin: 1rem 1rem 0; }
+  .benefit-record-fields { padding: 1.2rem 1rem; }
+  .benefit-field-grid { grid-template-columns: 1fr; }
+  .benefit-record-footer { position: static; padding: 1rem; }
+  .benefit-record-footer > div { width: 100%; }
+  .benefit-record-footer .button { flex: 1; }
+  .benefit-record-error { margin-inline: 1rem; }
+}
+
 /* Employee 360: a quiet, readable record workspace, isolated from other dialogs. */
 .modal-large:has(.employee-360) { width: min(100%, 1120px); border-radius: 24px; }
 .modal-large:has(.employee-360) .modal-header { padding: 1rem 1.6rem; z-index: 3; }

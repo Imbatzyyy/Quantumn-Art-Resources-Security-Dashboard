@@ -150,6 +150,40 @@ test.describe('premium desktop baselines', () => {
     }
   }
 
+  for (const theme of ['light', 'dark'] as const) {
+    for (const size of ['desktop', 'mobile'] as const) {
+      test(`readable benefit form ${theme} ${size}`, async ({ page }) => {
+        await prepare(page, 'admin', size === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, theme)
+        if (size === 'mobile') await page.getByRole('button', { name: 'Open menu' }).click()
+        await page.getByRole('button', { name: 'People Directory' }).click()
+        await page.getByRole('button', { name: 'Open profile', exact: true }).first().click()
+        await page.getByRole('tab', { name: 'Pay & benefits', exact: true }).click()
+        await page.getByRole('button', { name: 'Add benefit', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Add benefit record' })
+        await expect(page.getByRole('dialog')).toHaveCount(1)
+        await expect(dialog.getByText('Maya Santos', { exact: true })).toBeVisible()
+        await dialog.getByLabel(/Plan name/).fill('Comprehensive employee health plan')
+        await dialog.getByLabel(/Provider/).fill('Example Health Insurance')
+        await dialog.getByLabel('Employee share (PHP)').fill('250.50')
+        await dialog.getByLabel('Employer share (PHP)').fill('750.25')
+        expect(await dialog.getByLabel('Employee share (PHP)').evaluate((input) => (input as HTMLInputElement).validity.stepMismatch)).toBe(false)
+        await dialog.getByLabel(/Plan name/).scrollIntoViewIfNeeded()
+        for (const field of await dialog.locator('input, select').all()) {
+          const styles = await field.evaluate((element) => ({ fontSize: parseFloat(getComputedStyle(element).fontSize), height: element.getBoundingClientRect().height }))
+          expect(styles.fontSize).toBeGreaterThanOrEqual(16)
+          expect(styles.height).toBeGreaterThanOrEqual(48)
+        }
+        await capture(page, `benefit-record-${theme}-${size}.png`)
+        if (size === 'mobile') {
+          await dialog.getByRole('button', { name: 'Save benefit', exact: true }).scrollIntoViewIfNeeded()
+          await capture(page, `benefit-record-${theme}-mobile-lower.png`)
+        }
+        await dialog.getByRole('button', { name: size === 'desktop' ? 'Save benefit' : 'Cancel', exact: true }).click()
+        await expect(page.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
+      })
+    }
+  }
+
   test('premium lifecycle checklist creation', async ({ page }) => {
     await prepare(page, 'admin')
     await page.getByRole('button', { name: 'On/Offboarding' }).click()

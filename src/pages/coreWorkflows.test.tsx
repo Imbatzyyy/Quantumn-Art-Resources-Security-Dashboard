@@ -91,6 +91,51 @@ describe('People Directory protected workflows', () => {
     expect(screen.getByRole('dialog', { name: 'Add benefit record' })).toBeVisible()
   })
 
+  it('saves benefit shares with decimals and prevents repeat submissions while saving', async () => {
+    const user = userEvent.setup()
+    let complete!: () => void
+    const saveBenefit = vi.fn(() => new Promise<void>((resolve) => { complete = resolve }))
+    renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({ user: adminIdentity, saveBenefit, data: { ...emptySnapshot, employees: [employee] } }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    await user.click(screen.getByRole('tab', { name: 'Pay & benefits' }))
+    await user.click(screen.getByRole('button', { name: 'Add benefit' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    await user.type(screen.getByLabelText(/Plan name/), 'Health Plus')
+    await user.type(screen.getByLabelText(/Provider/), 'Example Insurance')
+    await user.clear(screen.getByLabelText('Employee share (PHP)'))
+    await user.type(screen.getByLabelText('Employee share (PHP)'), '250.50')
+    await user.clear(screen.getByLabelText('Employer share (PHP)'))
+    await user.type(screen.getByLabelText('Employer share (PHP)'), '750.25')
+    await user.selectOptions(screen.getByLabelText('Status'), 'Pending')
+    // Browser tests cover native decimal validity; happy-dom's fractional-step
+    // validation differs from browsers, so dispatch submission for the payload test.
+    fireEvent.submit(screen.getByRole('button', { name: 'Save benefit' }).closest('form')!)
+    expect(saveBenefit).toHaveBeenCalledTimes(1)
+    expect(saveBenefit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: employee.id, planName: 'Health Plus', provider: 'Example Insurance', employeeShare: '250.5', employerShare: '750.25', status: 'Pending' }))
+    expect(screen.getByRole('button', { name: 'Saving benefit…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Close dialog' })).not.toBeInTheDocument()
+    complete()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add benefit record' })).not.toBeInTheDocument())
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
+  })
+
+  it('preserves benefit entries after failure and allows cancellation back to the profile', async () => {
+    const user = userEvent.setup()
+    const saveBenefit = vi.fn(async () => { throw new Error('Permission denied') })
+    renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({ user: adminIdentity, saveBenefit, data: { ...emptySnapshot, employees: [employee] } }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    await user.click(screen.getByRole('tab', { name: 'Pay & benefits' }))
+    await user.click(screen.getByRole('button', { name: 'Add benefit' }))
+    await user.type(screen.getByLabelText(/Plan name/), 'Keep this plan')
+    await user.click(screen.getByRole('button', { name: 'Save benefit' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Your entries are still here')
+    expect(screen.getByLabelText(/Plan name/)).toHaveValue('Keep this plan')
+    expect(screen.getByRole('button', { name: 'Save benefit' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('tabpanel', { name: 'Pay & benefits' })).toBeVisible()
+  })
+
   it('preserves employee editing and offboarding from the redesigned profile', async () => {
     const user = userEvent.setup()
     const onNavigate = vi.fn()
