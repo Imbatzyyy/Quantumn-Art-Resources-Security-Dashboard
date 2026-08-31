@@ -72,6 +72,7 @@ export interface AdminInvitationCompletionInput {
 }
 
 export interface EmployeeRecord extends Omit<PortalIdentity, 'portal'> {
+  avatarVersion?: string
   portal?: PortalKind
   email: string
   role: string

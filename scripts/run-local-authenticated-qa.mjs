@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
+import { createClient } from '@supabase/supabase-js'
 import {
   loadLocalQaRuntime,
   localOrigin,
@@ -14,9 +16,20 @@ const stopChild = async (child) => {
 }
 
 const run = async () => {
-  const { apiUrl, serviceRoleKey, environment: runtimeEnvironment } = await loadLocalQaRuntime()
+  const { apiUrl, serviceRoleKey, publishableKey, environment: runtimeEnvironment } = await loadLocalQaRuntime()
 
   const { passwords } = await seedLocalQaIdentities({ apiUrl, serviceRoleKey })
+  // Exercise the real private-photo upload and read path using only the local fictional employee.
+  const employeeClient = createClient(apiUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { data: login, error: loginError } = await employeeClient.auth.signInWithPassword({ email: accounts[1].email, password: passwords.get(accounts[1].email) })
+  if (loginError) throw loginError
+  const avatarPath = `${login.user.id}/avatar.png`
+  const photo = await readFile(new globalThis.URL('../assets/images/default-avatar.png', import.meta.url))
+  const { error: uploadError } = await employeeClient.storage.from('profile-avatars').upload(avatarPath, photo, { contentType: 'image/png', upsert: true })
+  if (uploadError) throw uploadError
+  const { error: photoError } = await employeeClient.rpc('update_own_avatar_path', { new_avatar_path: avatarPath })
+  if (photoError) throw photoError
+  await employeeClient.auth.signOut()
 
   const vite = spawn(
     globalThis.process.execPath,

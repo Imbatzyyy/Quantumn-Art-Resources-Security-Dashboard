@@ -1912,7 +1912,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .employee-create-shell { margin: 0; position: relative; isolation: isolate; background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--blue-soft) 80%, transparent), transparent 31%), var(--surface-soft); }
 .employee-create-intro { min-height: 128px; position: relative; overflow: hidden; padding: 1.45rem 1.65rem; display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: 1rem; color: white; border-bottom: 0; background: radial-gradient(circle at 85% 10%, rgba(84,217,198,.28), transparent 28%), linear-gradient(120deg, #082842, #10537a 62%, #1b7681); }
 .employee-create-intro::before { content: ''; position: absolute; width: 190px; height: 190px; right: -70px; top: -105px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; box-shadow: 0 0 0 38px rgba(255,255,255,.045), 0 0 0 76px rgba(255,255,255,.025); }
-.employee-create-intro > span { width: 58px; height: 58px; position: relative; z-index: 1; display: grid; place-items: center; color: white; border: 1px solid rgba(255,255,255,.22); border-radius: 19px; background: rgba(255,255,255,.12); box-shadow: 0 14px 28px rgba(3,25,44,.22); backdrop-filter: blur(10px); }
+.employee-create-intro > span:not(.badge) { width: 58px; height: 58px; position: relative; z-index: 1; display: grid; place-items: center; color: white; border: 1px solid rgba(255,255,255,.22); border-radius: 19px; background: rgba(255,255,255,.12); box-shadow: 0 14px 28px rgba(3,25,44,.22); backdrop-filter: blur(10px); }
 .employee-create-intro > div { min-width: 0; position: relative; z-index: 1; }
 .employee-create-intro > .badge { position: relative; z-index: 1; margin-right: 1rem; padding: .52rem .8rem; color: #d8fff7; border: 1px solid rgba(126,237,216,.28); background: rgba(5,38,52,.35); white-space: nowrap; backdrop-filter: blur(10px); }
 .employee-create-intro svg { width: 27px; }
@@ -3095,7 +3095,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .modal-large:has(.employee-create-shell) .modal-header { min-height: 64px; padding: .75rem 1rem; }
   .employee-create-intro { grid-template-columns: 42px minmax(0, 1fr); }
   .employee-create-intro { min-height: 150px; padding: 1.15rem; gap: .8rem; }
-  .employee-create-intro > span { width: 48px; height: 48px; border-radius: 16px; }
+  .employee-create-intro > span:not(.badge) { width: 48px; height: 48px; border-radius: 16px; }
   .employee-create-intro > .badge { grid-column: 2; justify-self: start; margin: 0; }
   .employee-create-form { padding: .75rem; gap: .85rem; }
   .employee-form-section { padding: 1rem .9rem; border-radius: 19px; }

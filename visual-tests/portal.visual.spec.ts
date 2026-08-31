@@ -41,6 +41,23 @@ async function expectRenderedContrast(page: Page) {
   }
 }
 
+async function expectEmployeeProvisionBadgeFits(page: Page) {
+  const badge = page.getByRole('dialog', { name: 'Create employee account' }).getByText('Least privilege', { exact: true })
+  await expect(badge).toBeVisible()
+  const dimensions = await badge.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const text = range.getBoundingClientRect()
+    const container = element.parentElement!.getBoundingClientRect()
+    return { width: box.width, height: box.height, textLeft: text.left - box.left, textRight: box.right - text.right, containerRight: container.right - box.right }
+  })
+  expect(dimensions.width).toBeGreaterThan(dimensions.height)
+  expect(dimensions.textLeft).toBeGreaterThan(0)
+  expect(dimensions.textRight).toBeGreaterThan(0)
+  expect(dimensions.containerRight).toBeGreaterThan(0)
+}
+
 async function capture(page: Page, name: string) {
   await expectNoHorizontalOverflow(page)
   await expectRenderedContrast(page)
@@ -91,8 +108,47 @@ test.describe('premium desktop baselines', () => {
     await capture(page, 'people-directory-desktop.png')
     await page.getByRole('button', { name: 'Create employee & login' }).click()
     await expect(page.getByRole('dialog', { name: 'Create employee account' })).toBeVisible()
+    await expectEmployeeProvisionBadgeFits(page)
     await capture(page, 'create-employee-desktop.png')
   })
+
+  test('employee provisioning badge fits in dark mode on desktop and mobile', async ({ page }) => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      await prepare(page, 'admin', viewport, 'dark')
+      if (viewport.width < 600) await page.getByRole('button', { name: 'Open menu' }).click()
+      await page.getByRole('button', { name: 'People Directory' }).click()
+      await page.getByRole('button', { name: 'Create employee & login' }).click()
+      await expectEmployeeProvisionBadgeFits(page)
+      await expectNoHorizontalOverflow(page)
+      await expectRenderedContrast(page)
+    }
+  })
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const size of ['desktop', 'mobile'] as const) {
+      test(`employee 360 profile ${theme} ${size}`, async ({ page }) => {
+        await prepare(page, 'admin', size === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 1100 }, theme)
+        if (size === 'mobile') await page.getByRole('button', { name: 'Open menu' }).click()
+        await page.getByRole('button', { name: 'People Directory' }).click()
+        await page.getByRole('button', { name: 'Open profile', exact: true }).first().click()
+        const dialog = page.getByRole('dialog', { name: 'Employee 360°' })
+        await expect(dialog.getByRole('heading', { name: 'Maya Santos' })).toBeVisible()
+        await expect(dialog.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+        await capture(page, `employee-360-${theme}-${size}.png`)
+        for (const tab of ['Attendance', 'Pay & benefits', 'Growth', 'Documents', 'Account access']) {
+          await dialog.getByRole('tab', { name: tab, exact: true }).click()
+          await expect(dialog.getByRole('tabpanel')).toHaveAccessibleName(tab)
+          await expectNoHorizontalOverflow(page)
+          await expectRenderedContrast(page)
+        }
+        await dialog.getByRole('tab', { name: 'Account access', exact: true }).press('Home')
+        await expect(dialog.getByRole('tab', { name: 'Overview' })).toBeFocused()
+        await expect(dialog.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+        await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+      })
+    }
+  }
 
   test('premium lifecycle checklist creation', async ({ page }) => {
     await prepare(page, 'admin')
@@ -486,6 +542,7 @@ test.describe('responsive mobile baselines', () => {
     await expect(dialog).toBeVisible()
     const box = await dialog.boundingBox()
     expect(box?.width ?? 9999).toBeLessThanOrEqual(mobile.width)
+    await expectEmployeeProvisionBadgeFits(page)
     await capture(page, 'create-employee-mobile.png')
   })
 

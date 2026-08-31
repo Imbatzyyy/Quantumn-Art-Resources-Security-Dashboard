@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { requireSupabase } from './supabaseClient.js'
+import { withEmployeeAvatarUrls } from './supabaseAvatars.js'
 import {
   acknowledgementFromRow, alertFromRow, alertResponseFromRow, announcementFromRow,
   attendanceFromRow, auditFromRow, benefitFromRow, documentFromRow, employeeFromRow,
@@ -91,7 +92,7 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
 
   const currentCode = currentBrowserSessionCode(session.user.id)
   return {
-    employees: queryRows(profiles, 'profiles').map(employeeFromRow),
+    employees: await withEmployeeAvatarUrls(queryRows(profiles, 'profiles').map(employeeFromRow), session.user.id),
     attendance: queryRows(attendance, 'attendance').map(attendanceFromRow),
     leaveRequests: queryRows(leaveRequests, 'leave requests').map(leaveFromRow),
     payroll: queryRows(payroll, 'payroll').map(payrollFromRow),

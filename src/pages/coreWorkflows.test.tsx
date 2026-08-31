@@ -64,6 +64,52 @@ describe('People Directory protected workflows', () => {
     expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
   })
 
+  it('groups employee details and preserves tab navigation and benefit actions', async () => {
+    const user = userEvent.setup()
+    const record = { ...employee, middleName: 'Rivera', phone: '+639123456789', managerId: administrators[0].id, emergencyContactName: 'Sam Santos', emergencyContactRelationship: 'Sibling', emergencyContactPhone: '+639987654321' }
+    renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({
+      user: adminIdentity, data: { ...emptySnapshot, employees: [record, ...administrators], attendance: [
+        { id: 'A1', employeeId: employee.id, date: '2026-08-30', hours: 8, status: 'Present', clockIn: '08:00', clockOut: '17:00' },
+        { id: 'A2', employeeId: 'OTHER', date: '2026-08-29', hours: 2, status: 'Absent' },
+      ] },
+    }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Employee 360°' }))
+    expect(dialog.getByRole('region', { name: 'Personal & contact details' })).toHaveTextContent('Jamie Rivera Santos')
+    expect(dialog.getByRole('region', { name: 'Employment details' })).toHaveTextContent('Privileged Account 0')
+    expect(dialog.getByRole('region', { name: 'Emergency contact' })).toHaveTextContent('Sibling')
+    expect(dialog.getByRole('region', { name: 'Emergency contact' })).toHaveTextContent('+639987654321')
+    await user.click(dialog.getByRole('tab', { name: 'Attendance' }))
+    expect(dialog.getByRole('tabpanel', { name: 'Attendance' })).toHaveTextContent('8.0 hrs')
+    expect(dialog.getByRole('tabpanel')).not.toHaveTextContent('2.0 hrs')
+    await user.keyboard('{End}')
+    expect(dialog.getByRole('tab', { name: 'Account access' })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{ArrowRight}')
+    expect(dialog.getByRole('tab', { name: 'Overview' })).toHaveFocus()
+    await user.click(dialog.getByRole('tab', { name: 'Pay & benefits' }))
+    await user.click(dialog.getByRole('button', { name: 'Add benefit' }))
+    expect(screen.getByRole('dialog', { name: 'Add benefit record' })).toBeVisible()
+  })
+
+  it('preserves employee editing and offboarding from the redesigned profile', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    const updateEmployee = vi.fn(async () => emptySnapshot)
+    renderFeature(<PeopleDirectory onNavigate={onNavigate} />, createTestContext({
+      user: adminIdentity, updateEmployee, data: { ...emptySnapshot, employees: [employee] },
+    }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    await user.click(screen.getByRole('button', { name: 'Edit employee' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Jamie Santos' })).toBeVisible()
+    expect(screen.getByLabelText('First name')).toHaveValue('Jamie')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    await user.click(screen.getByRole('button', { name: 'Start secure offboarding' }))
+    expect(onNavigate).toHaveBeenCalledWith('lifecycle')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(updateEmployee).not.toHaveBeenCalled()
+  })
+
   it('keeps administrators available as reporting managers without listing them as employees', async () => {
     const user = userEvent.setup()
     renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({

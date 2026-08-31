@@ -54,6 +54,7 @@ export const employeeFromRow = (row: Tables<'profiles'>): EmployeeRecord & { aut
   employmentType: text(row.employment_type, 'Full-time'), workArrangement: text(row.work_arrangement, 'On-site'),
   workLocation: text(row.work_location, 'Main Office'), costCenter: text(row.cost_center),
   avatarPath: optionalText(row.avatar_path),
+  avatarVersion: optionalText(row.updated_at),
   managerId: text(row.manager_code), emergencyContactName: text(row.emergency_contact_name),
   emergencyContactRelationship: text(row.emergency_contact_relationship),
   emergencyContactPhone: text(row.emergency_contact_phone),

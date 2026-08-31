@@ -52,6 +52,22 @@ test('fictional administrator can access Admin operations but not the Employee w
   expect(await directoryRoles.allTextContents()).not.toHaveLength(0)
   for (const role of await directoryRoles.allTextContents()) expect(role).toBe('employee')
 
+  // This fixture is seeded by the local runner; remote QA environments need not have it.
+  if (['localhost', '127.0.0.1'].includes(new URL(page.url()).hostname)) {
+    const row = page.getByRole('row').filter({ hasText: authenticatedAccounts.employee.email })
+    const photo = row.getByRole('img', { name: /profile photo/ })
+    await expect(photo).toBeVisible()
+    await expect.poll(() => photo.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+    const source = await photo.getAttribute('src')
+    expect(source).toContain('/storage/v1/object/sign/profile-avatars/')
+    await row.getByRole('button', { name: 'Open profile' }).click()
+    const profile = page.getByRole('dialog', { name: 'Employee 360°' })
+    const profilePhoto = profile.getByRole('img', { name: /profile photo/ })
+    await expect(profilePhoto).toHaveAttribute('src', source!)
+    await expect.poll(() => profilePhoto.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+    await profile.getByRole('button', { name: 'Done', exact: true }).click()
+  }
+
   await page.goto('/employee')
   await expect(page).toHaveURL(/\/employee\/login$/)
   await expect(page.getByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
