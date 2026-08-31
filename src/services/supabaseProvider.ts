@@ -1,5 +1,6 @@
 import { requireSupabase } from './supabaseClient.js'
 import { validatePermanentPassword } from '../utils/passwordPolicy.js'
+import { profilePhotoExtension } from '../utils/profilePhotoCrop.js'
 import {
   currentBrowserSessionCode,
   currentSession,
@@ -217,15 +218,15 @@ export const supabaseProvider: HrmsDataProvider = {
   },
 
   async updateProfilePhoto(photo) {
-    if (photo.type !== 'image/webp') throw new Error('Profile photos must be securely cropped before upload.')
-    if (photo.size > 2 * 1024 * 1024) throw new Error('The cropped profile photo must be 2 MB or smaller.')
+    const extension = profilePhotoExtension(photo.type)
+    if (!photo.size || photo.size > 2 * 1024 * 1024) throw new Error('The cropped profile photo must be a non-empty image of 2 MB or smaller.')
     const client = requireSupabase()
     const session = await currentSession()
     if (!session) throw new Error('Your session has expired. Sign in again.')
-    const avatarPath = `${session.user.id}/avatar.webp`
+    const avatarPath = `${session.user.id}/avatar.${extension}`
     const { error: uploadError } = await client.storage
       .from('profile-avatars')
-      .upload(avatarPath, photo, { cacheControl: '3600', contentType: 'image/webp', upsert: true })
+      .upload(avatarPath, photo, { cacheControl: '3600', contentType: photo.type, upsert: true })
     if (uploadError) throw uploadError
     const { error: profileError } = await client.rpc('update_own_avatar_path', {
       new_avatar_path: avatarPath,

@@ -185,7 +185,17 @@ test.describe.serial('isolated protected mutation workflows', () => {
     await expect(requestRow.getByText('Approved', { exact: true })).toBeVisible({ timeout: 20_000 })
   })
 
-  test('crops and stores an employee-owned profile picture behind Storage RLS', async ({ page }) => {
+  for (const outputType of ['image/webp', 'image/png']) {
+  test(`crops, positions, and privately stores ${outputType} profile pictures`, async ({ page }) => {
+    if (outputType === 'image/png') {
+      // Reproduce browsers that return PNG for a requested WebP canvas encoding.
+      await page.addInitScript(() => {
+        const original = HTMLCanvasElement.prototype.toBlob
+        HTMLCanvasElement.prototype.toBlob = function (callback, _type, quality) {
+          return original.call(this, callback, 'image/png', quality)
+        }
+      })
+    }
     await signInPortal(page, 'employee', employeeEmail, employeePassword)
     await page.getByRole('navigation', { name: 'Portal navigation' })
       .getByRole('button', { name: 'My Profile' }).click()
@@ -196,6 +206,14 @@ test.describe.serial('isolated protected mutation workflows', () => {
     await expect(editor).toBeVisible()
     await editor.getByLabel('Photo zoom').fill('1.25')
     await editor.getByLabel('Horizontal photo position').fill('12')
+    const frame = editor.getByRole('group', { name: 'Reposition profile photo' })
+    const bounds = (await frame.boundingBox())!
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bounds.x + bounds.width / 2 + 15, bounds.y + bounds.height / 2 + 10, { steps: 5 })
+    await page.mouse.up()
+    await expect(editor.getByLabel('Horizontal photo position')).not.toHaveValue('12')
+    const chosenPng = await editor.getByLabel('Profile photo crop preview').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL('image/png').split(',')[1])
     await editor.getByRole('button', { name: 'Save profile picture' }).click()
 
     await expect(editor).toBeHidden({ timeout: 20_000 })
@@ -203,19 +221,28 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const portrait = page.getByRole('button', { name: 'Change profile picture' }).locator('img')
     await expect(portrait).toBeVisible()
     await expect(portrait).toHaveAttribute('src', /profile-avatars\/.*token=/)
+    await expect.poll(() => portrait.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(512)
 
     const { data: profile, error: profileError } = await service.from('profiles')
       .select('auth_user_id, avatar_path').eq('email', employeeEmail).single()
     expect(profileError).toBeNull()
-    expect(profile?.avatar_path).toBe(`${profile?.auth_user_id}/avatar.webp`)
+    expect(profile?.avatar_path).toBe(`${profile?.auth_user_id}/avatar.${outputType === 'image/png' ? 'png' : 'webp'}`)
 
     const ownPhoto = await employeeClient.storage.from('profile-avatars').download(profile!.avatar_path!)
     expect(ownPhoto.error).toBeNull()
-    expect(ownPhoto.data?.type).toBe('image/webp')
+    expect(ownPhoto.data?.type).toBe(outputType)
+    if (outputType === 'image/png') {
+      expect(Buffer.from(await ownPhoto.data!.arrayBuffer()).toString('base64')).toBe(chosenPng)
+    }
 
     const crossAccountRead = await adminClient.storage.from('profile-avatars').download(profile!.avatar_path!)
     expect(crossAccountRead.error).not.toBeNull()
+    const invalidRegistration = await employeeClient.rpc('update_own_avatar_path', { new_avatar_path: 'someone-else/avatar.png' })
+    expect(invalidRegistration.error).not.toBeNull()
+    const crossAccountWrite = await adminClient.storage.from('profile-avatars').upload(profile!.avatar_path!, ownPhoto.data!, { upsert: true, contentType: outputType })
+    expect(crossAccountWrite.error).not.toBeNull()
   })
+  }
 
   test('creates and investigates a scoped alert, then imports authorized local ZAP evidence', async ({ page }) => {
     await signInPortal(page, 'employee', employeeEmail, employeePassword)

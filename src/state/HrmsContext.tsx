@@ -150,14 +150,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     }
   }, [notify, user])
 
-  const run = async (operation: () => Promise<HrmsSnapshot>, successMessage?: string) => {
+  const run = async (
+    operation: () => Promise<HrmsSnapshot>,
+    successMessage?: string,
+    options: { reportError?: boolean } = {},
+  ) => {
     try {
       const snapshot = await operation()
       setData(snapshot)
       if (successMessage) notify(successMessage)
       return snapshot
     } catch (error: unknown) {
-      notify(errorMessage(error), 'error')
+      if (options.reportError !== false) notify(errorMessage(error), 'error')
       throw error
     }
   }
@@ -222,6 +226,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         const snapshot = await run(
           () => dataProvider.updateProfilePhoto(photo),
           'Profile photo updated securely.',
+          { reportError: false },
         )
         const updatedUser = await dataProvider.getCurrentUser()
         setUser(updatedUser)

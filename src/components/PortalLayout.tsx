@@ -127,7 +127,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         </div>
 
         <div className="profile-card">
-          <img src={user?.avatarUrl || avatar} alt="Profile" />
+          <img className={user?.avatarUrl ? 'uploaded-profile-photo' : undefined} src={user?.avatarUrl || avatar} alt="Profile" />
           <div>
             <strong>{user?.preferredName || user?.firstName} {user?.lastName}</strong>
             <span>{user?.position}</span>

@@ -100,9 +100,9 @@ select ok(
     from storage.buckets
     where id = 'profile-avatars'
       and file_size_limit = 2097152
-      and allowed_mime_types = array['image/webp']::text[]
+      and allowed_mime_types = array['image/webp', 'image/png']::text[]
   ),
-  'profile avatar uploads are restricted to 2 MB WebP files'
+  'profile avatar uploads accept bounded WebP crops and browser PNG fallback only'
 );
 
 select is(
