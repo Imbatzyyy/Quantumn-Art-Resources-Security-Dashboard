@@ -44,6 +44,8 @@ npm run preview
 
 `npm run test:visual` renders fictional, in-memory Admin and Employee states in Chromium. It compares approved desktop/mobile light and dark screenshots, checks horizontal overflow, and runs axe’s rendered WCAG color-contrast rule without contacting Supabase or another production service. When an intentional UI change is visually reviewed, update the approved images with `npm run test:visual:update` and inspect the changed PNG files before committing them.
 
+The admin compatibility suite also walks all 12 destinations, Security Center sections, Employee 360 tabs, and create/review dialogs in both themes at 1440, 768, 390, and 320 pixels. It scrolls long surfaces to check content below the fold and covers landscape-to-portrait form resizing. Run it independently with `npx playwright test admin-compatibility.spec.ts`. See [admin theme QA coverage](docs/admin-theme-qa.md).
+
 Authenticated role-isolation QA is deliberately separate from `npm run check` because it requires an isolated Netlify deploy/branch preview, a separate fictional Supabase test project, and the two local-only classroom passwords. See [docs/authenticated-e2e.md](docs/authenticated-e2e.md). The harness rejects production hostnames, non-`@quantum.test` identities, the production Supabase project, and any preview whose server health metadata does not match the explicitly approved isolated backend before opening a browser.
 
 The recommended subscription-free route is the local Supabase gate:
@@ -80,9 +82,13 @@ React 19 TypeScript shell + feature modules
 Supabase Auth + PostgreSQL + RLS + RPCs
 ```
 
-All employee and administrator HR records are read from and written to Supabase. Application code does not place HR records or UI snapshots in browser storage; the Supabase Auth SDK keeps only its signed session token in `sessionStorage` so login survives a refresh but ends when the browser session closes. The light/dark preference lasts only for the current page session.
+All employee and administrator HR records are read from and written to Supabase. Application code does not place HR records or UI snapshots in browser storage; the Supabase Auth SDK keeps only its signed session token in `sessionStorage` so login survives a refresh but ends when the browser session closes. The non-sensitive light/dark preference is saved separately in `localStorage` under `quantum-hrms-theme` and survives refreshes and logout/login. Both portals default to light when no preference is saved, regardless of the device theme. The preference is shared between portals in the same browser, not synchronized across devices.
 
 ## Netlify readiness
+
+Transactional email branding, all supported Supabase Auth templates, verification results, and the two-system release steps are documented in [docs/email-templates.md](docs/email-templates.md). Run `npm run emails:check` to verify generated templates. Hosted Supabase templates must be updated separately from a Netlify deployment.
+
+The public homepage `/` redirects to `/employee/login` in both Netlify routing and React navigation. Administrator sign-in remains at `/admin/login`. An employee who is already signed in continues to their Employee workspace; visiting the homepage does not sign anyone out or change permissions.
 
 Vite embeds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at **build time**. Production builds now fail if either is missing or if the browser key is invalid/privileged. A healthy serverless `/api/health` response alone does not verify the frontend configuration.
 

@@ -73,12 +73,67 @@
 
 /* Administrator workspace */
 .portal-shell-admin {
+  color-scheme: light;
   --workspace-accent: #2463d4;
   --workspace-accent-soft: #e8f0ff;
   background: #f4f6f9;
 }
 
-:root[data-theme='dark'] .portal-shell-admin { --workspace-accent: #8db8ff; }
+:root[data-theme='dark'] .portal-shell-admin { --workspace-accent: #8db8ff; color-scheme: dark; }
+
+/* Native admin fields share the portal theme. Zero specificity preserves the
+   intentionally styled controls inside the richer form composers. */
+:where(.portal-shell-admin .form-grid input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+  .portal-shell-admin .form-grid select, .portal-shell-admin .form-grid textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: .75rem .85rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  font-size: 1rem;
+}
+:where(.portal-shell-admin input, .portal-shell-admin textarea)::placeholder { color: var(--text-faint); opacity: 1; }
+:where(.portal-shell-admin input, .portal-shell-admin select, .portal-shell-admin textarea):focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 3px;
+}
+.portal-shell-admin .filter-row select { color: var(--text); background: var(--surface-soft); }
+.portal-shell-admin .section-actions { min-width: 0; flex-wrap: wrap; }
+.portal-shell-admin .form-grid > label { min-width: 0; }
+:where(.portal-shell-admin) .modal { max-height: calc(100dvh - 2rem); }
+.portal-shell-admin .portal-sidebar { height: 100dvh; }
+.portal-shell-admin .admin-attention-menu { max-height: calc(100dvh - 5.5rem); overflow-y: auto; }
+.portal-shell-admin .admin-role-selector > label:has(input:focus-visible) { outline: 2px solid var(--workspace-accent); outline-offset: 4px; }
+:root[data-theme='dark'] .portal-shell-admin :is(.table-person > span, .audit-list article > span, .activity-feed article > span) { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin .pipeline-track .current { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin .pipeline-track .done { color: #7ee0b7; }
+:root[data-theme='dark'] .portal-shell-admin .field-guidance-row > span:last-child { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin :is(.admin-field-state, .admin-invite-delivery > div > strong) { color: #7ee0b7; }
+:root[data-theme='dark'] .portal-shell-admin .premium-security-form .form-grid label > span em { color: #ff9ba7; }
+:root[data-theme='dark'] .portal-shell-admin .admin-attention-menu > header > em { color: #ff9ba7; }
+:root[data-theme='dark'] .portal-shell-admin .admin-attention-menu > footer > button { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin .decision-note { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin .security-all-clear { color: #7ee0b7; }
+:root[data-theme='dark'] .portal-shell-admin .portal-search-results [role='option'][aria-selected='true'] { color: var(--workspace-accent); }
+:root[data-theme='dark'] .portal-shell-admin .portal-search-results [role='option'][aria-selected='true'] small { color: #b2cbf5; }
+:root[data-theme='dark'] .portal-shell-admin :is(.coverage-list article > span:not(.badge), .security-control-register article > span:not(.badge), .session-icon, .admin-role-selector label > span, .admin-field-icon) { color: var(--workspace-accent); background: var(--blue-soft); }
+:root[data-theme='dark'] .portal-shell-admin :is(.premium-form-heading > span:not(.badge), .secure-action-note > svg, .admin-role-selector label.selected > span, .admin-field-icon.email) { color: #75d5ca; background: var(--teal-soft); }
+:root[data-theme='dark'] .portal-shell-admin :is(.admin-invite-delivery > svg, .admin-role-selector li svg, .employee-create-footer svg, .admin-field-icon.phone) { color: #7ee0b7; }
+
+@media (max-width: 680px) {
+  .portal-shell-admin .section-actions { flex-direction: column; }
+  .portal-shell-admin .employee-create-form { min-width: 0; padding: .75rem; }
+  .portal-shell-admin .employee-form-section { min-width: 0; padding: 1rem .9rem; }
+  .portal-shell-admin .employee-create-footer { min-width: 0; padding: .85rem; }
+  .portal-shell-admin .employee-create-footer .modal-actions { flex-direction: column; }
+  .portal-shell-admin .employee-create-footer .button { min-width: 0; white-space: normal; }
+  .portal-shell-admin :is(.lifecycle-create-footer, .payroll-draft-footer) .button { min-width: 0; max-width: 100%; white-space: normal; }
+  /* Keep native text controls legible without triggering phone input zoom. */
+  .portal-shell-admin :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea) { font-size: 1rem; }
+}
 :root[data-theme='dark'] .portal-shell-employee {
   --workspace-accent: #75d5ca;
   --workspace-accent-soft: #123c3a;
@@ -117,6 +172,21 @@
   background: linear-gradient(90deg, rgba(50, 107, 216, .32), rgba(50, 107, 216, .12));
   box-shadow: inset 3px 0 #67d8c7;
 }
+
+/* Light navigation is a complete palette, including the logo, identity card,
+   group labels, connection status, and footer actions—not just a white panel. */
+:root[data-theme='light'] .portal-shell-admin .portal-sidebar { color: var(--text); border-right: 1px solid var(--border); background: var(--surface); box-shadow: 8px 0 30px rgba(20, 39, 68, .035); }
+:root[data-theme='light'] .portal-shell-admin :is(.sidebar-brand, .sidebar-footer) { border-color: var(--border); }
+:root[data-theme='light'] .portal-shell-admin .sidebar-brand img { filter: none; }
+:root[data-theme='light'] .portal-shell-admin :is(.sidebar-brand-lockup span, .nav-group-label, .profile-card small) { color: var(--text-faint); }
+:root[data-theme='light'] .portal-shell-admin .profile-card { border-color: var(--border); background: var(--surface-soft); }
+:root[data-theme='light'] .portal-shell-admin :is(.profile-card span, .portal-nav button, .sidebar-footer button) { color: var(--text-soft); }
+:root[data-theme='light'] .portal-shell-admin .mobile-close { color: var(--text); }
+:root[data-theme='light'] .portal-shell-admin :is(.portal-nav button:hover, .sidebar-footer button:hover) { color: var(--workspace-accent); background: var(--workspace-accent-soft); }
+:root[data-theme='light'] .portal-shell-admin .portal-nav button.active { color: #1c53ae; background: #e8f0ff; box-shadow: inset 3px 0 #2463d4; }
+:root[data-theme='light'] .portal-shell-admin .workspace-status { border-color: #cbe6dd; background: #edf8f3; }
+:root[data-theme='light'] .portal-shell-admin .workspace-status strong { color: #21654b; }
+:root[data-theme='light'] .portal-shell-admin .workspace-status small { color: #526f62; }
 
 .portal-shell-admin .topbar {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -291,6 +361,7 @@
 
 /* Employee workspace */
 .portal-shell-employee {
+  color-scheme: light;
   --workspace-accent: #177d7b;
   --workspace-accent-soft: #e4f5f2;
   background: #f3f8f8;
@@ -308,6 +379,14 @@
 .portal-shell-employee .sidebar-brand { border-color: #dfe9ea; }
 .portal-shell-employee .sidebar-brand img { width: 166px; filter: none; }
 .portal-shell-employee .sidebar-brand-lockup span { color: #566f76; }
+.portal-shell-employee.sidebar-collapsed .sidebar-brand-full,
+.portal-shell-employee.sidebar-collapsed .sidebar-brand-lockup > span { display: none; }
+.portal-shell-employee.sidebar-collapsed .sidebar-brand .sidebar-brand-mark {
+  width: 42px;
+  height: 42px;
+  display: block;
+  object-fit: contain;
+}
 .portal-shell-employee .mobile-close { color: #17324b; }
 .portal-shell-employee .profile-card {
   border-color: #d8e7e6;
@@ -332,7 +411,7 @@
 .portal-shell-employee .sidebar-footer { border-color: #dfe9ea; }
 .portal-shell-employee .workspace-status { border-color: #d7e8e4; background: #e8f6f2; }
 .portal-shell-employee .workspace-status strong { color: #25675f; }
-.portal-shell-employee .workspace-status small { color: #67847f; }
+.portal-shell-employee .workspace-status small { color: #526f69; }
 .portal-shell-employee:has(.employee-profile-page) .workspace-status small { color: #526f69; }
 .portal-shell-employee .topbar { border-color: #e1e9eb; background: rgba(255, 255, 255, .88); }
 .portal-shell-employee .portal-content {
@@ -361,6 +440,12 @@
 :root[data-theme='dark'] .portal-shell-employee .workspace-status { border-color: #315149; background: #183c36; }
 :root[data-theme='dark'] .portal-shell-employee .workspace-status strong { color: #91ead7; }
 :root[data-theme='dark'] .portal-shell-employee .workspace-status small { color: #9bbeb6; }
+
+@media (max-width: 900px) {
+  .portal-shell-employee.sidebar-collapsed .sidebar-brand-full,
+  .portal-shell-employee.sidebar-collapsed .sidebar-brand-lockup > span { display: initial; }
+  .portal-shell-employee.sidebar-collapsed .sidebar-brand .sidebar-brand-mark { display: none; }
+}
 
 .employee-dashboard { gap: 1.3rem; }
 .employee-day-hero {

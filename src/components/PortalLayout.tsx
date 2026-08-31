@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import {
   Bell,
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ClipboardCheck,
   LogOut,
@@ -16,7 +17,9 @@ import {
 import logo from '../../assets/images/mainlogo_blue.png'
 import avatar from '../../assets/images/default-avatar.png'
 import { useHrms } from '../state/useHrms.js'
-import type { PortalNavigationItem, ThemeMode } from '../types/hrms.js'
+import type { PortalNavigationItem } from '../types/hrms.js'
+import { readThemePreference, saveThemePreference } from '../utils/theme.js'
+import SignOutConfirmation from './SignOutConfirmation.js'
 
 interface PortalLayoutProps {
   active: string
@@ -27,15 +30,16 @@ interface PortalLayoutProps {
 }
 
 export default function PortalLayout({ active, onNavigate, items, title, children }: PortalLayoutProps) {
-  const { user, logout, data, refreshData } = useHrms()
+  const { user, logout, data, refreshData, markNotificationRead, markAllNotificationsRead } = useHrms()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [highlightedResult, setHighlightedResult] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
   const searchInput = useRef<HTMLInputElement>(null)
-  const [theme, setTheme] = useState<ThemeMode>(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  const [theme, setTheme] = useState(readThemePreference)
   const portal = user?.portal === 'admin' ? 'admin' : 'employee'
   const isAdmin = portal === 'admin'
   const currentDate = new Intl.DateTimeFormat('en-PH', {
@@ -46,6 +50,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    saveThemePreference(theme)
   }, [theme])
 
   useEffect(() => {
@@ -65,7 +70,10 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     ? (data?.securityAlerts ?? [])
     : (data?.securityAlerts.filter((alert) => alert.employeeId === user?.id) ?? [])
   const newAlerts = visibleAlerts.filter((alert) => alert.status === 'New').length
-  const unreadNotifications = data?.notifications?.filter(
+  const employeeNotifications = data?.notifications?.filter(
+    (notification) => notification.employeeId === user?.id,
+  ).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) ?? []
+  const unreadNotifications = employeeNotifications.filter(
     (notification) => notification.employeeId === user?.id && !notification.readAt,
   ).length ?? 0
   const pendingApprovals = user?.portal === 'admin'
@@ -95,6 +103,20 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     setHighlightedResult(0)
   }
 
+  const openEmployeeNotification = async (notification: typeof employeeNotifications[number]) => {
+    if (!notification.readAt) {
+      try {
+        await markNotificationRead(notification.id)
+      } catch {
+        return
+      }
+    }
+    const destination = notification.destination && items.some((item) => item.id === notification.destination)
+      ? notification.destination
+      : 'inbox'
+    navigate(destination)
+  }
+
   const searchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' && searchResults.length) {
       event.preventDefault()
@@ -120,7 +142,8 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
       <aside className={`portal-sidebar ${mobileOpen ? 'is-open' : ''}`}>
         <div className="sidebar-brand">
           <div className="sidebar-brand-lockup">
-            <img src={logo} alt="Quantum HRMS" />
+            <img className="sidebar-brand-full" src={logo} alt="Quantum HRMS" />
+            <img className="sidebar-brand-mark" src="/favicon.png" alt="" aria-hidden="true" />
             <span>{isAdmin ? 'Operations Console' : 'People Portal'}</span>
           </div>
           <button className="mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>
@@ -164,7 +187,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         <div className="sidebar-footer">
           <div className="workspace-status"><i /><span><strong>Live workspace</strong><small>Supabase synchronized</small></span></div>
           <button onClick={refreshData}><RotateCcw size={18} /><span>Refresh Supabase data</span></button>
-          <button onClick={logout}><LogOut size={18} /><span>Sign out</span></button>
+          <button onClick={() => setShowSignOutConfirm(true)}><LogOut size={18} /><span>Sign out</span></button>
         </div>
       </aside>
 
@@ -224,14 +247,10 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
             <div className="notification-control" onBlur={() => window.setTimeout(() => setNotificationsOpen(false), 120)}>
               <button
                 className="icon-button notification-button"
-                aria-label={isAdmin ? `Open admin notifications, ${attentionCount} items need attention` : `${attentionCount} unread notifications`}
-                aria-expanded={isAdmin ? notificationsOpen : undefined}
-                aria-controls={isAdmin ? 'admin-attention-menu' : undefined}
+                aria-label={isAdmin ? `Open admin notifications, ${attentionCount} items need attention` : `Open employee notifications, ${attentionCount} unread`}
+                aria-expanded={notificationsOpen}
+                aria-controls={isAdmin ? 'admin-attention-menu' : 'employee-notification-menu'}
                 onClick={() => {
-                  if (!isAdmin) {
-                    onNavigate('inbox')
-                    return
-                  }
                   setSearchOpen(false)
                   setNotificationsOpen((value) => !value)
                 }}
@@ -257,14 +276,43 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
                   <footer><button type="button" onMouseDown={() => navigate('action-center')}>Open full Action Center</button><small>Updated through Supabase realtime</small></footer>
                 </section>
               )}
+              {!isAdmin && notificationsOpen && (
+                <section id="employee-notification-menu" className="admin-attention-menu employee-notification-menu" aria-label="Employee notification center">
+                  <header><div><small>Personal updates</small><strong>Notifications</strong></div><em>{unreadNotifications} unread</em></header>
+                  <div className="employee-notification-list">
+                    {employeeNotifications.slice(0, 4).map((notification) => (
+                      <button
+                        type="button"
+                        className={!notification.readAt ? 'unread' : ''}
+                        key={notification.id}
+                        onClick={() => openEmployeeNotification(notification)}
+                      >
+                        <span className="employee-notification-icon"><Bell /></span>
+                        <span>
+                          <small>{notification.category}</small>
+                          <strong>{notification.title}</strong>
+                          <p>{notification.message}</p>
+                        </span>
+                        <em>{notification.readAt ? 'Read' : 'New'}</em>
+                      </button>
+                    ))}
+                    {employeeNotifications.length === 0 && <p className="employee-notification-empty">Your notification inbox is clear.</p>}
+                  </div>
+                  <footer>
+                    <button type="button" onClick={() => navigate('inbox')}>Open Action Inbox</button>
+                    {unreadNotifications > 0 && <button type="button" onClick={() => markAllNotificationsRead()}><CheckCircle2 />Mark all read</button>}
+                  </footer>
+                </section>
+              )}
             </div>
-            <button className="icon-button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Toggle color theme">
+            <button className="icon-button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Toggle color theme" aria-pressed={theme === 'dark'} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
               {theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}
             </button>
           </div>
         </header>
         <div className="portal-content">{children}</div>
       </main>
+      <SignOutConfirmation open={showSignOutConfirm} portal={portal} onCancel={() => setShowSignOutConfirm(false)} onConfirm={logout} />
     </div>
   )
 }

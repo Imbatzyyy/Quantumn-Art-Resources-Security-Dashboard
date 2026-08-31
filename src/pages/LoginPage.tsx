@@ -179,7 +179,6 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
           {!mfaChallenge && <div className="field-label">
             <span className="password-label-row">
               <label htmlFor={`${portal}-password`}>Password</label>
-              {!isAdmin && <Link to="/employee/forgot-password">Forgot password?</Link>}
             </span>
             <span className="login-input password-field">
               <KeyRound size={18} aria-hidden="true" />
@@ -201,6 +200,9 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </span>
+            {!isAdmin && <span className="login-recovery-row">
+              <Link to="/employee/forgot-password">Forgot password?</Link>
+            </span>}
           </div>}
 
           {mfaChallenge && (

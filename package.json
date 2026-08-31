@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "emails:generate": "node scripts/generate-email-templates.mjs",
+    "emails:check": "node scripts/generate-email-templates.mjs --check",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "test:e2e": "node --env-file-if-exists=.env.e2e node_modules/@playwright/test/cli.js test --config playwright.authenticated.config.ts",

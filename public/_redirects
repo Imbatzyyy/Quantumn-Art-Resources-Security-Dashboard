@@ -1,2 +1,3 @@
+/         /employee/login               302!
 /api/*  /.netlify/functions/:splat  200
 /*        /index.html                   200

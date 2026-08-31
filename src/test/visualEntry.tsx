@@ -7,6 +7,7 @@ import LoginPage from '../pages/LoginPage.js'
 import { HrmsState } from '../state/HrmsState.js'
 import type { HrmsSnapshot, PortalIdentity } from '../types/hrms.js'
 import { createTestContext, emptySnapshot } from './testContext.js'
+import { saveThemePreference } from '../utils/theme.js'
 import '../styles.css'
 import '../workspace-redesign.css'
 
@@ -93,13 +94,39 @@ const demoSnapshot: HrmsSnapshot = {
 }
 
 const params = new URLSearchParams(window.location.search)
+const fixtureTheme = params.get('theme')
+if (fixtureTheme === 'light' || fixtureTheme === 'dark') {
+  saveThemePreference(fixtureTheme)
+  if (params.get('screen')?.endsWith('-login')) document.documentElement.dataset.theme = fixtureTheme
+}
+// Opt-in populated records keep the original visual baselines stable while the
+// compatibility suite exercises tables, detail panels, and long real-world copy.
+const auditSnapshot: HrmsSnapshot = {
+  ...demoSnapshot,
+  payrollRuns: [{ id: 1, period: 'August 2026', status: 'Draft', employeeCount: 2, grossTotal: 108000, netTotal: 99090, deductionRate: 8.25 }],
+  payroll: [{ id: 'PAY-1', employeeId: 'EMP001', runId: 1, period: 'August 2026', gross: 56000, allowances: 0, bonuses: 0, deductions: 4620, net: 51380, status: 'Draft' }],
+  performanceCycles: [{ id: 1, title: 'Quarterly performance and development review', period: 'Q3 2026', status: 'Active', startDate: '2026-07-01', endDate: '2026-09-30' }],
+  performance: [{ id: 'REV-1', employeeId: 'EMP001', cycleId: 1, period: 'Q3 2026', score: 80, goalProgress: 80, quality: 80, productivity: 80, teamwork: 80, rating: 'Meets expectations', status: 'Draft', comments: 'Fictional review for display testing.' }],
+  goals: [{ id: 'GOAL-1', employeeId: 'EMP001', title: 'Deliver an accessible employee onboarding experience', description: 'Review keyboard access and readable content across the employee journey.', category: 'Professional development', dueDate: '2026-09-30', progress: 65, status: 'Active' }],
+  lifecycleCases: [{ id: 'LC-1', employeeId: 'EMP002', type: 'Onboarding', status: 'In Progress', targetDate: '2026-09-07' }],
+  lifecycleTasks: [{ id: 'LT-1', caseId: 'LC-1', title: 'Review organization security and acceptable use policies', category: 'Compliance', status: 'Pending', employeeVisible: true }],
+  benefits: [{ id: 'BEN-1', employeeId: 'EMP001', type: 'Health', provider: 'Example Healthcare', planName: 'Employee comprehensive medical coverage', employeeShare: 250.5, employerShare: 750, status: 'Active', effectiveDate: '2026-08-01' }],
+}
 const screen = params.get('screen') ?? 'admin'
 const isEmployee = screen.startsWith('employee')
 const user = isEmployee ? employeeIdentity : adminIdentity
 const context = createTestContext({
   user,
-  data: demoSnapshot,
+  data: params.get('audit') === 'empty' ? emptySnapshot : params.has('audit') ? auditSnapshot : demoSnapshot,
   getOrganizationSecuritySummary: async () => ({ totalAccounts: 3, mfaEnabled: 2, mfaPending: 1, privilegedAccounts: 1, privilegedMfaEnabled: 1 }),
+  // Fictional login states for layout QA only; never call hosted Auth.
+  ...(params.get('loginState') === 'error' ? {
+    login: async () => { throw new Error('We could not verify this fictional account. Check your work email and password, then try again. Contact your administrator if you still need help.') },
+  } : {}),
+  ...(params.get('loginState') === 'mfa' ? {
+    login: async () => ({ mfaRequired: true as const, factorId: 'visual-only-factor', portal: user.portal, email: 'visual@example.test' }),
+    verifyMfaLogin: async () => { throw new Error('This fictional verification code has expired. Enter the latest code from your authenticator app.') },
+  } : {}),
 })
 
 const view = screen === 'admin-login'

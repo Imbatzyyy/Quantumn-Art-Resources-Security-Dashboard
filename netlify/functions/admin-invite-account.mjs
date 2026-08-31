@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { invitationEmail } from './_shared/email-templates.mjs'
 
 const json = (body, status = 200) => globalThis.Response.json(body, {
   status,
@@ -9,12 +10,6 @@ const environmentValue = (key) =>
   globalThis.Netlify?.env?.get(key) || globalThis.process?.env?.[key]
 
 const clean = (value, maxLength = 180) => String(value ?? '').trim().slice(0, maxLength)
-const escapeHtml = (value) => clean(value, 2000)
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#039;')
 
 const roles = {
   admin: { label: 'System Administrator', department: 'Administration' },
@@ -24,11 +19,6 @@ const roles = {
   auditor: { label: 'Compliance Auditor', department: 'Governance' },
 }
 
-const invitationEmail = ({ firstName, roleLabel, setupLink, appUrl }) => ({
-  subject: 'You have been invited to administer Quantum HRMS',
-  html: `<!doctype html><html><body style="margin:0;background:#eef3f7;font-family:Inter,Arial,sans-serif;color:#10253a"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 14px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #dce6ee;border-radius:22px;overflow:hidden;box-shadow:0 22px 60px rgba(10,39,64,.12)"><tr><td style="padding:30px 34px;background:linear-gradient(120deg,#082a46,#126c72);color:#fff"><div style="font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#83ead9">Quantum HRMS · Privileged Access</div><h1 style="margin:12px 0 8px;font-size:28px;line-height:1.2">Your administrator invitation</h1><p style="margin:0;color:rgba(255,255,255,.74);line-height:1.6">A System Administrator has provisioned a role-scoped account for you.</p></td></tr><tr><td style="padding:30px 34px"><p style="margin:0 0 16px;font-size:16px">Hello <strong>${escapeHtml(firstName)}</strong>,</p><p style="margin:0 0 22px;color:#536779;line-height:1.65">You were invited as <strong>${escapeHtml(roleLabel)}</strong>. Use the secure button below to verify the invitation and create your private password. This link is personal and time-limited.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background:#f4f8fb;border:1px solid #dce7ee;border-radius:14px"><tr><td style="padding:18px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#748696;font-weight:800">Assigned access role</div><div style="margin-top:6px;font-size:17px;font-weight:800">${escapeHtml(roleLabel)}</div></td></tr></table><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px"><tr><td style="border-radius:12px;background:#176b73"><a href="${escapeHtml(setupLink)}" style="display:inline-block;padding:15px 24px;color:#fff;text-decoration:none;font-weight:800">Accept invitation &amp; set password</a></td></tr></table><div style="padding:14px 16px;border-left:4px solid #dd9b34;background:#fff8ea;border-radius:8px;color:#69512c;font-size:13px;line-height:1.55"><strong>Keep this invitation private.</strong> Quantum HRMS will never ask you to forward this link or send your password by email or chat.</div><p style="margin:22px 0 0;color:#7d8d9a;font-size:12px;line-height:1.55">If you were not expecting this role, do not open the link. Contact your organization’s System Administrator. Portal: ${escapeHtml(appUrl)}/admin/login</p></td></tr></table></td></tr></table></body></html>`,
-  text: `Hello ${firstName},\n\nYou were invited to Quantum HRMS as ${roleLabel}. Use this personal, time-limited link to verify the invitation and create your password:\n\n${setupLink}\n\nDo not forward this link. If you were not expecting this invitation, contact your System Administrator.`,
-})
 
 export default async (request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405)
@@ -141,12 +131,17 @@ export default async (request) => {
     setupLink: linkData.properties.action_link,
     appUrl,
   })
-  const emailResponse = await globalThis.fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from, to: [account.email], subject: email.subject, html: email.html, text: email.text }),
-  })
-  if (!emailResponse.ok) {
+  let emailResponse
+  try {
+    emailResponse = await globalThis.fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from, to: [account.email], subject: email.subject, html: email.html, text: email.text }),
+    })
+  } catch {
+    emailResponse = null
+  }
+  if (!emailResponse?.ok) {
     await rollback()
     return json({ error: 'The invitation email could not be delivered, so the account was rolled back.' }, 502)
   }

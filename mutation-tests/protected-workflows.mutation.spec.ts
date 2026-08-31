@@ -102,6 +102,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const emails = await capturedEmails()
     const credentials = emails.find((email) => email.to.includes(newEmployeeEmail))
     expect(credentials?.subject).toContain('employee account is ready')
+    expect(credentials?.html).toContain('https://quantumnhr.com/email-assets/quantumn-art-resources-blue.png')
     expect(credentials?.text).toContain(`Work email: ${newEmployeeEmail}`)
     expect(credentials?.text).toContain(`Temporary password: ${temporaryPassword}`)
 
@@ -138,6 +139,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const emails = await capturedEmails()
     const invitation = emails.find((email) => email.to.includes(newAdminEmail))
     expect(invitation?.subject).toContain('invited to administer')
+    expect(invitation?.html).toContain('https://quantumnhr.com/email-assets/quantumn-art-resources-blue.png')
     const setupLink = invitation?.text.match(/https?:\/\/\S+/)?.[0]
     expect(setupLink).toBeTruthy()
 

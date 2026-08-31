@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
+import { EMAIL_LOGO_PATH } from './netlify/functions/_shared/email-templates.mjs'
 import health from './netlify/functions/health.mjs'
 import adminCreateEmployee from './netlify/functions/admin-create-employee.mjs'
 import adminInviteAccount from './netlify/functions/admin-invite-account.mjs'
@@ -192,7 +194,18 @@ export default defineConfig(({ command, mode }) => {
     validateBrowserBuildEnv(loadEnv(mode, globalThis.process.cwd(), 'VITE_'))
   }
   return {
-    plugins: [react(), localApiEndpoints()],
+    plugins: [react(), localApiEndpoints(), {
+      name: 'original-blue-email-logo',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: EMAIL_LOGO_PATH.slice(1), source: readFileSync(new URL('./assets/images/mainlogo_blue.png', import.meta.url)) })
+      },
+      configureServer(server) {
+        server.middlewares.use(EMAIL_LOGO_PATH, (_request, response) => {
+          response.setHeader('Content-Type', 'image/png')
+          response.end(readFileSync(new URL('./assets/images/mainlogo_blue.png', import.meta.url)))
+        })
+      },
+    }],
     server: { port: 5173 },
   }
 })

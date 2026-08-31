@@ -36,6 +36,29 @@ const expectCleanEvidence = (evidence: BrowserEvidence) => {
   expect(evidence.consoleErrors, `Unexpected browser errors:\n${evidence.consoleErrors.join('\n')}`).toEqual([])
 }
 
+for (const portal of ['admin', 'employee'] as const) {
+  test(`${portal} defaults to light and remembers appearance through refresh and sign-out`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await signIn(page, portal)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await page.getByRole('button', { name: 'Toggle color theme' }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Toggle color theme' })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/${portal}/login$`))
+    await signIn(page, portal)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await page.getByRole('button', { name: 'Toggle color theme' }).click()
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Toggle color theme' })).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/${portal}/login$`))
+  })
+}
+
 test('fictional administrator can access Admin operations but not the Employee workspace', async ({ page }) => {
   const evidence = observeBrowserEvidence(page)
   await signIn(page, 'admin')

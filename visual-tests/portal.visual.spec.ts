@@ -22,7 +22,7 @@ async function prepare(page: Page, screen: string, viewport = { width: 1440, hei
   await page.setViewportSize(viewport)
   await page.clock.setFixedTime(fixedTime)
   await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
-  await page.goto(`/visual.html?screen=${screen}`)
+  await page.goto(`/visual.html?screen=${screen}&theme=${theme}`)
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -37,7 +37,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectRenderedContrast(page: Page) {
   const result = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
   if (result.violations.length) {
-    throw new Error(result.violations.map((item) => `${item.id}: ${item.nodes.map((node) => node.target.join(' ')).join(', ')}`).join('\n'))
+    throw new Error(result.violations.map((item) => `${item.id}: ${item.nodes.map((node) => `${node.target.join(' ')}: ${node.failureSummary}`).join(', ')}`).join('\n'))
   }
 }
 
@@ -76,6 +76,10 @@ test.describe('premium desktop baselines', () => {
     await prepare(page, 'admin-login')
     await capture(page, 'admin-login-desktop.png')
     await prepare(page, 'employee-login')
+    const fieldBox = await page.locator('.password-field').boundingBox()
+    const recoveryBox = await page.getByRole('link', { name: 'Forgot password?' }).boundingBox()
+    expect(recoveryBox!.y).toBeGreaterThanOrEqual(fieldBox!.y + fieldBox!.height)
+    expect(Math.abs(recoveryBox!.x + recoveryBox!.width - fieldBox!.x - fieldBox!.width)).toBeLessThanOrEqual(1)
     await capture(page, 'employee-login-desktop.png')
   })
 
@@ -95,6 +99,46 @@ test.describe('premium desktop baselines', () => {
     await page.getByRole('combobox', { name: 'Find a portal page' }).fill('security')
     await expect(page.getByRole('option', { name: /Security Center/ })).toBeVisible()
     await capture(page, 'admin-portal-search-desktop.png')
+  })
+
+  test('employee portal search and personal notification controls', async ({ page }) => {
+    await prepare(page, 'employee')
+    const search = page.getByRole('combobox', { name: 'Find a portal page' })
+    await search.fill('documents')
+    await expect(page.getByRole('option', { name: /Documents/ })).toBeVisible()
+    await search.press('Enter')
+    await expect(page.locator('.topbar-title strong')).toHaveText('Documents')
+    await expect(search).toHaveValue('')
+
+    const notifications = page.getByRole('button', { name: 'Open employee notifications, 2 unread' })
+    await notifications.click()
+    await expect(notifications).toHaveAttribute('aria-expanded', 'true')
+    const menu = page.getByLabel('Employee notification center')
+    await expect(menu.getByText('Please review a recent sign-in')).toBeVisible()
+    await expect(menu.getByText('Your request is under review')).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+    await expectRenderedContrast(page)
+    await menu.getByRole('button', { name: /Please review a recent sign-in/ }).click()
+    await expect(page.locator('.topbar-title strong')).toHaveText('Account Security')
+    await expect(menu).not.toBeVisible()
+  })
+
+  test('admin and employee sign-out confirmation is responsive and cancellable', async ({ page }) => {
+    for (const portal of ['admin', 'employee'] as const) {
+      for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+        await prepare(page, portal, viewport)
+        if (viewport.width < 900) await page.getByRole('button', { name: 'Open menu' }).click()
+        await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Confirm sign out' })
+        await expect(dialog).toBeVisible()
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
+        await expect(dialog.getByText(new RegExp(`return to the ${portal === 'admin' ? 'Administrator' : 'Employee'} sign-in page`))).toBeVisible()
+        await expectNoHorizontalOverflow(page)
+        await expectRenderedContrast(page)
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+      }
+    }
   })
 
   test('people directory and employee creation', async ({ page }) => {

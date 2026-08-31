@@ -7,6 +7,12 @@
   NODE_VERSION = "22"
 
 [[redirects]]
+  from = "/"
+  to = "/employee/login"
+  status = 302
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200

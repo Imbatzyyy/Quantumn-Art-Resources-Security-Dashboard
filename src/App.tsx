@@ -27,7 +27,7 @@ export default function App() {
     <>
       <Suspense fallback={<WorkspaceLoading />}>
         <Routes>
-          <Route path="/" element={<Navigate to={user ? `/${user.portal}` : '/admin/login'} replace />} />
+          <Route path="/" element={<Navigate to="/employee/login" replace />} />
           <Route path="/admin/login" element={user?.portal === 'admin' ? <Navigate to="/admin" replace /> : <LoginPage key="admin-login" portal="admin" />} />
           <Route path="/admin/setup-password" element={<AdminInviteSetupPage />} />
           <Route path="/employee/login" element={user?.portal === 'employee' ? <Navigate to="/employee" replace /> : <LoginPage key="employee-login" portal="employee" />} />

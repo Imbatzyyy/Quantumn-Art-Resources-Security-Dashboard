@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Modal } from './ui.js'
+import SignOutConfirmation from './SignOutConfirmation.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -34,6 +35,7 @@ export default function FirstLoginPasswordSetup() {
   const [showPasswords, setShowPasswords] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
   const context = useMemo(() => ({
     currentPassword: form.currentPassword,
     email: user?.email,
@@ -67,7 +69,7 @@ export default function FirstLoginPasswordSetup() {
     }
   }
 
-  return (
+  return <>
     <Modal title="Secure your employee account" size="wide" dismissible={false}>
       <div className="first-login-setup">
         <section className="first-login-intro">
@@ -150,11 +152,12 @@ export default function FirstLoginPasswordSetup() {
 
           {error && <p className="form-error setup-error" role="alert">{error}</p>}
           <div className="first-login-actions">
-            <button className="button button-secondary" type="button" onClick={logout} disabled={saving}><LogOut />Sign out instead</button>
+            <button className="button button-secondary" type="button" onClick={() => setShowSignOutConfirm(true)} disabled={saving}><LogOut />Sign out instead</button>
             <button className="button button-primary" disabled={!ready || saving}>{saving ? 'Securing your account…' : 'Save password & enter workspace'}</button>
           </div>
         </form>
       </div>
     </Modal>
-  )
+    <SignOutConfirmation open={showSignOutConfirm} portal="employee" onCancel={() => setShowSignOutConfirm(false)} onConfirm={logout} />
+  </>
 }

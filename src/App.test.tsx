@@ -50,9 +50,11 @@ describe('public authentication routes', () => {
     await user.tab()
     expect(email).toHaveFocus()
     await user.tab()
-    expect(recovery).toHaveFocus()
-    await user.tab()
     expect(password).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Show password' })).toHaveFocus()
+    await user.tab()
+    expect(recovery).toHaveFocus()
   })
 
   it('keeps recovery and invitation routes readable when Supabase is unavailable', async () => {
