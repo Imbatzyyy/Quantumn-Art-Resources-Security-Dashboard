@@ -84,6 +84,12 @@ All employee and administrator HR records are read from and written to Supabase.
 
 ## Netlify readiness
 
+Vite embeds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at **build time**. Production builds now fail if either is missing or if the browser key is invalid/privileged. A healthy serverless `/api/health` response alone does not verify the frontend configuration.
+
+For the already-linked production site, use `npx netlify deploy --prod --context production` so Netlify supplies the production build environment. Do not upload a locally built `dist/` with `--no-build` unless its embedded configuration was explicitly verified for that target. Local `npm run build` and `npm run check` also require browser-safe values in an ignored `.env` file or the process environment. Mock visual tests remain configuration-independent.
+
+After publishing, verify the deployed frontend includes the intended public Supabase URL/key and that the public Auth settings endpoint accepts that key, in addition to checking page responses and server health. Never use a secret/service-role key for browser verification.
+
 The included `netlify.toml` provides:
 
 - `npm run build` as the production build

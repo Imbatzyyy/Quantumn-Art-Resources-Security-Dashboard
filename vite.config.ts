@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import react from '@vitejs/plugin-react'
 import health from './netlify/functions/health.mjs'
@@ -8,6 +8,7 @@ import completeInitialPassword from './netlify/functions/complete-initial-passwo
 import completeAdminInvite from './netlify/functions/complete-admin-invite.mjs'
 import { handler as importZapReport } from './netlify/functions/import-zap-report.mjs'
 import { handler as securityOperations } from './netlify/functions/security-operations.mjs'
+import { validateBrowserBuildEnv } from './scripts/validate-browser-build-env.mjs'
 
 interface CapturedEmail {
   id: string
@@ -186,7 +187,12 @@ const localApiEndpoints = (): Plugin => {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), localApiEndpoints()],
-  server: { port: 5173 },
+export default defineConfig(({ command, mode }) => {
+  if (command === 'build') {
+    validateBrowserBuildEnv(loadEnv(mode, globalThis.process.cwd(), 'VITE_'))
+  }
+  return {
+    plugins: [react(), localApiEndpoints()],
+    server: { port: 5173 },
+  }
 })
