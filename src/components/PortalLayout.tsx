@@ -4,9 +4,10 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
+  LayoutGrid,
   LogOut,
-  Menu,
   Moon,
   RotateCcw,
   Search,
@@ -31,14 +32,23 @@ interface PortalLayoutProps {
 
 export default function PortalLayout({ active, onNavigate, items, title, children }: PortalLayoutProps) {
   const { user, logout, data, refreshData, markNotificationRead, markAllNotificationsRead } = useHrms()
-  const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
+  const [mobilePageSearch, setMobilePageSearch] = useState('')
+  const [mobileRefreshing, setMobileRefreshing] = useState(false)
+  const [mobileRefreshMessage, setMobileRefreshMessage] = useState('')
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [highlightedResult, setHighlightedResult] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
   const searchInput = useRef<HTMLInputElement>(null)
+  const mobileSearchInput = useRef<HTMLInputElement>(null)
+  const mobileSheet = useRef<HTMLElement>(null)
+  const mobileCloseButton = useRef<HTMLButtonElement>(null)
+  const mobileMoreButton = useRef<HTMLButtonElement>(null)
+  const mobileFocusSearch = useRef(false)
+  const pageTitle = useRef<HTMLElement>(null)
   const [theme, setTheme] = useState(readThemePreference)
   const portal = user?.portal === 'admin' ? 'admin' : 'employee'
   const isAdmin = portal === 'admin'
@@ -58,13 +68,61 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setNotificationsOpen(false)
-        setSearchOpen(true)
-        searchInput.current?.focus()
+        if (window.matchMedia('(max-width: 900px)').matches) {
+          mobileFocusSearch.current = true
+          setMobileMoreOpen(true)
+          window.requestAnimationFrame(() => mobileSearchInput.current?.focus())
+        } else {
+          setSearchOpen(true)
+          searchInput.current?.focus()
+        }
       }
     }
     document.addEventListener('keydown', focusPortalSearch)
     return () => document.removeEventListener('keydown', focusPortalSearch)
   }, [])
+
+  useEffect(() => {
+    if (!mobileMoreOpen) return
+    const previousOverflow = document.body.style.overflow
+    const sheetKeys = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMobileMoreOpen(false)
+        setMobilePageSearch('')
+        window.requestAnimationFrame(() => mobileMoreButton.current?.focus())
+      }
+      if (event.key === 'Tab') {
+        const controls = [...(mobileSheet.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href]') ?? [])]
+        const first = controls[0]
+        const last = controls[controls.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last?.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first?.focus()
+        }
+      }
+    }
+    const desktopViewport = window.matchMedia('(min-width: 901px)')
+    const closeOnDesktop = () => {
+      if (!desktopViewport.matches) return
+      setMobileMoreOpen(false)
+      setMobilePageSearch('')
+    }
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', sheetKeys)
+    desktopViewport.addEventListener('change', closeOnDesktop)
+    // Do not summon a phone's keyboard just to browse navigation.
+    const focusFrame = window.requestAnimationFrame(() => (mobileFocusSearch.current ? mobileSearchInput.current : mobileCloseButton.current)?.focus())
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', sheetKeys)
+      desktopViewport.removeEventListener('change', closeOnDesktop)
+      window.cancelAnimationFrame(focusFrame)
+    }
+  }, [mobileMoreOpen])
 
   const visibleAlerts = user?.portal === 'admin'
     ? (data?.securityAlerts ?? [])
@@ -87,6 +145,54 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     ? data?.employeeRequests?.filter((item) => ['Submitted', 'Under Review', 'More Information'].includes(item.status)).length ?? 0
     : 0
   const attentionCount = isAdmin ? pendingApprovals + newAlerts : unreadNotifications
+  const resolveBadgeValue = (badge: PortalNavigationItem['badge']) => badge === 'alerts'
+    ? newAlerts
+    : badge === 'inbox'
+      ? unreadNotifications
+      : badge === 'approvals'
+        ? pendingApprovals
+        : badge
+  const preferredMobileIds = isAdmin
+    ? ['action-center', 'people', 'approvals', 'security']
+    : ['home', 'schedule', 'requests', 'inbox']
+  const mobileLabels: Record<string, string> = {
+    'action-center': 'Center',
+    people: 'People',
+    approvals: 'Approvals',
+    security: 'Security',
+    home: 'My Day',
+    schedule: 'Time',
+    requests: 'Requests',
+    inbox: 'Inbox',
+    time: 'Time',
+    payroll: 'Payroll',
+    analytics: 'Reports',
+    documents: 'Documents',
+    performance: 'Growth',
+    lifecycle: 'Journey',
+    announcements: 'Updates',
+    'admin-accounts': 'Accounts',
+  }
+  const mobilePrimaryItems = preferredMobileIds
+    .map((id) => items.find((item) => item.id === id))
+    .filter((item): item is PortalNavigationItem => Boolean(item))
+  for (const item of items) {
+    if (mobilePrimaryItems.length >= 4) break
+    if (!mobilePrimaryItems.some((primaryItem) => primaryItem.id === item.id)) mobilePrimaryItems.push(item)
+  }
+  const mobileMoreActive = !mobilePrimaryItems.some((item) => item.id === active)
+  const mobilePageResults = items.filter((item) => {
+    const query = mobilePageSearch.trim().toLowerCase()
+    if (!query) return !mobilePrimaryItems.some((primary) => primary.id === item.id)
+    return item.label.toLowerCase().includes(query) || item.group?.toLowerCase().includes(query)
+  })
+  const mobilePageGroups = mobilePageResults.reduce<Array<{ name: string; items: PortalNavigationItem[] }>>((groups, item) => {
+    const name = item.group || 'More'
+    const group = groups.find((candidate) => candidate.name === name)
+    if (group) group.items.push(item)
+    else groups.push({ name, items: [item] })
+    return groups
+  }, [])
   const searchResults = search.trim()
     ? items.filter((item) => {
       const query = search.trim().toLowerCase()
@@ -96,11 +202,38 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
 
   const navigate = (id: string) => {
     onNavigate(id)
-    setMobileOpen(false)
+    setMobileMoreOpen(false)
+    setMobilePageSearch('')
     setSearch('')
     setSearchOpen(false)
     setNotificationsOpen(false)
     setHighlightedResult(0)
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      window.requestAnimationFrame(() => {
+        if (id !== active) window.scrollTo({ top: 0, behavior: 'instant' })
+        pageTitle.current?.focus({ preventScroll: true })
+      })
+    }
+  }
+
+  const closeMobileMore = (restoreFocus = true) => {
+    setMobileMoreOpen(false)
+    setMobilePageSearch('')
+    if (restoreFocus) window.setTimeout(() => mobileMoreButton.current?.focus(), 0)
+  }
+
+  const refreshMobileData = async () => {
+    if (mobileRefreshing) return
+    setMobileRefreshing(true)
+    setMobileRefreshMessage('')
+    try {
+      await refreshData()
+      setMobileRefreshMessage('Your workspace is up to date.')
+    } catch {
+      setMobileRefreshMessage('Could not refresh. Please try again.')
+    } finally {
+      setMobileRefreshing(false)
+    }
   }
 
   const openEmployeeNotification = async (notification: typeof employeeNotifications[number]) => {
@@ -138,15 +271,13 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
 
   return (
     <div className={`portal-shell portal-shell-${portal} ${collapsed ? 'sidebar-collapsed' : ''}`}>
-      {mobileOpen && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setMobileOpen(false)} />}
-      <aside className={`portal-sidebar ${mobileOpen ? 'is-open' : ''}`}>
+      <aside className="portal-sidebar" inert={mobileMoreOpen}>
         <div className="sidebar-brand">
           <div className="sidebar-brand-lockup">
             <img className="sidebar-brand-full" src={logo} alt="Quantum HRMS" />
             <img className="sidebar-brand-mark" src="/favicon.png" alt="" aria-hidden="true" />
             <span>{isAdmin ? 'Operations Console' : 'People Portal'}</span>
           </div>
-          <button className="mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>
         </div>
 
         <div className="profile-card">
@@ -161,13 +292,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         <nav className="portal-nav" aria-label="Portal navigation">
           {items.map(({ id, label, icon: Icon, badge, group }, index) => {
             const previousGroup = items[index - 1]?.group
-            const badgeValue = badge === 'alerts'
-              ? newAlerts
-              : badge === 'inbox'
-                ? unreadNotifications
-                : badge === 'approvals'
-                  ? pendingApprovals
-                  : badge
+            const badgeValue = resolveBadgeValue(badge)
             return (
               <div className="nav-entry" key={id}>
                 {group && group !== previousGroup && <p className="nav-group-label">{group}</p>}
@@ -191,12 +316,11 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         </div>
       </aside>
 
-      <main className="portal-main">
+      <main className="portal-main" inert={mobileMoreOpen}>
         <header className="topbar">
           <div className="topbar-title">
-            <button className="menu-button" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu /></button>
             <button className="collapse-button" onClick={() => setCollapsed((value) => !value)} aria-label="Collapse sidebar"><ChevronLeft /></button>
-            <div><span>{isAdmin ? 'Quantum HRMS / Operations' : 'My workspace / Today'}</span><strong>{title}</strong></div>
+            <div><span>{isAdmin ? 'Quantum HRMS / Operations' : 'My workspace / Today'}</span><strong ref={pageTitle} tabIndex={-1}>{title}</strong></div>
           </div>
           <div className="topbar-actions">
             <div className="topbar-date" aria-label={`Today is ${currentDate}`}><CalendarDays size={16} /><span>{currentDate}</span></div>
@@ -312,7 +436,117 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         </header>
         <div className="portal-content">{children}</div>
       </main>
-      <SignOutConfirmation open={showSignOutConfirm} portal={portal} onCancel={() => setShowSignOutConfirm(false)} onConfirm={logout} />
+
+      <nav className="mobile-bottom-nav" inert={mobileMoreOpen} aria-label={`${isAdmin ? 'Administrator' : 'Employee'} mobile navigation`}>
+        {mobilePrimaryItems.map(({ id, label, icon: Icon, badge }) => {
+          const badgeValue = id === 'action-center' ? undefined : resolveBadgeValue(badge)
+          return (
+            <button
+              type="button"
+              className={active === id ? 'active' : ''}
+              aria-label={mobileLabels[id] || label}
+              aria-description={badgeValue ? `${badgeValue} items need attention` : undefined}
+              aria-current={active === id ? 'page' : undefined}
+              onClick={() => navigate(id)}
+              key={id}
+            >
+              <span className="mobile-nav-icon" aria-hidden="true"><Icon />{badgeValue ? <em>{typeof badgeValue === 'number' && badgeValue > 99 ? '99+' : badgeValue}</em> : null}</span>
+              <span>{mobileLabels[id] || label}</span>
+            </button>
+          )
+        })}
+        <button
+          ref={mobileMoreButton}
+          type="button"
+          className={mobileMoreActive ? 'active' : ''}
+          aria-label="Open more navigation"
+          aria-haspopup="dialog"
+          aria-expanded={mobileMoreOpen}
+          aria-controls="mobile-more-navigation"
+          aria-current={mobileMoreActive ? 'page' : undefined}
+          onClick={() => {
+            setNotificationsOpen(false)
+            setSearchOpen(false)
+            mobileFocusSearch.current = false
+            setMobileRefreshMessage('')
+            setMobileMoreOpen(true)
+          }}
+        >
+          <span className="mobile-nav-icon"><LayoutGrid /></span>
+          <span>More</span>
+        </button>
+      </nav>
+
+      {mobileMoreOpen && (
+        <div className="mobile-more-layer">
+          <button className="mobile-more-scrim" type="button" tabIndex={-1} aria-hidden="true" onClick={() => closeMobileMore()} />
+          <section ref={mobileSheet} id="mobile-more-navigation" className="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-more-title">
+            <div className="mobile-more-handle" aria-hidden="true" />
+            <header className="mobile-more-header">
+              <div>
+                <small>{isAdmin ? 'Administrator workspace' : 'Employee workspace'}</small>
+                <h2 id="mobile-more-title">Explore your portal</h2>
+              </div>
+              <button ref={mobileCloseButton} type="button" aria-label="Close more navigation" onClick={() => closeMobileMore()}><X /></button>
+            </header>
+
+            <div className="mobile-more-profile">
+              <img className={user?.avatarUrl ? 'uploaded-profile-photo' : undefined} src={user?.avatarUrl || avatar} alt="" />
+              <span>
+                <strong>{user?.preferredName || user?.firstName} {user?.lastName}</strong>
+                <small>{user?.position || (isAdmin ? 'Administrator' : 'Employee')} · {user?.id}</small>
+              </span>
+            </div>
+
+            <label className="mobile-more-search">
+              <Search />
+              <span className="sr-only">Search portal pages</span>
+              <input
+                ref={mobileSearchInput}
+                type="search"
+                value={mobilePageSearch}
+                placeholder="Search portal pages"
+                onChange={(event) => setMobilePageSearch(event.target.value)}
+              />
+              {mobilePageSearch && <button type="button" aria-label="Clear portal page search" onClick={() => setMobilePageSearch('')}><X /></button>}
+            </label>
+
+            <nav className="mobile-more-pages" aria-label="All portal pages">
+              {mobilePageGroups.map((group) => (
+                <section key={group.name} aria-labelledby={`mobile-nav-group-${group.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}>
+                  <h3 id={`mobile-nav-group-${group.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}>{group.name}</h3>
+                  <div>
+                    {group.items.map(({ id, label, icon: Icon, badge }) => {
+                      const badgeValue = resolveBadgeValue(badge)
+                      return (
+                        <button type="button" aria-label={label} aria-description={badgeValue ? `${badgeValue} items need attention` : undefined} className={active === id ? 'active' : ''} aria-current={active === id ? 'page' : undefined} onClick={() => navigate(id)} key={id}>
+                          <span aria-hidden="true"><Icon /></span>
+                          <strong>{label}</strong>
+                          {badgeValue ? <em aria-hidden="true">{typeof badgeValue === 'number' && badgeValue > 99 ? '99+' : badgeValue}</em> : active === id ? <CheckCircle2 aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+              {mobilePageGroups.length === 0 && <p className="mobile-more-empty" role="status">{mobilePageSearch.trim() ? `No portal page matches “${mobilePageSearch}”.` : 'All your pages are available in the bottom navigation.'}</p>}
+            </nav>
+
+            {mobileRefreshMessage && <p className="mobile-refresh-message" role="status">{mobileRefreshMessage}</p>}
+            <footer className="mobile-more-utilities">
+              <button type="button" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+                {theme === 'light' ? <Moon /> : <Sun />}<span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
+              </button>
+              <button type="button" disabled={mobileRefreshing} onClick={refreshMobileData}><RotateCcw /><span>{mobileRefreshing ? 'Refreshing…' : 'Refresh'}</span></button>
+              <button type="button" className="danger" onClick={() => { closeMobileMore(false); setShowSignOutConfirm(true) }}><LogOut /><span>Sign out</span></button>
+            </footer>
+          </section>
+        </div>
+      )}
+      <SignOutConfirmation open={showSignOutConfirm} portal={portal} onCancel={() => {
+        setShowSignOutConfirm(false)
+        if (window.matchMedia('(max-width: 900px)').matches) window.requestAnimationFrame(() => mobileMoreButton.current?.focus())
+      }} onConfirm={logout} />
     </div>
   )
 }

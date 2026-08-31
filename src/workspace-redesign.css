@@ -408,6 +408,12 @@
   box-shadow: inset 3px 0 #20a393;
 }
 
+@media (max-width: 900px) {
+  :root[data-theme='light'] .portal-shell-employee :is(.mobile-bottom-nav > button.active, .mobile-more-pages section button.active) {
+    color: #126966;
+  }
+}
+
 .portal-shell-employee .sidebar-footer { border-color: #dfe9ea; }
 .portal-shell-employee .workspace-status { border-color: #d7e8e4; background: #e8f6f2; }
 .portal-shell-employee .workspace-status strong { color: #25675f; }

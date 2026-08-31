@@ -11,10 +11,13 @@ const items = [
   { id: 'action-center', label: 'Action Center', icon: Gauge, group: 'Operations' },
   { id: 'people', label: 'People Directory', icon: Users, group: 'Operations' },
   { id: 'security', label: 'Security Center', icon: ShieldCheck, group: 'Governance' },
+  { id: 'approvals', label: 'Approvals', icon: Gauge, group: 'Reviews' },
+  { id: 'analytics', label: 'Analytics & Reports', icon: Gauge, group: 'Governance' },
 ] as const satisfies readonly PortalNavigationItem[]
 
 const employeeItems = [
   { id: 'home', label: 'My Day', icon: Gauge, group: 'Workspace' },
+  { id: 'schedule', label: 'Time & Schedule', icon: Gauge, group: 'My Work' },
   { id: 'requests', label: 'Request Center', icon: Users, group: 'My Work' },
   { id: 'inbox', label: 'Action Inbox', icon: ShieldCheck, group: 'My Work' },
   { id: 'documents', label: 'Documents', icon: ShieldCheck, group: 'Resources' },
@@ -139,6 +142,102 @@ describe('employee portal header controls', () => {
     await user.click(screen.getByRole('button', { name: 'Open employee notifications, 1 unread' }))
     await user.click(screen.getByRole('button', { name: 'Mark all read' }))
     await waitFor(() => expect(markAllNotificationsRead).toHaveBeenCalledTimes(1))
+  })
+})
+
+describe('responsive mobile portal navigation', () => {
+  it('keeps frequent administrator destinations in the bottom bar and exposes every allowed page in More', async () => {
+    const user = userEvent.setup()
+    const onNavigate = renderAdminLayout()
+    const bottomNavigation = screen.getByRole('navigation', { name: 'Administrator mobile navigation' })
+
+    expect(within(bottomNavigation).getByRole('button', { name: 'Center' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bottomNavigation).getByRole('button', { name: 'People' })).toBeInTheDocument()
+
+    await user.click(within(bottomNavigation).getByRole('button', { name: 'Open more navigation' }))
+    const sheet = screen.getByRole('dialog', { name: 'Explore your portal' })
+    expect(within(sheet).getByRole('navigation', { name: 'All portal pages' })).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'People Directory' })).not.toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Analytics & Reports' })).toBeInTheDocument()
+
+    await user.type(within(sheet).getByRole('searchbox', { name: 'Search portal pages' }), 'security')
+    expect(within(sheet).queryByRole('button', { name: 'People Directory' })).not.toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Security Center' }))
+    expect(onNavigate).toHaveBeenCalledWith('security')
+    expect(screen.queryByRole('dialog', { name: 'Explore your portal' })).not.toBeInTheDocument()
+  })
+
+  it('provides employee shortcuts, searchable grouped pages, utilities, and Escape dismissal', async () => {
+    const user = userEvent.setup()
+    renderEmployeeLayout()
+    const bottomNavigation = screen.getByRole('navigation', { name: 'Employee mobile navigation' })
+
+    expect(within(bottomNavigation).getByRole('button', { name: 'My Day' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bottomNavigation).getByRole('button', { name: 'Requests' })).toBeInTheDocument()
+    expect(within(bottomNavigation).getByRole('button', { name: 'Inbox' })).toBeInTheDocument()
+
+    const more = within(bottomNavigation).getByRole('button', { name: 'Open more navigation' })
+    await user.click(more)
+    const sheet = screen.getByRole('dialog', { name: 'Explore your portal' })
+    expect(within(sheet).getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Documents' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Dark mode' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Refresh' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Explore your portal' })).not.toBeInTheDocument()
+    await waitFor(() => expect(more).toHaveFocus())
+  })
+
+  it('never adds administrator destinations outside the supplied role permissions', async () => {
+    const user = userEvent.setup()
+    render(
+      <HrmsState.Provider value={createTestContext({ user: adminIdentity, data: emptySnapshot })}>
+        <PortalLayout active="security" title="Security Center" items={items.filter((item) => item.id === 'security')} onNavigate={vi.fn()}>
+          <h1>Security workspace</h1>
+        </PortalLayout>
+      </HrmsState.Provider>,
+    )
+    const bottom = screen.getByRole('navigation', { name: 'Administrator mobile navigation' })
+    expect(within(bottom).getAllByRole('button')).toHaveLength(2)
+    expect(within(bottom).getByRole('button', { name: 'Security' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bottom).queryByRole('button', { name: 'People' })).not.toBeInTheDocument()
+    await user.click(within(bottom).getByRole('button', { name: 'Open more navigation' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Search portal pages' }), 'People')
+    expect(screen.getByRole('status')).toHaveTextContent('No portal page matches')
+  })
+
+  it('refreshes through the existing data provider and reports failures without closing the sheet', async () => {
+    const user = userEvent.setup()
+    const refreshData = vi.fn().mockResolvedValueOnce(emptySnapshot).mockRejectedValueOnce(new Error('Network unavailable'))
+    renderEmployeeLayout({ refreshData })
+    await user.click(screen.getByRole('button', { name: 'Open more navigation' }))
+    const sheet = screen.getByRole('dialog', { name: 'Explore your portal' })
+    await user.click(within(sheet).getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(within(sheet).getByRole('status')).toHaveTextContent('Your workspace is up to date.'))
+    await user.click(within(sheet).getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(within(sheet).getByRole('status')).toHaveTextContent('Could not refresh. Please try again.'))
+    expect(refreshData).toHaveBeenCalledTimes(2)
+    expect(sheet).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Refresh' })).toBeEnabled()
+  })
+
+  it.each(['admin', 'employee'] as const)('keeps sign-out confirmation when initiated from %s More', async (portal) => {
+    const user = userEvent.setup()
+    const logout = vi.fn(async () => undefined)
+    if (portal === 'admin') renderAdminLayout(vi.fn(), { logout })
+    else renderEmployeeLayout({ logout })
+    await user.click(screen.getByRole('button', { name: 'Open more navigation' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Explore your portal' })).getByRole('button', { name: 'Sign out' }))
+    expect(screen.queryByRole('dialog', { name: 'Explore your portal' })).not.toBeInTheDocument()
+    const confirm = screen.getByRole('dialog', { name: 'Confirm sign out' })
+    expect(within(confirm).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    expect(logout).not.toHaveBeenCalled()
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+    expect(logout).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Confirm sign out' })).not.toBeInTheDocument()
+    expect(document.body.style.overflow).not.toBe('hidden')
   })
 })
 

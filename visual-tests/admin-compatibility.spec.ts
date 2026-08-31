@@ -21,9 +21,15 @@ const forms = [
 ]
 
 async function navigate(page: Page, name: string) {
-  const menu = page.getByRole('button', { name: 'Open menu', exact: true })
-  if (await menu.isVisible()) await menu.click()
-  await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name }).click()
+  const accessibleName = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+  if ((page.viewportSize()?.width ?? 1440) <= 900) {
+    const sheet = page.getByRole('dialog', { name: 'Explore your portal' })
+    if (!await sheet.isVisible()) await page.getByRole('button', { name: 'Open more navigation', exact: true }).click()
+    await sheet.getByRole('searchbox', { name: 'Search portal pages' }).fill(name)
+    await sheet.getByRole('navigation', { name: 'All portal pages' }).getByRole('button', { name: accessibleName }).click()
+  } else {
+    await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name }).click()
+  }
 }
 
 async function audit(page: Page, label: string) {

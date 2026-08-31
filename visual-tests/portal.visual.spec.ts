@@ -64,10 +64,30 @@ async function capture(page: Page, name: string) {
   await expect(page).toHaveScreenshot(name)
 }
 
+async function openMobileNavigation(page: Page, search = '') {
+  await page.getByRole('button', { name: 'Open more navigation' }).click()
+  await expect(page.getByRole('dialog', { name: 'Explore your portal' })).toBeVisible()
+  if (search) await page.getByRole('searchbox', { name: 'Search portal pages' }).fill(search)
+}
+
 async function navigateEmployeePage(page: Page, label: string, mobile = false) {
   if (label === 'My Day') return
-  if (mobile) await page.getByRole('button', { name: 'Open menu' }).click()
-  await page.locator('.portal-nav button').filter({ hasText: label }).click()
+  if (mobile) {
+    const bottomLabels: Record<string, RegExp> = {
+      'Time & Schedule': /^Time$/,
+      'Request Center': /^Requests$/,
+      'Action Inbox': /Inbox$/,
+    }
+    const bottomLabel = bottomLabels[label]
+    if (bottomLabel) {
+      await page.getByRole('navigation', { name: 'Employee mobile navigation' }).getByRole('button', { name: bottomLabel }).click()
+    } else {
+      await openMobileNavigation(page)
+      await page.getByRole('dialog', { name: 'Explore your portal' }).getByRole('button', { name: label, exact: true }).click()
+    }
+  } else {
+    await page.locator('.portal-nav button').filter({ hasText: label }).click()
+  }
   await expect(page.locator('.topbar-title strong')).toHaveText(label)
 }
 
@@ -86,6 +106,8 @@ test.describe('premium desktop baselines', () => {
   test('admin action center', async ({ page }) => {
     await prepare(page, 'admin')
     await expect(page.getByRole('heading', { name: 'Good day, Alex.' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Administrator mobile navigation' })).toBeHidden()
+    await expect(page.locator('.portal-sidebar')).toBeVisible()
     await capture(page, 'admin-action-center-desktop.png')
   })
 
@@ -127,7 +149,7 @@ test.describe('premium desktop baselines', () => {
     for (const portal of ['admin', 'employee'] as const) {
       for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
         await prepare(page, portal, viewport)
-        if (viewport.width < 900) await page.getByRole('button', { name: 'Open menu' }).click()
+        if (viewport.width < 900) await openMobileNavigation(page)
         await page.getByRole('button', { name: 'Sign out', exact: true }).click()
         const dialog = page.getByRole('dialog', { name: 'Confirm sign out' })
         await expect(dialog).toBeVisible()
@@ -159,7 +181,7 @@ test.describe('premium desktop baselines', () => {
   test('employee provisioning badge fits in dark mode on desktop and mobile', async ({ page }) => {
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       await prepare(page, 'admin', viewport, 'dark')
-      if (viewport.width < 600) await page.getByRole('button', { name: 'Open menu' }).click()
+      if (viewport.width < 600) await openMobileNavigation(page, 'People Directory')
       await page.getByRole('button', { name: 'People Directory' }).click()
       await page.getByRole('button', { name: 'Create employee & login' }).click()
       await expectEmployeeProvisionBadgeFits(page)
@@ -172,7 +194,7 @@ test.describe('premium desktop baselines', () => {
     for (const size of ['desktop', 'mobile'] as const) {
       test(`employee 360 profile ${theme} ${size}`, async ({ page }) => {
         await prepare(page, 'admin', size === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 1100 }, theme)
-        if (size === 'mobile') await page.getByRole('button', { name: 'Open menu' }).click()
+        if (size === 'mobile') await openMobileNavigation(page, 'People Directory')
         await page.getByRole('button', { name: 'People Directory' }).click()
         await page.getByRole('button', { name: 'Open profile', exact: true }).first().click()
         const dialog = page.getByRole('dialog', { name: 'Employee 360°' })
@@ -198,7 +220,7 @@ test.describe('premium desktop baselines', () => {
     for (const size of ['desktop', 'mobile'] as const) {
       test(`readable benefit form ${theme} ${size}`, async ({ page }) => {
         await prepare(page, 'admin', size === 'mobile' ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, theme)
-        if (size === 'mobile') await page.getByRole('button', { name: 'Open menu' }).click()
+        if (size === 'mobile') await openMobileNavigation(page, 'People Directory')
         await page.getByRole('button', { name: 'People Directory' }).click()
         await page.getByRole('button', { name: 'Open profile', exact: true }).first().click()
         await page.getByRole('tab', { name: 'Pay & benefits', exact: true }).click()
@@ -521,8 +543,13 @@ test.describe('responsive mobile baselines', () => {
 
   test('admin navigation', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
-    await expect(page.getByRole('navigation', { name: 'Portal navigation' })).toBeVisible()
+    const bottomNavigation = page.getByRole('navigation', { name: 'Administrator mobile navigation' })
+    await expect(bottomNavigation).toBeVisible()
+    await expect(bottomNavigation.getByRole('button')).toHaveCount(5)
+    await expect(page.locator('.portal-sidebar')).toBeHidden()
+    await capture(page, 'admin-bottom-navigation-mobile.png')
+    await openMobileNavigation(page)
+    await expect(page.getByRole('navigation', { name: 'All portal pages' })).toBeVisible()
     await capture(page, 'admin-navigation-mobile.png')
   })
 
@@ -535,14 +562,19 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee navigation', async ({ page }) => {
     await prepare(page, 'employee', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
-    await expect(page.getByRole('navigation', { name: 'Portal navigation' })).toBeVisible()
+    const bottomNavigation = page.getByRole('navigation', { name: 'Employee mobile navigation' })
+    await expect(bottomNavigation).toBeVisible()
+    await expect(bottomNavigation.getByRole('button')).toHaveCount(5)
+    await expect(page.locator('.portal-sidebar')).toBeHidden()
+    await capture(page, 'employee-bottom-navigation-mobile.png')
+    await openMobileNavigation(page)
+    await expect(page.getByRole('navigation', { name: 'All portal pages' })).toBeVisible()
     await capture(page, 'employee-navigation-mobile.png')
   })
 
   test('employee request creation', async ({ page }) => {
     await prepare(page, 'employee', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page, 'Request Center')
     await page.getByRole('button', { name: 'Request Center', exact: true }).click()
     await page.getByRole('button', { name: 'New request' }).click()
     await expect(page.getByRole('dialog', { name: 'Create an HR request' })).toBeVisible()
@@ -551,7 +583,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee leave request dialog', async ({ page }) => {
     await prepare(page, 'employee', mobile, 'dark')
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Leave', exact: true }).click()
     await page.getByRole('button', { name: 'New leave request' }).click()
     const dialog = page.getByRole('dialog', { name: 'Request leave' })
@@ -563,7 +595,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee password change dialog', async ({ page }) => {
     await prepare(page, 'employee', mobile, 'dark')
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Account Security' }).click()
     await page.getByRole('button', { name: 'Change password' }).click()
     const dialog = page.getByRole('dialog', { name: 'Change your password' })
@@ -575,7 +607,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee profile photo editor on mobile', async ({ page }) => {
     await prepare(page, 'employee', mobile, 'dark')
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'My Profile' }).click()
     await page.getByRole('button', { name: 'Edit profile' }).click()
     await page.getByLabel('Phone number').fill('+63 917 555 0198')
@@ -596,6 +628,7 @@ test.describe('responsive mobile baselines', () => {
   })
 
   test('every employee destination remains usable in mobile dark mode', async ({ page }) => {
+    test.setTimeout(90_000)
     await prepare(page, 'employee', mobile, 'dark')
     for (const destination of employeeDestinations) {
       await navigateEmployeePage(page, destination.label, true)
@@ -613,7 +646,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee creation dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page, 'People Directory')
     await page.getByRole('button', { name: 'People Directory' }).click()
     await page.getByRole('button', { name: 'Create employee & login' }).click()
     const dialog = page.getByRole('dialog', { name: 'Create employee account' })
@@ -626,7 +659,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('payroll draft dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Payroll Runs' }).click()
     await page.getByRole('button', { name: 'Generate payroll' }).click()
     const dialog = page.getByRole('dialog', { name: 'Generate payroll draft' })
@@ -638,7 +671,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('lifecycle checklist dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'On/Offboarding' }).click()
     await page.getByRole('button', { name: 'Start checklist' }).click()
     const dialog = page.getByRole('dialog', { name: 'Start lifecycle checklist' })
@@ -650,7 +683,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('schedule assignment dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Time & Attendance' }).click()
     await page.getByRole('button', { name: 'Assign schedule' }).click()
     const dialog = page.getByRole('dialog', { name: 'Assign or update schedule' })
@@ -662,7 +695,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('announcement publishing dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Communications' }).click()
     await page.getByRole('button', { name: 'New announcement' }).click()
     const dialog = page.getByRole('dialog', { name: 'Publish announcement' })
@@ -674,7 +707,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('protected HR document publishing dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Documents & Policy' }).click()
     await page.getByRole('button', { name: 'Publish document' }).click()
     const dialog = page.getByRole('dialog', { name: 'Publish HR document' })
@@ -686,7 +719,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('performance cycle planning dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Performance' }).click()
     await page.getByRole('button', { name: 'New cycle' }).click()
     const dialog = page.getByRole('dialog', { name: 'Create performance cycle' })
@@ -698,7 +731,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee goal assignment dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Performance' }).click()
     await page.getByRole('button', { name: 'Add goal' }).click()
     const dialog = page.getByRole('dialog', { name: 'Assign employee goal' })
@@ -710,7 +743,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('private performance review dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page)
     await page.getByRole('button', { name: 'Performance' }).click()
     await page.getByRole('button', { name: 'New review' }).click()
     const dialog = page.getByRole('dialog', { name: 'Save performance review draft' })
@@ -722,7 +755,7 @@ test.describe('responsive mobile baselines', () => {
 
   test('employee request review dialog', async ({ page }) => {
     await prepare(page, 'admin', mobile)
-    await page.getByRole('button', { name: 'Open menu' }).click()
+    await openMobileNavigation(page, 'Approvals')
     await page.getByRole('button', { name: /^Approvals/ }).click()
     await page.getByRole('button', { name: 'Review' }).click()
     const dialog = page.getByRole('dialog', { name: 'Review request #REQ-204' })

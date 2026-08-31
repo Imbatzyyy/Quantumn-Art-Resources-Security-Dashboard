@@ -16,7 +16,7 @@ for (const portal of ['admin', 'employee']) {
   })
 }
 
-test('admin sidebar theme applies to desktop, collapsed, and mobile navigation', async ({ page }) => {
+test('admin sidebar theme applies to desktop and the mobile navigation surface', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/visual.html?screen=admin')
   const sidebar = page.locator('.portal-sidebar')
@@ -35,20 +35,19 @@ test('admin sidebar theme applies to desktop, collapsed, and mobile navigation',
   await page.getByRole('button', { name: 'Toggle color theme' }).click()
   await expect(sidebar).not.toHaveCSS('background-image', 'none')
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('button', { name: 'Open menu' }).click()
-  await expect(sidebar.getByRole('navigation')).toBeVisible()
-  await expect(sidebar.locator('.sidebar-brand-full')).toBeVisible()
-  await expect(sidebar.locator('.sidebar-brand-mark')).toBeHidden()
-  await expect(sidebar.getByText('Operations Console', { exact: true })).toBeVisible()
-  await expect(sidebar).not.toHaveCSS('background-image', 'none')
-  await sidebar.getByRole('button', { name: 'Close menu' }).click()
+  await expect(sidebar).toBeHidden()
+  await page.getByRole('button', { name: 'Open more navigation' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Explore your portal' })
+  await expect(sheet.getByText('Administrator workspace', { exact: true })).toBeVisible()
+  await expect(sheet).toHaveCSS('background-color', 'rgb(23, 32, 45)')
+  await sheet.getByRole('button', { name: 'Close more navigation' }).click()
   await page.getByRole('button', { name: 'Toggle color theme' }).click()
-  await page.getByRole('button', { name: 'Open menu' }).click()
-  await expect(sidebar).toHaveCSS('background-color', 'rgb(255, 255, 255)')
-  await expect(sidebar.getByRole('button', { name: /People Directory/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Open more navigation' }).click()
+  await expect(sheet).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(sheet.getByRole('button', { name: 'Time & Attendance', exact: true })).toBeVisible()
 })
 
-test('employee branding fits collapsed desktop rail and restores in mobile drawer', async ({ page }) => {
+test('employee branding fits the collapsed desktop rail and mobile navigation stays role-specific', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/visual.html?screen=employee')
   const sidebar = page.locator('.portal-sidebar')
@@ -63,8 +62,10 @@ test('employee branding fits collapsed desktop rail and restores in mobile drawe
   expect(collapsedBounds.scrollWidth).toBeLessThanOrEqual(collapsedBounds.clientWidth)
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('button', { name: 'Open menu' }).click()
-  await expect(sidebar.locator('.sidebar-brand-full')).toBeVisible()
-  await expect(sidebar.locator('.sidebar-brand-mark')).toBeHidden()
-  await expect(sidebar.getByText('People Portal', { exact: true })).toBeVisible()
+  await expect(sidebar).toBeHidden()
+  await page.getByRole('button', { name: 'Open more navigation' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Explore your portal' })
+  await expect(sheet.getByText('Employee workspace', { exact: true })).toBeVisible()
+  await expect(sheet.getByRole('button', { name: 'My Profile', exact: true })).toBeVisible()
+  await expect(sheet.getByRole('button', { name: 'Admin Accounts & Roles', exact: true })).toHaveCount(0)
 })
