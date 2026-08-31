@@ -185,6 +185,44 @@ test.describe.serial('isolated protected mutation workflows', () => {
     await expect(requestRow.getByText('Approved', { exact: true })).toBeVisible({ timeout: 20_000 })
   })
 
+  test('confirms and persists an employee-authorized profile edit', async ({ page }) => {
+    const { data: before, error: beforeError } = await service.from('profiles')
+      .select('phone, department, position').eq('email', employeeEmail).single()
+    expect(beforeError).toBeNull()
+    const nextPhone = before?.phone === '+63 917 555 0177' ? '+63 917 555 0178' : '+63 917 555 0177'
+
+    await signInPortal(page, 'employee', employeeEmail, employeePassword)
+    await page.getByRole('navigation', { name: 'Portal navigation' })
+      .getByRole('button', { name: 'My Profile' }).click()
+    await expect(page.getByRole('heading', { name: 'My Profile' })).toBeVisible()
+    await expect(page.getByLabel('Phone number')).toBeDisabled()
+    await expect(page.getByLabel('Department')).toBeDisabled()
+    await expect(page.getByLabel('Position')).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Edit profile' }).click()
+    await page.getByLabel('Phone number').fill(nextPhone)
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    const confirmation = page.getByRole('dialog', { name: 'Confirm profile changes' })
+    await expect(confirmation).toBeVisible()
+    await expect(confirmation.getByText(nextPhone)).toBeVisible()
+
+    const { data: notSavedYet } = await service.from('profiles').select('phone').eq('email', employeeEmail).single()
+    expect(notSavedYet?.phone).toBe(before?.phone)
+    await confirmation.getByRole('button', { name: 'Confirm & save' }).click()
+
+    await expect(confirmation).toBeHidden({ timeout: 20_000 })
+    await expect(page.getByText('Employee profile updated.')).toBeVisible()
+    await expect(page.getByLabel('Phone number')).toBeDisabled()
+    await expect.poll(async () => {
+      const { data } = await service.from('profiles').select('phone').eq('email', employeeEmail).single()
+      return data?.phone
+    }).toBe(nextPhone)
+
+    const { data: after } = await service.from('profiles')
+      .select('department, position').eq('email', employeeEmail).single()
+    expect(after).toMatchObject({ department: before?.department, position: before?.position })
+  })
+
   for (const outputType of ['image/webp', 'image/png']) {
   test(`crops, positions, and privately stores ${outputType} profile pictures`, async ({ page }) => {
     if (outputType === 'image/png') {

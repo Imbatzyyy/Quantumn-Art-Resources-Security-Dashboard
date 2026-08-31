@@ -1438,6 +1438,9 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .employee-profile-page { gap: 1rem; }
 .employee-profile-page > .section-heading { margin-bottom: .1rem; }
 .employee-profile-page > .section-heading .badge { min-height: 31px; padding: .4rem .68rem; border: 1px solid color-mix(in srgb,var(--green) 15%,var(--border)); }
+.employee-profile-page > .section-heading .section-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.profile-edit-button { min-height: 40px; padding: .55rem .78rem; border-radius: 12px; }
+.profile-edit-button svg { width: 16px; }
 .profile-identity-hero { position: relative; min-height: 210px; padding: 1.45rem 1.55rem; display: grid; grid-template-columns: 132px minmax(0,1fr) minmax(240px,320px); align-items: center; gap: 1.35rem; overflow: hidden; color: white; border: 1px solid rgba(255,255,255,.1); border-radius: 25px; background: radial-gradient(circle at 96% -12%,rgba(126,231,213,.26),transparent 33%),radial-gradient(circle at 47% 128%,rgba(80,127,221,.22),transparent 42%),linear-gradient(120deg,#0b2c48,#146064); box-shadow: 0 24px 58px rgba(3,25,45,.2); }
 .profile-identity-hero::after { content: ''; position: absolute; width: 240px; height: 240px; right: -100px; top: -145px; border: 1px solid rgba(255,255,255,.09); border-radius: 50%; }
 .profile-photo-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
@@ -1475,15 +1478,20 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .profile-record-grid label { min-width: 0; display: grid; gap: .34rem; color: var(--text-faint); font-size: .58rem; font-weight: 800; }
 .profile-record-grid input { min-width: 0; width: 100%; height: 49px; padding: 0 .75rem; color: var(--text-soft); border: 1px solid var(--border); border-radius: 13px; background: var(--surface-soft); font-size: .68rem; font-weight: 750; opacity: 1; }
 .profile-side-stack { display: grid; gap: 1rem; }
+.profile-contact-card { transition: border-color .18s ease,box-shadow .18s ease,transform .18s ease; }
+.profile-contact-card.is-editing { border-color: color-mix(in srgb,var(--blue) 38%,var(--border)); box-shadow: 0 18px 42px rgba(23,88,178,.12),inset 0 3px 0 color-mix(in srgb,var(--blue) 78%,#63d9cd); }
 .profile-contact-card .profile-card-heading { grid-template-columns: 45px minmax(0,1fr); }
 .profile-contact-card > label { display: grid; gap: .4rem; color: var(--text-soft); font-size: .64rem; font-weight: 820; }
 .profile-contact-card > label > span { display: flex; align-items: center; gap: .4rem; }
 .profile-contact-card em { padding: .16rem .34rem; color: var(--green); border-radius: 999px; background: var(--green-soft); font-size: .43rem; font-style: normal; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
 .profile-contact-card > label > div { min-height: 54px; padding: 0 .78rem; display: grid; grid-template-columns: 20px minmax(0,1fr); align-items: center; gap: .6rem; color: var(--text-faint); border: 2px solid color-mix(in srgb,var(--text-faint) 20%,var(--border)); border-radius: 15px; background: var(--surface-soft); }
 .profile-contact-card > label > div:focus-within { color: var(--blue); border-color: var(--blue); background: var(--surface); box-shadow: 0 0 0 4px color-mix(in srgb,var(--blue) 11%,transparent); }
+.profile-contact-card:not(.is-editing) > label > div { border-color: var(--border); background: var(--surface-soft); }
 .profile-contact-card > label svg { width: 18px; }
 .profile-contact-card input { width: 100%; height: 50px; padding: 0; color: var(--text); border: 0; outline: 0; background: transparent; font: inherit; font-size: .7rem; font-weight: 740; }
-.profile-contact-card > .button { width: 100%; min-height: 48px; margin-top: .8rem; border-radius: 14px; }
+.profile-contact-card input:disabled { color: var(--text-soft); opacity: 1; cursor: default; -webkit-text-fill-color: var(--text-soft); }
+.profile-contact-actions { margin-top: .85rem; display: grid; grid-template-columns: minmax(0,.72fr) minmax(0,1.28fr); gap: .6rem; }
+.profile-contact-actions .button { width: 100%; min-height: 48px; border-radius: 14px; }
 .profile-access-card { color: white; border-color: rgba(255,255,255,.08); background: radial-gradient(circle at 100% 0%,rgba(68,195,177,.19),transparent 40%),linear-gradient(145deg,#0c283e,#123b4b); box-shadow: 0 16px 35px rgba(5,28,47,.14); }
 .profile-access-card > span { width: 43px; height: 43px; display: grid; place-items: center; color: #8fe9dc; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(255,255,255,.07); }
 .profile-access-card > span svg { width: 20px; }
@@ -1498,6 +1506,32 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .profile-realtime-note strong { color: var(--text); font-size: .65rem; }
 .profile-realtime-note p { margin: .1rem 0 0; color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
 .profile-realtime-note .badge { min-width: max-content; }
+
+/* Explicit employee-profile save review */
+.modal:has(.profile-save-confirmation) { width: min(100%,590px); border-color: color-mix(in srgb,var(--teal) 20%,var(--border)); border-radius: 24px; box-shadow: 0 32px 90px rgba(3,22,41,.34); }
+.modal:has(.profile-save-confirmation) .modal-header { min-height: 68px; padding: 1rem 1.3rem; background: color-mix(in srgb,var(--surface) 94%,transparent); backdrop-filter: blur(18px); }
+.modal:has(.profile-save-confirmation) .modal-header h2 { font-size: 1.08rem; letter-spacing: -.025em; }
+.modal-content:has(> .profile-save-confirmation) { padding: 0; }
+.profile-save-confirmation { padding: 1.35rem; display: grid; grid-template-columns: 58px minmax(0,1fr); gap: .95rem; background: radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--teal-soft) 58%,transparent),transparent 42%),var(--surface); }
+.profile-save-confirmation-icon { width: 58px; height: 58px; display: grid; place-items: center; color: var(--teal); border: 1px solid color-mix(in srgb,var(--teal) 18%,var(--border)); border-radius: 18px; background: color-mix(in srgb,var(--teal-soft) 72%,var(--surface)); box-shadow: 0 10px 24px color-mix(in srgb,var(--teal) 10%,transparent); }
+.profile-save-confirmation-icon svg { width: 26px; }
+.profile-save-confirmation-copy { align-self: center; }
+.profile-save-confirmation-copy small { color: var(--teal); font-size: .56rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.profile-save-confirmation-copy h3 { margin: .25rem 0 .22rem; color: var(--text); font-size: 1.08rem; letter-spacing: -.025em; }
+.profile-save-confirmation-copy p { margin: 0; color: var(--text-soft); font-size: .67rem; line-height: 1.55; }
+.profile-save-confirmation dl { grid-column: 1 / -1; margin: .15rem 0 0; padding: .9rem; display: grid; grid-template-columns: minmax(0,1fr) 28px minmax(0,1fr); align-items: center; gap: .6rem; border: 1px solid var(--border); border-radius: 17px; background: var(--surface-soft); }
+.profile-save-confirmation dl > div { min-width: 0; }
+.profile-save-confirmation dt { margin-bottom: .25rem; color: var(--text-faint); font-size: .52rem; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+.profile-save-confirmation dd { margin: 0; overflow: hidden; color: var(--text); font-size: .71rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.profile-save-confirmation dl > span { color: var(--blue); font-size: 1rem; font-weight: 850; text-align: center; }
+.profile-save-assurance { grid-column: 1 / -1; padding: .78rem; display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: .62rem; color: var(--green); border: 1px solid color-mix(in srgb,var(--green) 16%,var(--border)); border-radius: 15px; background: color-mix(in srgb,var(--green-soft) 42%,var(--surface)); }
+.profile-save-assurance > svg { width: 38px; height: 38px; padding: 9px; border-radius: 12px; background: var(--surface); }
+.profile-save-assurance span { display: grid; gap: .12rem; }
+.profile-save-assurance strong { color: var(--text); font-size: .64rem; }
+.profile-save-assurance small { color: var(--text-faint); font-size: .55rem; line-height: 1.4; }
+.profile-save-confirmation .modal-actions { grid-column: 1 / -1; width: 100%; margin-top: .15rem; }
+.profile-save-confirmation .button { min-height: 47px; border-radius: 14px; }
+.profile-save-confirmation .button-primary { min-width: 175px; background: linear-gradient(135deg,#168f82,#116b75); box-shadow: 0 10px 22px rgba(18,126,120,.22); }
 
 /* Profile photo crop editor */
 .modal-large:has(.profile-photo-editor) { width: min(100%,940px); border: 1px solid color-mix(in srgb,var(--teal) 15%,var(--border)); border-radius: 28px; background: var(--surface-soft); box-shadow: 0 38px 100px rgba(3,22,41,.42); }
@@ -1572,6 +1606,9 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .photo-editor-content { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
+  .employee-profile-page > .section-heading .section-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; }
+  .employee-profile-page > .section-heading .section-actions > :only-child { grid-column: 1 / -1; }
+  .employee-profile-page > .section-heading .section-actions .badge,.employee-profile-page > .section-heading .section-actions .button { width: 100%; justify-content: center; }
   .profile-identity-hero { padding: 1.15rem; grid-template-columns: 88px minmax(0,1fr); gap: .9rem; border-radius: 21px; }
   .profile-photo-button { width: 88px; height: 88px; border-width: 3px; border-radius: 27px; }
   .profile-photo-button > span { left: 5px; right: 5px; bottom: 5px; min-height: 27px; font-size: 0; }
@@ -1588,6 +1625,13 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .photo-editor-stage,.photo-editor-controls { padding: .85rem; border-radius: 18px; }
   .photo-editor-footer { padding: .85rem; align-items: stretch; flex-direction: column; }
   .photo-editor-footer .modal-actions,.photo-editor-footer .button { width: 100%; }
+  .profile-save-confirmation { padding: 1rem; grid-template-columns: 48px minmax(0,1fr); gap: .75rem; }
+  .profile-save-confirmation-icon { width: 48px; height: 48px; border-radius: 15px; }
+  .profile-save-confirmation dl { grid-template-columns: 1fr; gap: .7rem; }
+  .profile-save-confirmation dl > span { transform: rotate(90deg); }
+  .profile-save-confirmation dd { white-space: normal; overflow-wrap: anywhere; }
+  .profile-save-confirmation .modal-actions { display: grid; grid-template-columns: 1fr; }
+  .profile-save-confirmation .button,.profile-save-confirmation .button-primary { width: 100%; min-width: 0; }
 }
 @media (max-width: 390px) {
   .profile-identity-hero { grid-template-columns: 1fr; text-align: center; }

@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   Bell,
   BookOpenCheck,
@@ -22,6 +22,7 @@ import {
   Mail,
   MessageSquareText,
   PhilippinePeso,
+  Pencil,
   Plus,
   Phone,
   ReceiptText,
@@ -454,12 +455,21 @@ function EmployeeJourney() {
 function EmployeeProfile() {
   const { user, updateEmployee, updateProfilePhoto, notify } = useHrms()
   const [form, setForm] = useState({ phone: user?.phone ?? '' })
+  const [editing, setEditing] = useState(false)
+  const [confirmingSave, setConfirmingSave] = useState(false)
   const [phoneSaving, setPhoneSaving] = useState(false)
   const [photoSaving, setPhotoSaving] = useState(false)
   const [photoEditorUrl, setPhotoEditorUrl] = useState('')
   const photoInput = useRef<HTMLInputElement>(null)
+  const phoneInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (editing) phoneInput.current?.focus()
+  }, [editing])
   if (!user) return null
   const initials = `${user.firstName[0] || ''}${user.lastName[0] || ''}`
+  const currentPhone = (user.phone || '').trim()
+  const nextPhone = form.phone.trim()
+  const phoneChanged = nextPhone !== currentPhone
   const resetPhotoEditor = () => {
     if (photoEditorUrl) URL.revokeObjectURL(photoEditorUrl)
     setPhotoEditorUrl('')
@@ -492,14 +502,37 @@ function EmployeeProfile() {
       resetPhotoEditor()
     } finally { setPhotoSaving(false) }
   }
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const beginEditing = () => {
+    setForm({ phone: user.phone ?? '' })
+    setEditing(true)
+  }
+  const cancelEditing = () => {
+    if (phoneSaving) return
+    setConfirmingSave(false)
+    setForm({ phone: user.phone ?? '' })
+    setEditing(false)
+  }
+  const requestSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!editing || phoneSaving || !phoneChanged) return
+    if (nextPhone.length < 7 || nextPhone.length > 30) {
+      notify('Enter a phone number between 7 and 30 characters.', 'error')
+      return
+    }
+    setConfirmingSave(true)
+  }
+  const confirmSave = async () => {
+    if (!confirmingSave || phoneSaving) return
     setPhoneSaving(true)
-    try { await updateEmployee(user.id, form) } catch { /* Keep form state. */ }
+    try {
+      await updateEmployee(user.id, { phone: nextPhone })
+      setConfirmingSave(false)
+      setEditing(false)
+    } catch { /* Keep the confirmation available for a retry. */ }
     finally { setPhoneSaving(false) }
   }
   return <div className="page-stack employee-feature-page employee-profile-page">
-    <SectionHeading eyebrow="My account" title="My Profile" description="Your trusted identity, employment details, and employee-managed contact information in one secure workspace." actions={<Badge tone="success">Supabase Realtime</Badge>} />
+    <SectionHeading eyebrow="My account" title="My Profile" description="Your trusted identity, employment details, and employee-managed contact information in one secure workspace." actions={<><Badge tone="success">Supabase Realtime</Badge>{editing ? <Badge tone="info">Editing profile</Badge> : <button type="button" className="button button-secondary profile-edit-button" onClick={beginEditing}><Pencil />Edit profile</button>}</>} />
     <section className="profile-identity-hero">
       <input ref={photoInput} className="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile picture" onChange={choosePhoto} />
       <button type="button" className="profile-photo-button" onClick={() => photoInput.current?.click()} aria-label="Change profile picture">
@@ -524,15 +557,16 @@ function EmployeeProfile() {
       </section>
 
       <aside className="profile-side-stack">
-        <form className="panel profile-contact-card" onSubmit={submit}>
+        <form className={`panel profile-contact-card${editing ? ' is-editing' : ''}`} onSubmit={requestSave}>
           <header className="profile-card-heading"><span><Phone /></span><div><small>Employee managed</small><h2>Contact details</h2><p>Keep your direct contact number current.</p></div></header>
-          <label><span>Phone number <em>Editable</em></span><div><Phone /><input aria-label="Phone number" value={form.phone} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} placeholder="+63 912 345 6789" required /></div></label>
-          <button className="button button-primary" disabled={phoneSaving || form.phone.trim() === (user.phone || '').trim()}>{phoneSaving ? 'Saving securely…' : 'Save phone number'}</button>
+          <label><span>Phone number {editing ? <em>Editing</em> : currentPhone && <em>On file</em>}</span><div><Phone /><input ref={phoneInput} type="tel" autoComplete="tel" aria-label="Phone number" value={editing ? form.phone : user.phone ?? ''} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} placeholder={editing ? '+63 912 345 6789' : 'Not provided'} disabled={!editing || phoneSaving} required /></div></label>
+          {editing && <div className="profile-contact-actions"><button type="button" className="button button-secondary" onClick={cancelEditing} disabled={phoneSaving}>Cancel</button><button type="submit" className="button button-primary" disabled={phoneSaving || !phoneChanged}>{phoneSaving ? 'Saving securely…' : 'Save changes'}</button></div>}
         </form>
         <section className="panel profile-access-card"><span><ShieldCheck /></span><div><small>Data protection</small><h2>Controlled access</h2><p>Your photo is stored in an employee-owned private path. Employment changes remain restricted to authorized HR roles.</p></div><ul><li><Camera />Private photo object</li><li><Mail />Verified work email</li><li><ShieldCheck />Audited profile changes</li></ul></section>
         <section className="profile-realtime-note"><span><ShieldCheck /></span><div><strong>Realtime profile synchronization</strong><p>Approved changes are read from Supabase and reflected across your portal session.</p></div><Badge tone="success">Connected</Badge></section>
       </aside>
     </div>
+    {confirmingSave && <Modal title="Confirm profile changes" onClose={() => setConfirmingSave(false)} dismissible={!phoneSaving}><div className="profile-save-confirmation"><span className="profile-save-confirmation-icon"><ShieldCheck /></span><div className="profile-save-confirmation-copy"><small>Employee-managed information</small><h3>Save this phone number?</h3><p>Only your contact number will change. Your identity and employment record remain protected and read-only.</p></div><dl><div><dt>Current</dt><dd>{currentPhone || 'Not provided'}</dd></div><span aria-hidden="true">→</span><div><dt>New</dt><dd>{nextPhone}</dd></div></dl><div className="profile-save-assurance"><ShieldCheck /><span><strong>Secure Supabase update</strong><small>This change is restricted to your signed-in employee account and recorded in the audit trail.</small></span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setConfirmingSave(false)} disabled={phoneSaving}>Keep editing</button><button type="button" className="button button-primary" onClick={confirmSave} disabled={phoneSaving}>{phoneSaving ? 'Saving securely…' : 'Confirm & save'}</button></div></div></Modal>}
     {photoEditorUrl && <Modal title="Crop your profile picture" onClose={closePhotoEditor} size="large" dismissible={!photoSaving}><ProfilePhotoEditor sourceUrl={photoEditorUrl} saving={photoSaving} onCancel={closePhotoEditor} onSave={savePhoto} /></Modal>}
   </div>
 }
