@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { assertSetupAccess } from './_shared/hrms-access.mjs'
 import { validatePermanentPassword } from '../../src/utils/passwordPolicy.js'
 
 const json = (body, status = 200) => globalThis.Response.json(body, {
@@ -16,9 +17,12 @@ export default async (request) => {
   const authorization = request.headers.get('authorization') || ''
   const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
   if (!accessToken) return json({ error: 'Open the personal invitation link from your email.' }, 401)
+  try { await assertSetupAccess(supabaseUrl, serviceKey, accessToken) }
+  catch { return json({ error: 'Open a valid invitation link to verify your setup session.' }, 403) }
 
   let input
   try { input = await request.json() } catch { return json({ error: 'The request body must be valid JSON.' }, 400) }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return json({ error: 'A JSON object is required.' }, 400)
   const newPassword = typeof input.newPassword === 'string' ? input.newPassword : ''
 
   const admin = createClient(supabaseUrl, serviceKey, {

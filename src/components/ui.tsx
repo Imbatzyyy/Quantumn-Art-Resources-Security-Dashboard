@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { X } from 'lucide-react'
 
@@ -69,9 +69,33 @@ export function EmptyState({ icon: Icon, title, text }: EmptyStateProps) {
 }
 
 export function Modal({ title, children, onClose, size = 'normal', dismissible = true }: ModalProps) {
+  const panel = useRef<HTMLElement>(null)
+  const close = useRef(onClose)
+  useEffect(() => { close.current = onClose }, [onClose])
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    const element = panel.current
+    if (!element) return
+    if (!element.contains(document.activeElement)) element.focus()
+    const handleKey = (event: globalThis.KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('.modal[role="dialog"]')
+      if (dialogs[dialogs.length - 1] !== element) return
+      if (event.key === 'Escape' && dismissible) { event.preventDefault(); close.current?.() }
+      if (event.key !== 'Tab') return
+      const focusable = [...element.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]')].filter((node) => node.getClientRects().length)
+      const first = focusable[0], last = focusable.at(-1)
+      if (!first) { event.preventDefault(); element.focus() }
+      else if (event.shiftKey && (document.activeElement === first || document.activeElement === element)) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => { document.removeEventListener('keydown', handleKey); if (previous?.isConnected) previous.focus() }
+  }, [dismissible])
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={dismissible ? onClose : undefined}>
       <section
+        ref={panel}
+        tabIndex={-1}
         className={`modal modal-${size}${dismissible ? '' : ' modal-required'}`}
         role="dialog"
         aria-modal="true"

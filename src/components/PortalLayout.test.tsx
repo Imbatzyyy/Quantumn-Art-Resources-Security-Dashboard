@@ -205,7 +205,7 @@ describe('responsive mobile portal navigation', () => {
     expect(within(bottom).queryByRole('button', { name: 'People' })).not.toBeInTheDocument()
     await user.click(within(bottom).getByRole('button', { name: 'Open more navigation' }))
     await user.type(screen.getByRole('searchbox', { name: 'Search portal pages' }), 'People')
-    expect(screen.getByRole('status')).toHaveTextContent('No portal page matches')
+    expect(screen.getByText(/No portal page matches/)).toHaveAttribute('role', 'status')
   })
 
   it('refreshes through the existing data provider and reports failures without closing the sheet', async () => {

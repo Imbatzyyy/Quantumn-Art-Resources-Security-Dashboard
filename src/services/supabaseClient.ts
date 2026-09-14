@@ -26,3 +26,10 @@ export function requireSupabase(): SupabaseClient<Database> {
 
   return supabase
 }
+
+export function isolatedAuthenticator(): SupabaseClient<Database> {
+  requireSupabase()
+  return createClient<Database>(supabaseUrl!, supabasePublishableKey!, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  })
+}

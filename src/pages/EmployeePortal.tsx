@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { businessDate, attendanceForClock } from '../utils/securityMetrics.js'
+import { requireSupabase } from '../services/supabaseClient.js'
 import {
   Bell,
   BookOpenCheck,
@@ -138,8 +140,8 @@ export default function EmployeePortal() {
 function MyDay({ onNavigate }: NavigateProps) {
   const { data, user, clock } = useHrms()
   if (!data || !user) return null
-  const today = new Date().toISOString().slice(0, 10)
-  const attendance = data.attendance.find((item) => item.employeeId === user.id && item.date === today)
+  const today = businessDate()
+  const attendance = attendanceForClock(data.attendance, user.id)
   const schedule = data.schedules.find((item) => item.employeeId === user.id && item.date === today)
   const leaves = data.leaveRequests.filter((item) => item.employeeId === user.id)
   const requests = data.employeeRequests.filter((item) => item.employeeId === user.id)
@@ -188,15 +190,15 @@ function MyDay({ onNavigate }: NavigateProps) {
 function TimeAndSchedule({ onNavigate }: NavigateProps) {
   const { data, user, clock } = useHrms()
   if (!data || !user) return null
-  const today = new Date().toISOString().slice(0, 10)
-  const current = data.attendance.find((item) => item.employeeId === user.id && item.date === today)
+  const today = businessDate()
+  const current = attendanceForClock(data.attendance, user.id)
   const history = data.attendance.filter((item) => item.employeeId === user.id)
   const schedule = data.schedules.filter((item) => item.employeeId === user.id)
   const currentSchedule = schedule.find((item) => item.date === today)
   const totalHours = history.reduce((sum, item) => sum + item.hours, 0)
   const clockNow = async () => { try { await clock(user.id) } catch { /* Toast handles it. */ } }
 
-  return <div className="page-stack employee-feature-page employee-time-page"><SectionHeading eyebrow="My work" title="Time & Schedule" description="Clock securely, review assigned shifts, and report exceptions without editing official records." actions={<button className="button button-secondary" onClick={() => onNavigate('requests')}><MessageSquareText />Request correction</button>} /><section className="clock-panel premium-clock-panel"><div><span>Current time</span><strong>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong><p>{new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p></div><div className="clock-state"><span className={current?.clockIn && !current?.clockOut ? 'working' : ''}><Clock3 /></span><div><strong>{current?.clockIn && !current?.clockOut ? 'You are clocked in' : current?.clockOut ? 'Workday completed' : currentSchedule?.workMode === 'Rest Day' ? 'Rest day' : 'Ready to start?'}</strong><p>{current?.clockIn ? `Clock-in: ${current.clockIn}${current.clockOut ? ` · Clock-out: ${current.clockOut}` : ''}` : currentSchedule ? `${currentSchedule.shiftStart}–${currentSchedule.shiftEnd} · ${currentSchedule.location}` : 'No assigned shift for today.'}</p></div></div><button className={`button ${current?.clockIn && !current?.clockOut ? 'button-danger' : 'button-primary'} button-large`} onClick={clockNow} disabled={Boolean(current?.clockOut) || currentSchedule?.workMode === 'Rest Day'}>{current?.clockIn && !current?.clockOut ? 'Clock out' : current?.clockOut ? 'Workday completed' : 'Clock in now'}</button></section><div className="stats-grid stats-grid-3"><StatCard icon={Clock3} label="Recorded hours" value={`${totalHours.toFixed(1)} hrs`} detail="Visible attendance history" tone="blue" /><StatCard icon={CalendarDays} label="Upcoming shifts" value={schedule.filter((item) => item.date >= today && item.workMode !== 'Rest Day').length} detail="Next 14 days" tone="green" /><StatCard icon={MapPin} label="Today’s work mode" value={currentSchedule?.workMode ?? 'Unassigned'} detail={currentSchedule?.location ?? 'Contact HR if incorrect'} tone="purple" /></div><section className="panel"><div className="panel-header"><div><h2>Upcoming schedule</h2><p>Assigned shifts from the administrator workspace</p></div></div><div className="schedule-strip">{schedule.filter((item) => item.date >= today).slice(0, 7).map((item) => <article key={item.id} className={item.date === today ? 'today' : ''}><span>{new Date(`${item.date}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'short' })}</span><strong>{new Date(`${item.date}T00:00:00`).getDate()}</strong><Badge tone={item.workMode === 'Rest Day' ? 'neutral' : item.workMode === 'Remote' ? 'info' : 'success'}>{item.workMode}</Badge><small>{item.workMode === 'Rest Day' ? 'No shift' : `${item.shiftStart}–${item.shiftEnd}`}</small></article>)}</div></section><section className="panel"><div className="panel-header"><div><h2>Attendance history</h2><p>Official records; corrections are handled through Request Center</p></div></div><TableShell><thead><tr><th>Date</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th></tr></thead><tbody>{history.map((item) => <tr key={item.id}><td>{formatDate(item.date)}</td><td>{item.clockIn ?? '—'}</td><td>{item.clockOut ?? '—'}</td><td>{item.hours.toFixed(1)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td></tr>)}</tbody></TableShell></section></div>
+  return <div className="page-stack employee-feature-page employee-time-page"><SectionHeading eyebrow="My work" title="Time & Schedule" description="Clock securely, review assigned shifts, and report exceptions without editing official records." actions={<button className="button button-secondary" onClick={() => onNavigate('requests')}><MessageSquareText />Request correction</button>} /><section className="clock-panel premium-clock-panel"><div><span>Current time</span><strong>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong><p>{new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p></div><div className="clock-state"><span className={current?.clockIn && !current?.clockOut ? 'working' : ''}><Clock3 /></span><div><strong>{current?.clockIn && !current?.clockOut ? 'You are clocked in' : current?.clockOut ? 'Workday completed' : currentSchedule?.workMode === 'Rest Day' ? 'Rest day' : 'Ready to start?'}</strong><p>{current?.clockIn ? `Clock-in: ${current.clockIn}${current.clockOut ? ` · Clock-out: ${current.clockOut}` : ''}` : currentSchedule ? `${currentSchedule.shiftStart}–${currentSchedule.shiftEnd} · ${currentSchedule.location}` : 'No assigned shift for today.'}</p></div></div><button className={`button ${current?.clockIn && !current?.clockOut ? 'button-danger' : 'button-primary'} button-large`} onClick={clockNow} disabled={Boolean(current?.clockOut) || (currentSchedule?.workMode === 'Rest Day' && !current?.clockIn)}>{current?.clockIn && !current?.clockOut ? 'Clock out' : current?.clockOut ? 'Workday completed' : 'Clock in now'}</button></section><div className="stats-grid stats-grid-3"><StatCard icon={Clock3} label="Recorded hours" value={`${totalHours.toFixed(1)} hrs`} detail="Visible attendance history" tone="blue" /><StatCard icon={CalendarDays} label="Upcoming shifts" value={schedule.filter((item) => item.date >= today && item.workMode !== 'Rest Day').length} detail="All upcoming assignments" tone="green" /><StatCard icon={MapPin} label="Today’s work mode" value={currentSchedule?.workMode ?? 'Unassigned'} detail={currentSchedule?.location ?? 'Contact HR if incorrect'} tone="purple" /></div><section className="panel"><div className="panel-header"><div><h2>Upcoming schedule</h2><p>Assigned shifts from the administrator workspace</p></div></div><div className="schedule-strip">{schedule.filter((item) => item.date >= today).slice(0, 7).map((item) => <article key={item.id} className={item.date === today ? 'today' : ''}><span>{new Date(`${item.date}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'short' })}</span><strong>{new Date(`${item.date}T00:00:00`).getDate()}</strong><Badge tone={item.workMode === 'Rest Day' ? 'neutral' : item.workMode === 'Remote' ? 'info' : 'success'}>{item.workMode}</Badge><small>{item.workMode === 'Rest Day' ? 'No shift' : `${item.shiftStart}–${item.shiftEnd}`}</small></article>)}</div></section><section className="panel"><div className="panel-header"><div><h2>Attendance history</h2><p>Official records; corrections are handled through Request Center</p></div></div><TableShell><thead><tr><th>Date</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th></tr></thead><tbody>{history.map((item) => <tr key={item.id}><td>{formatDate(item.date)}</td><td>{item.clockIn ?? '—'}</td><td>{item.clockOut ?? '—'}</td><td>{item.hours.toFixed(1)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td></tr>)}</tbody></TableShell></section></div>
 }
 
 function EmployeeLeave() {
@@ -207,7 +209,7 @@ function EmployeeLeave() {
   if (!data || !user) return null
   const requests = data.leaveRequests.filter((item) => item.employeeId === user.id)
   const days = inclusiveDays(form.startDate, form.endDate)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = businessDate()
   const balance = availableLeave(requests)
   const requestReady = days > 0 && days <= 30 && form.reason.trim().length >= 3
   const remainingBalance = Math.max(0, balance - days)
@@ -277,6 +279,7 @@ function EmployeeLeave() {
 function RequestCenter() {
   const { data, user, submitRequest, addRequestComment, cancelRequest } = useHrms()
   const [showCreate, setShowCreate] = useState(false)
+  const requestKey = useRef<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [comment, setComment] = useState('')
   const emptyForm = { type: 'Attendance Correction', subject: '', description: '', requestedDate: '', requestedValue: '', priority: 'Normal' }
@@ -292,7 +295,8 @@ function RequestCenter() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    try { await submitRequest(form); setForm(emptyForm); setShowCreate(false) } catch { /* Keep form open. */ }
+    requestKey.current ||= crypto.randomUUID()
+    try { await submitRequest({ ...form, idempotencyKey: requestKey.current }); requestKey.current = null; setForm(emptyForm); setShowCreate(false) } catch { /* Retain the request key for a safe retry. */ }
   }
   const respond = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -423,13 +427,16 @@ function GoalCard({ goal }: { goal: GoalRecord }) {
 }
 
 function DocumentVault() {
-  const { data, user, acknowledgeDocument, recordActivity } = useHrms()
+  const { data, user, acknowledgeDocument, notify } = useHrms()
   if (!data || !user) return null
   const documents = data.documents.filter((item) => !item.employeeId || item.employeeId === user.id)
   const acknowledgements = new Map(data.documentAcknowledgements.filter((item) => item.employeeId === user.id).map((item) => [item.documentId, item]))
   const download = async (document: typeof data.documents[number]) => {
-    downloadText(document.filename, document.content)
-    try { await recordActivity({ action: 'Downloaded own HR document', target: document.title }) } catch { /* Toast reports the audit issue. */ }
+    try {
+      const { data: body, error } = await requireSupabase().rpc('read_employee_document', { selected_document_id: Number(document.id) })
+      if (error) throw error
+      downloadText(document.filename, body)
+    } catch { notify('This document is unavailable or expired. Refresh the page and try again.', 'error') }
   }
 
   return <div className="page-stack employee-feature-page employee-documents-page"><SectionHeading eyebrow="Secure records" title="Document Vault" description="Policies and employee-specific records retrieved directly from Supabase." /><div className="stats-grid stats-grid-3"><StatCard icon={FolderLock} label="Available documents" value={documents.length} tone="blue" /><StatCard icon={BookOpenCheck} label="Acknowledgements due" value={documents.filter((item) => item.requiresAck && !acknowledgements.has(item.id)).length} tone="amber" /><StatCard icon={ShieldCheck} label="Sensitive records" value={documents.filter((item) => item.sensitive).length} detail="Access is audited" tone="purple" /></div><section className="document-grid">{documents.map((item) => { const acknowledgement = acknowledgements.get(item.id); return <article className="panel document-card" key={item.id}><div className="document-icon"><FileText /></div><div className="document-card-main"><div><Badge tone={item.sensitive ? 'warning' : 'info'}>{item.type}</Badge>{item.requiresAck && <Badge tone={acknowledgement ? 'success' : 'danger'}>{acknowledgement ? 'Acknowledged' : 'Action required'}</Badge>}</div><h2>{item.title}</h2><p>Version {item.version}{item.period ? ` · ${item.period}` : ''}</p><small>{item.employeeId ? 'Private employee document' : 'Organization document'} · Added {formatDateTime(item.createdAt)}</small></div><div className="document-actions"><button className="button button-secondary" onClick={() => download(item)}><Download size={17} />Download</button>{item.requiresAck && !acknowledgement && <button className="button button-primary" onClick={() => acknowledgeDocument(item.id)}><BookOpenCheck size={17} />Acknowledge</button>}{acknowledgement && <span className="acknowledged-note"><CheckCircle2 />{formatDateTime(acknowledgement.acknowledgedAt)}</span>}</div></article> })}</section>{!documents.length && <EmptyState icon={FolderLock} title="No documents available" text="Documents published for you will appear here." />}</div>

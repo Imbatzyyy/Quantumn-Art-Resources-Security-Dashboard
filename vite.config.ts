@@ -8,8 +8,8 @@ import adminCreateEmployee from './netlify/functions/admin-create-employee.mjs'
 import adminInviteAccount from './netlify/functions/admin-invite-account.mjs'
 import completeInitialPassword from './netlify/functions/complete-initial-password.mjs'
 import completeAdminInvite from './netlify/functions/complete-admin-invite.mjs'
-import { handler as importZapReport } from './netlify/functions/import-zap-report.mjs'
-import { handler as securityOperations } from './netlify/functions/security-operations.mjs'
+import importZapReport from './netlify/functions/import-zap-report.mjs'
+import securityOperations from './netlify/functions/security-operations.mjs'
 import { validateBrowserBuildEnv } from './scripts/validate-browser-build-env.mjs'
 
 interface CapturedEmail {
@@ -122,6 +122,8 @@ const localApiEndpoints = (): Plugin => {
         ['/api/admin-invite-account', adminInviteAccount, true],
         ['/api/complete-initial-password', completeInitialPassword, false],
         ['/api/complete-admin-invite', completeAdminInvite, false],
+        ['/api/security-operations', securityOperations, false],
+        ['/api/import-zap-report', importZapReport, false],
       ]
       webEndpoints.forEach(([path, handler, capturesEmail]) => {
         server.middlewares.use(path, async (request, response, next) => {
@@ -138,8 +140,6 @@ const localApiEndpoints = (): Plugin => {
       })
 
       const eventEndpoints: Array<[string, EventHandler]> = [
-        ['/api/security-operations', securityOperations],
-        ['/api/import-zap-report', importZapReport],
       ]
       eventEndpoints.forEach(([path, handler]) => {
         server.middlewares.use(path, async (request, response, next) => {
@@ -206,6 +206,10 @@ export default defineConfig(({ command, mode }) => {
         })
       },
     }],
-    server: { port: 5173 },
+    server: {
+      port: 5173,
+      // Generated HTML reports must not reload another concurrently running QA page.
+      watch: { ignored: ['**/test-results/**', '**/playwright-report*/**', '**/coverage/**', '**/security/zap/reports/**'] },
+    },
   }
 })

@@ -123,7 +123,7 @@ export const alertResponseFromRow = (row: Tables<'security_alert_responses'>): A
 })
 
 export const sessionFromRow = (row: Tables<'account_sessions'>, currentCode: string): SessionRecord & { lastActive?: string } => ({
-  id: text(row.session_code), employeeId: text(row.employee_code), device: text(row.device),
+  authSessionId: optionalText(row.auth_session_id), id: text(row.session_code), employeeId: text(row.employee_code), device: text(row.device),
   location: text(row.location), lastActive: optionalText(row.last_active_label),
   current: text(row.session_code) === currentCode, createdAt: optionalText(row.created_at),
   lastSeenAt: optionalText(row.last_seen_at), assuranceLevel: text(row.assurance_level, 'aal1'),
@@ -170,7 +170,7 @@ export const notificationFromRow = (row: Tables<'notifications'>): NotificationS
   readAt: nullableText(row.read_at), createdAt: text(row.created_at),
 })
 
-export const documentFromRow = (row: Tables<'employee_documents'>): DocumentRecord & Record<string, unknown> => ({
+export const documentFromRow = (row: Omit<Tables<'employee_documents'>, 'content'> & { content?: string }): DocumentRecord & Record<string, unknown> => ({
   id: text(row.id), employeeId: nullableText(row.employee_code), title: text(row.title),
   type: text(row.document_type), period: optionalText(row.period), content: text(row.content),
   filename: text(row.filename), version: text(row.version), requiresAck: truthy(row.requires_ack),

@@ -20,12 +20,12 @@ export async function withEmployeeAvatarUrls(employees: EmployeeRecord[], viewer
   if (missing.length) {
     try {
       const paths = [...new Set(missing.map((person) => person.avatarPath!))]
-      const { data, error } = await requireSupabase().storage.from('profile-avatars').createSignedUrls(paths, 3600)
+      const { data, error } = await requireSupabase().storage.from('profile-avatars').createSignedUrls(paths, 300)
       if (viewer !== viewerId) return employees
       if (!error) for (const item of data ?? []) {
         if (item.error || !item.path || !item.signedUrl) continue
         const person = missing.find((candidate) => candidate.avatarPath === item.path)
-        cache.set(item.path, { url: `${item.signedUrl}${item.signedUrl.includes('?') ? '&' : '?'}v=${now}`, version: person?.avatarVersion, expires: now + 50 * 60 * 1000 })
+        cache.set(item.path, { url: `${item.signedUrl}${item.signedUrl.includes('?') ? '&' : '?'}v=${now}`, version: person?.avatarVersion, expires: now + 4 * 60 * 1000 })
       }
     } catch {
       // Missing or inaccessible photos must not prevent the HR record from loading.

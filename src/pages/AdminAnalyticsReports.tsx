@@ -1,6 +1,7 @@
 import { CalendarClock, ClipboardCheck, Download, FileCheck2, FolderLock, PhilippinePeso, ShieldCheck, Users } from 'lucide-react'
 import { SectionHeading, StatCard } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
+import { isOpenSecurityAlert } from '../utils/securityMetrics.js'
 import { downloadCsv } from '../utils/downloads.js'
 
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
@@ -14,20 +15,20 @@ const reports = [
 type ReportId = typeof reports[number]['id']
 
 export default function AdminAnalyticsReports() {
-  const { data, recordActivity } = useHrms()
+  const { data, recordActivity, user } = useHrms()
   if (!data) return null
 
   const generate = async (id: ReportId, title: string) => {
     let rows: object[]
     let columns: Array<{ label: string; key: string }>
     if (id === 'workforce') {
-      rows = data.employees
+      rows = data.employees.filter((employee) => employee.role === 'employee')
       columns = [{ label: 'Employee ID', key: 'id' }, { label: 'First name', key: 'firstName' }, { label: 'Last name', key: 'lastName' }, { label: 'Department', key: 'department' }, { label: 'Position', key: 'position' }, { label: 'Role', key: 'role' }, { label: 'Status', key: 'status' }, { label: 'Hire date', key: 'hireDate' }]
     } else if (id === 'attendance') {
       rows = data.attendance
       columns = [{ label: 'Employee ID', key: 'employeeId' }, { label: 'Date', key: 'date' }, { label: 'Clock in', key: 'clockIn' }, { label: 'Clock out', key: 'clockOut' }, { label: 'Hours', key: 'hours' }, { label: 'Status', key: 'status' }]
     } else if (id === 'requests') {
-      rows = data.employeeRequests
+      rows = [...data.employeeRequests, ...data.leaveRequests.map((leave) => ({ ...leave, subject: `${leave.type} leave: ${leave.startDate} to ${leave.endDate}`, priority: 'Normal', type: 'Leave' }))]
       columns = [{ label: 'Request ID', key: 'id' }, { label: 'Employee ID', key: 'employeeId' }, { label: 'Type', key: 'type' }, { label: 'Subject', key: 'subject' }, { label: 'Priority', key: 'priority' }, { label: 'Status', key: 'status' }, { label: 'Decision note', key: 'decisionNote' }, { label: 'Submitted', key: 'createdAt' }]
     } else if (id === 'payroll') {
       rows = data.payrollRuns
@@ -40,15 +41,15 @@ export default function AdminAnalyticsReports() {
     try { await recordActivity({ action: 'Exported authorized HR report', target: title }) } catch { /* Download completed; shared toast reports audit failure. */ }
   }
 
-  const departments = [...new Set(data.employees.map((item) => item.department))]
+  const departments = [...new Set(data.employees.filter((item) => item.role === 'employee').map((item) => item.department))]
   const completedRequests = data.employeeRequests.filter((item) => ['Approved', 'Rejected', 'Completed'].includes(item.status)).length
   const decisionRate = data.employeeRequests.length ? Math.round((completedRequests / data.employeeRequests.length) * 100) : 100
-  const maxDepartment = Math.max(1, ...departments.map((department) => data.employees.filter((item) => item.department === department && item.status === 'Active').length))
+  const maxDepartment = Math.max(1, ...departments.map((department) => data.employees.filter((item) => item.role === 'employee' && item.department === department && item.status === 'Active').length))
 
   return <div className="page-stack">
-    <SectionHeading eyebrow="Decision-ready evidence" title="Analytics & Reports" description="Export authorized fictional records and review operational indicators. Every export is added to the audit trail." />
-    <div className="stats-grid stats-grid-3"><StatCard icon={Users} label="Workforce records" value={data.employees.length} tone="blue" /><StatCard icon={ClipboardCheck} label="Request decision rate" value={`${decisionRate}%`} tone="green" /><StatCard icon={ShieldCheck} label="Audit events" value={data.auditLog.length} tone="purple" /></div>
-    <div className="content-grid dashboard-grid"><section className="panel"><div className="panel-header"><div><h2>Workforce distribution</h2><p>Active people by department</p></div></div><div className="bar-chart">{departments.map((department) => { const count = data.employees.filter((item) => item.department === department && item.status === 'Active').length; return <div key={department}><span>{department}</span><progress value={count} max={maxDepartment}>{count}</progress><strong>{count}</strong></div> })}</div></section><section className="panel"><div className="panel-header"><div><h2>Governance snapshot</h2><p>Controls that require administrator attention</p></div></div><div className="governance-list"><article><span><FileCheck2 /></span><div><strong>{data.employeeRequests.filter((item) => openRequestStatuses.includes(item.status)).length} open HR requests</strong><p>Awaiting review, information, or completion</p></div></article><article><span><FolderLock /></span><div><strong>{data.documents.filter((item) => item.requiresAck).length} acknowledgement policies</strong><p>Tracked per employee in Supabase</p></div></article><article><span><ShieldCheck /></span><div><strong>{data.securityAlerts.filter((item) => item.status !== 'Resolved').length} open security alerts</strong><p>Prioritized by plain-language impact</p></div></article></div></section></div>
-    <section className="report-grid premium-report-grid">{reports.map(({ id, title, text, icon: Icon }) => <article className="panel report-card" key={id}><span><Icon /></span><h2>{title}</h2><p>{text}</p><button className="button button-secondary" onClick={() => void generate(id, title)}><Download size={17} />Download CSV</button></article>)}</section>
+    <SectionHeading eyebrow="Decision-ready evidence" title="Analytics & Reports" description="Export authorized records and review operational indicators. Every export is added to the audit trail." />
+    <div className="stats-grid stats-grid-3"><StatCard icon={Users} label="Workforce records" value={data.employees.filter((employee) => employee.role === 'employee').length} tone="blue" /><StatCard icon={ClipboardCheck} label="Request decision rate" value={`${decisionRate}%`} tone="green" /><StatCard icon={ShieldCheck} label="Audit events" value={data.auditLog.length} tone="purple" /></div>
+    <div className="content-grid dashboard-grid"><section className="panel"><div className="panel-header"><div><h2>Workforce distribution</h2><p>Active people by department</p></div></div><div className="bar-chart">{departments.map((department) => { const count = data.employees.filter((item) => item.role === 'employee' && item.department === department && item.status === 'Active').length; return <div key={department}><span>{department}</span><progress value={count} max={maxDepartment}>{count}</progress><strong>{count}</strong></div> })}</div></section><section className="panel"><div className="panel-header"><div><h2>Governance snapshot</h2><p>Controls that require administrator attention</p></div></div><div className="governance-list"><article><span><FileCheck2 /></span><div><strong>{data.employeeRequests.filter((item) => openRequestStatuses.includes(item.status)).length} open HR requests</strong><p>Awaiting review, information, or completion</p></div></article><article><span><FolderLock /></span><div><strong>{data.documents.filter((item) => item.requiresAck).length} acknowledgement policies</strong><p>Tracked per employee in Supabase</p></div></article><article><span><ShieldCheck /></span><div><strong>{data.securityAlerts.filter((item) => isOpenSecurityAlert(item.status)).length} open security alerts</strong><p>Prioritized by plain-language impact</p></div></article></div></section></div>
+    <section className="report-grid premium-report-grid">{reports.filter((report) => ({ admin: ['workforce','attendance','requests','payroll','audit'], hr_admin: ['workforce','attendance','requests','audit'], payroll_admin: ['workforce','payroll','audit'], security_admin: ['audit'], auditor: ['workforce','attendance','requests','payroll','audit'] }[user?.role || ''] || []).includes(report.id)).map(({ id, title, text, icon: Icon }) => <article className="panel report-card" key={id}><span><Icon /></span><h2>{title}</h2><p>{text}</p><button className="button button-secondary" onClick={() => void generate(id, title)}><Download size={17} />Download CSV</button></article>)}</section>
   </div>
 }

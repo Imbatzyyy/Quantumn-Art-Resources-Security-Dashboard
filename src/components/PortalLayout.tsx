@@ -31,7 +31,7 @@ interface PortalLayoutProps {
 }
 
 export default function PortalLayout({ active, onNavigate, items, title, children }: PortalLayoutProps) {
-  const { user, logout, data, refreshData, markNotificationRead, markAllNotificationsRead } = useHrms()
+  const { user, logout, data, refreshData, markNotificationRead, markAllNotificationsRead, lastSyncedAt, syncError } = useHrms()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [mobilePageSearch, setMobilePageSearch] = useState('')
@@ -310,7 +310,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
         </nav>
 
         <div className="sidebar-footer">
-          <div className="workspace-status"><i /><span><strong>Live workspace</strong><small>Supabase synchronized</small></span></div>
+          <div className="workspace-status" role="status"><i /><span><strong>{syncError ? 'Connection needs attention' : lastSyncedAt ? 'Workspace synchronized' : 'Checking connection'}</strong><small>{lastSyncedAt ? `Last sync ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for Supabase'}</small></span></div>
           <button onClick={refreshData}><RotateCcw size={18} /><span>Refresh Supabase data</span></button>
           <button onClick={() => setShowSignOutConfirm(true)}><LogOut size={18} /><span>Sign out</span></button>
         </div>

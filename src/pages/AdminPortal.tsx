@@ -14,6 +14,7 @@ import AdminPerformanceOperations from './AdminPerformanceOperations.js'
 import AdminDocumentOperations from './AdminDocumentOperations.js'
 import AdminAnalyticsReports from './AdminAnalyticsReports.js'
 import AdminCommunications from './AdminCommunications.js'
+import EmployeeAccountSecurity from './EmployeeAccountSecurity.js'
 
 const navItems = [
   { id: 'action-center', label: 'Action Center', icon: Gauge, badge: 'approvals', group: 'Workspace' },
@@ -28,6 +29,7 @@ const navItems = [
   { id: 'announcements', label: 'Communications', icon: Megaphone, group: 'Governance' },
   { id: 'security', label: 'Security Center', icon: ShieldCheck, badge: 'alerts', group: 'Governance' },
   { id: 'admin-accounts', label: 'Admin Accounts & Roles', icon: UserCog, group: 'System Administration' },
+  { id: 'account-security', label: 'My Account Security', icon: ShieldCheck, group: 'My Account' },
 ] as const
 
 type AdminPage = typeof navItems[number]['id']
@@ -35,6 +37,12 @@ type AdminPage = typeof navItems[number]['id']
 const titles = Object.fromEntries(navItems.map((item) => [item.id, item.label]))
 export default function AdminPortal() {
   const [active, setActive] = useState<AdminPage>('action-center')
+  const [securityFilter, setSecurityFilter] = useState('Overview')
+  const navigate = (page: string) => {
+    const [destination, filter] = page.split(':')
+    setSecurityFilter(filter || 'Overview')
+    setActive(destination as AdminPage)
+  }
   const { data, user } = useHrms()
   if (!data || !user) return null
 
@@ -45,12 +53,13 @@ export default function AdminPortal() {
     security_admin: ['action-center', 'security', 'analytics'],
     auditor: ['action-center', 'analytics', 'security'],
   }
-  const allowedPages = rolePages[user.role ?? ''] || ['action-center']
+  const allowedPages: AdminPage[] = [...new Set<AdminPage>([...(rolePages[user.role ?? ''] || ['action-center']), 'account-security'])]
   const visibleNavItems = navItems.filter((item) => allowedPages.includes(item.id))
   const resolvedActive = allowedPages.includes(active) ? active : visibleNavItems[0]?.id || 'action-center'
 
   const pages = {
-    'action-center': <AdminActionCenter onNavigate={(page) => setActive(page as AdminPage)} />,
+    'account-security': <EmployeeAccountSecurity />,
+    'action-center': <AdminActionCenter onNavigate={navigate} />,
     people: <PeopleDirectory onNavigate={(page) => setActive(page as AdminPage)} />,
     time: <AdminTimeOperations />,
     approvals: <AdminApprovals />,
@@ -60,7 +69,7 @@ export default function AdminPortal() {
     documents: <AdminDocumentOperations />,
     analytics: <AdminAnalyticsReports />,
     announcements: <AdminCommunications />,
-    security: <AdminSecurityCenter readOnly={user.role === 'auditor'} />,
+    security: <AdminSecurityCenter readOnly={user.role === 'auditor'} initialFilter={securityFilter} />,
     'admin-accounts': <AdminAccounts />,
   }
 

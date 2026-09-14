@@ -36,6 +36,13 @@ const expectCleanEvidence = (evidence: BrowserEvidence) => {
   expect(evidence.consoleErrors, `Unexpected browser errors:\n${evidence.consoleErrors.join('\n')}`).toEqual([])
 }
 
+const signOut = async (page: Page) => {
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Confirm sign out' })
+  await expect(confirmation).toBeVisible()
+  await confirmation.getByRole('button', { name: 'Sign out', exact: true }).click()
+}
+
 for (const portal of ['admin', 'employee'] as const) {
   test(`${portal} defaults to light and remembers appearance through refresh and sign-out`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' })
@@ -46,7 +53,7 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.reload()
     await expect(page.getByRole('button', { name: 'Toggle color theme' })).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await signOut(page)
     await expect(page).toHaveURL(new RegExp(`/${portal}/login$`))
     await signIn(page, portal)
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
@@ -54,7 +61,7 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.reload()
     await expect(page.getByRole('button', { name: 'Toggle color theme' })).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await signOut(page)
     await expect(page).toHaveURL(new RegExp(`/${portal}/login$`))
   })
 }
@@ -98,7 +105,7 @@ test('fictional administrator can access Admin operations but not the Employee w
 
   await page.goto('/admin')
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signOut(page)
   await expect(page).toHaveURL(/\/admin\/login$/)
   expectCleanEvidence(evidence)
 })
@@ -123,7 +130,7 @@ test('fictional employee can access only their synchronized self-service workspa
 
   await page.goto('/employee')
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signOut(page)
   await expect(page).toHaveURL(/\/employee\/login$/)
   expectCleanEvidence(evidence)
 })

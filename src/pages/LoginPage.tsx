@@ -98,7 +98,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
             {isAdmin ? <ShieldCheck size={16} /> : <UserRound size={16} />}
             {isAdmin ? 'Administrative control' : 'Employee workspace'}
           </span>
-          <h1>{isAdmin ? 'Lead HR operations with clarity.' : 'Your workday, all in one place.'}</h1>
+          <h2>{isAdmin ? 'Lead HR operations with clarity.' : 'Your workday, all in one place.'}</h2>
           <p>
             {isAdmin
               ? 'Manage people, approvals, access, and security activity from one accountable workspace.'
@@ -149,7 +149,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
               {isAdmin ? <ShieldCheck size={23} /> : <UserRound size={23} />}
             </span>
             <span className="portal-label">{isAdmin ? 'Admin portal' : 'Employee portal'}</span>
-            <h2>{mfaChallenge ? 'Verify your authenticator' : isAdmin ? 'Administrator sign in' : 'Welcome to your workspace'}</h2>
+            <h1>{mfaChallenge ? 'Verify your authenticator' : isAdmin ? 'Administrator sign in' : 'Welcome to your workspace'}</h1>
             <p>
               {mfaChallenge
                 ? 'Enter the current 6-digit code from the authenticator app connected to your account.'
@@ -200,8 +200,8 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </span>
-            {!isAdmin && <span className="login-recovery-row">
-              <Link to="/employee/forgot-password">Forgot password?</Link>
+            {<span className="login-recovery-row">
+              <Link to={isAdmin ? "/admin/forgot-password" : "/employee/forgot-password"}>Forgot password?</Link>
             </span>}
           </div>}
 

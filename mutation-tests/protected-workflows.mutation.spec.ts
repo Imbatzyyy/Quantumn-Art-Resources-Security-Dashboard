@@ -169,6 +169,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
 
     const subject = `Realtime QA request ${Date.now().toString(36)}`
     const { data: requestId, error: submitError } = await employeeClient.rpc('submit_employee_request', {
+      request_key: crypto.randomUUID(),
       requested_type: 'General HR', requested_subject: subject,
       requested_description: 'Fictional local-only request used to verify synchronized HR decisions.',
       requested_date: '2026-08-30', requested_value: 'Local QA evidence', requested_priority: 'Normal',
@@ -276,7 +277,10 @@ test.describe.serial('isolated protected mutation workflows', () => {
     }
 
     const crossAccountRead = await adminClient.storage.from('profile-avatars').download(profile!.avatar_path!)
-    expect(crossAccountRead.error).not.toBeNull()
+    // Employee Directory/360 explicitly allows authorized HR to read the current
+    // photo, but never to overwrite it. Peer-employee denial is covered in pgTAP.
+    expect(crossAccountRead.error).toBeNull()
+    expect(crossAccountRead.data?.size).toBeGreaterThan(0)
     const invalidRegistration = await employeeClient.rpc('update_own_avatar_path', { new_avatar_path: 'someone-else/avatar.png' })
     expect(invalidRegistration.error).not.toBeNull()
     const crossAccountWrite = await adminClient.storage.from('profile-avatars').upload(profile!.avatar_path!, ownPhoto.data!, { upsert: true, contentType: outputType })
@@ -311,6 +315,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
 
     const zapReport = {
       '@version': '2.17.0',
+      '@generated': new Date().toISOString(),
       site: [{
         '@name': 'http://host.docker.internal:4175',
         alerts: [{
@@ -334,7 +339,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     })
     expect(imported.status).toBe(201)
     const result = await imported.json() as { scanCode: string; findings: number; status: string }
-    expect(result).toMatchObject({ findings: 1, status: 'Passed' })
+    expect(result).toMatchObject({ findings: 1, status: 'Review Needed' })
 
     const { data: alert } = await service.from('security_alerts')
       .select('status, resolution_reason, resolution_notes').eq('alert_code', alertCode).single()
@@ -345,7 +350,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const { data: scan } = await service.from('zap_scan_runs')
       .select('environment, target_url, low_count, report_sha256').eq('scan_code', result.scanCode).single()
     expect(scan?.environment).toBe('Local Test')
-    expect(scan?.target_url).toBe('http://host.docker.internal:4175')
+    expect(new URL(scan!.target_url).origin).toBe('http://host.docker.internal:4175')
     expect(scan?.low_count).toBe(1)
     expect(scan?.report_sha256).toMatch(/^[a-f0-9]{64}$/)
   })

@@ -409,7 +409,7 @@ describe('Security Center protected workflows', () => {
       createdAt: '2026-08-30T06:00:00.000Z',
     }
     const session = {
-      id: 'SES-1001',
+      id: 'SES-1001', authSessionId: '00000000-0000-4000-8000-000000000001',
       employeeId: employee.id,
       device: 'Chrome on Windows',
       location: 'Manila, PH',

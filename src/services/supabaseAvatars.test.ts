@@ -15,7 +15,7 @@ describe('private directory photos', () => {
   it('signs employee paths in one batch and does not sign administrator photos', async () => {
     signed.mockResolvedValue({ data: [{ path: employee.avatarPath, signedUrl: 'https://storage.example.test/photo?token=test', error: null }], error: null })
     const result = await withEmployeeAvatarUrls([employee, { ...employee, id: 'ADM1', role: 'admin', avatarPath: 'admin/avatar.png' }], String(viewer))
-    expect(signed).toHaveBeenCalledExactlyOnceWith(['owner/avatar.png'], 3600)
+    expect(signed).toHaveBeenCalledExactlyOnceWith(['owner/avatar.png'], 300)
     expect(result[0].avatarUrl).toMatch(/^https:\/\/storage.example.test\/photo\?token=test&v=\d+$/)
     expect(result[1].avatarUrl).toBeUndefined()
     await withEmployeeAvatarUrls([employee], String(viewer))

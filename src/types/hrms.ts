@@ -207,6 +207,7 @@ export interface PerformanceReviewInput {
 export type GoalInput = Omit<GoalRecord, 'id'> & { id?: string }
 
 export interface DocumentRecord {
+  expiresOn?: string
   id: string
   employeeId?: string | null
   title: string
@@ -334,6 +335,7 @@ export interface LeaveRequestInput {
 }
 
 export interface EmployeeRequestInput {
+  idempotencyKey?: string
   type: string
   subject: string
   description: string
@@ -409,6 +411,7 @@ export interface WorkflowSummary {
 }
 
 export interface SessionRecord {
+  authSessionId?: string
   id: string
   employeeId: string
   device: string
@@ -506,6 +509,7 @@ export interface SecurityInvestigationInput {
 
 export interface ZapImportInput {
   report: string
+  reportTimeZone?: 'UTC' | 'Asia/Manila'
   reportName: string
   targetUrl: string
   environment: string
@@ -617,6 +621,10 @@ export interface HrmsDataProvider {
 }
 
 export interface HrmsContextValue {
+  lastSyncedAt?: string | null
+  syncError?: boolean
+  getSecurityOverview?: (days: number) => Promise<import('../pages/AdminSecurityOverview.js').SecurityOverviewData>
+  getSecurityAccountOptions?: () => Promise<Array<{ employee_code: string; first_name: string; last_name: string }>>
   user: PortalIdentity | null
   data: HrmsSnapshot | null
   loading: boolean

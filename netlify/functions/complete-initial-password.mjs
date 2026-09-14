@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { assertSetupAccess } from './_shared/hrms-access.mjs'
 import { validatePermanentPassword } from '../../src/utils/passwordPolicy.js'
 
 const json = (body, status = 200) =>
@@ -25,6 +26,8 @@ export default async (request) => {
   const authorization = request.headers.get('authorization') || ''
   const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
   if (!accessToken) return json({ error: 'Employee authentication is required.' }, 401)
+  try { await assertSetupAccess(supabaseUrl, secretKey, accessToken) }
+  catch { return json({ error: 'Please sign in again to verify your setup session.' }, 403) }
 
   let input
   try {
@@ -32,6 +35,7 @@ export default async (request) => {
   } catch {
     return json({ error: 'The request body must be valid JSON.' }, 400)
   }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return json({ error: 'A JSON object is required.' }, 400)
   const currentPassword = typeof input.currentPassword === 'string' ? input.currentPassword : ''
   const newPassword = typeof input.newPassword === 'string' ? input.newPassword : ''
 
@@ -77,7 +81,7 @@ export default async (request) => {
     password: currentPassword,
   })
   if (verifyError) return json({ error: 'The temporary password is incorrect.' }, 400)
-  await verifier.auth.signOut()
+  await verifier.auth.signOut({ scope: 'local' })
 
   const changedAt = new Date().toISOString()
   const { error: updateError } = await admin.auth.admin.updateUserById(callerData.user.id, {

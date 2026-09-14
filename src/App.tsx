@@ -30,6 +30,8 @@ export default function App() {
           <Route path="/" element={<Navigate to="/employee/login" replace />} />
           <Route path="/admin/login" element={user?.portal === 'admin' ? <Navigate to="/admin" replace /> : <LoginPage key="admin-login" portal="admin" />} />
           <Route path="/admin/setup-password" element={<AdminInviteSetupPage />} />
+          <Route path="/admin/forgot-password" element={<EmployeeRecoveryPage portal="admin" mode="request" />} />
+          <Route path="/admin/reset-password" element={<EmployeeRecoveryPage portal="admin" mode="update" />} />
           <Route path="/employee/login" element={user?.portal === 'employee' ? <Navigate to="/employee" replace /> : <LoginPage key="employee-login" portal="employee" />} />
           <Route path="/employee/forgot-password" element={<EmployeeRecoveryPage mode="request" />} />
           <Route path="/employee/reset-password" element={<EmployeeRecoveryPage mode="update" />} />

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { CalendarDays, Check, ChevronRight, ClipboardList, LockKeyhole, PhilippinePeso, ReceiptText, ShieldCheck, Users } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatMoney, statusTone } from '../utils/format.js'
 import type { HrmsSnapshot, PayrollStage } from '../types/hrms.js'
@@ -21,6 +22,7 @@ const personName = (data: HrmsSnapshot, employeeId: string) => {
 interface PendingTransition { id: number; current: PayrollStage; next: PayrollStage; period: string }
 
 export default function AdminPayrollOperations() {
+  const submission = useSubmissionLock()
   const { data, generatePayroll, transitionPayrollRun } = useHrms()
   const [showGenerate, setShowGenerate] = useState(false)
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
@@ -33,7 +35,8 @@ export default function AdminPayrollOperations() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    try { await generatePayroll({ ...form, deductionRate: Number(form.deductionRate) }); setShowGenerate(false) } catch { /* Keep protected input. */ }
+    if (!submission.begin()) return
+    try { await generatePayroll({ ...form, deductionRate: Number(form.deductionRate) }); setShowGenerate(false) } catch { /* Keep protected input. */ } finally { submission.finish() }
   }
   const confirmTransition = async () => {
     if (!pendingTransition) return
@@ -128,7 +131,7 @@ export default function AdminPayrollOperations() {
             </div>
             <div className="modal-actions">
               <button type="button" className="button button-secondary" onClick={() => setShowGenerate(false)}>Cancel</button>
-              <button className="button button-primary"><ReceiptText aria-hidden="true" />Generate payroll draft</button>
+              <button className="button button-primary" disabled={submission.busy}><ReceiptText aria-hidden="true" />Generate payroll draft</button>
             </div>
           </footer>
         </form>

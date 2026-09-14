@@ -106,6 +106,7 @@ describe('Employee self-service provider boundaries', () => {
     fireEvent.submit(dialog.querySelector('form')!)
 
     await waitFor(() => expect(submitRequest).toHaveBeenCalledWith({
+      idempotencyKey: expect.any(String),
       type: 'Attendance Correction',
       subject: 'Missing clock-out correction',
       description: 'The network disconnected while I was completing my clock-out.',

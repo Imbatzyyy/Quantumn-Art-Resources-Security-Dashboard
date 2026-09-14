@@ -240,7 +240,7 @@ svg { flex: 0 0 auto; }
   border: 1px solid rgba(34,103,216,.14);
   background: rgba(255,255,255,.58);
 }
-.login-story h1 {
+.login-story h2 {
   max-width: 630px;
   margin: 1.35rem 0 1rem;
   font-size: clamp(2.65rem, 4.6vw, 4.7rem);
@@ -384,7 +384,7 @@ svg { flex: 0 0 auto; }
   letter-spacing: .1em;
   text-transform: uppercase;
 }
-.login-heading h2 { margin: 0 0 .55rem; font-size: clamp(1.75rem, 3vw, 2.15rem); letter-spacing: -.035em; }
+.login-heading h1 { margin: 0 0 .55rem; font-size: clamp(1.75rem, 3vw, 2.15rem); letter-spacing: -.035em; }
 .login-heading p { margin-bottom: 0; color: #66758a; line-height: 1.55; }
 .field-label { display: grid; gap: .5rem; margin-bottom: 1.05rem; color: #27364a; font-size: .82rem; font-weight: 750; }
 .password-label-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -1775,7 +1775,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .login-page .portal-mark { width: 40px; height: 40px; margin: 0; grid-column: 2; grid-row: 1; border-radius: 12px; }
   .login-page .portal-mark svg { width: 20px; height: 20px; }
   .login-page .portal-label { margin: 0; grid-column: 1; grid-row: 1; align-self: center; color: #52647b; font-size: .68rem; letter-spacing: .11em; }
-  .login-page .login-heading h2 { margin: .1rem 0 0; grid-column: 1 / -1; font-size: clamp(1.65rem, 6.5vw, 1.9rem); line-height: 1.15; letter-spacing: -.035em; }
+  .login-page .login-heading h1 { margin: .1rem 0 0; grid-column: 1 / -1; font-size: clamp(1.65rem, 6.5vw, 1.9rem); line-height: 1.15; letter-spacing: -.035em; }
   .login-page .login-heading p { grid-column: 1 / -1; color: #5b6c80; font-size: .875rem; line-height: 1.5; }
   .login-page .field-label { margin-bottom: 1rem; gap: .4rem; font-size: .8125rem; }
   .login-page .password-label-row { min-height: 32px; gap: .5rem; }
@@ -1966,13 +1966,13 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .login-page .login-form { padding: 1rem; }
   .login-page .login-heading { margin-bottom: .85rem; gap: .4rem .75rem; }
   .login-page .portal-mark { width: 32px; height: 32px; border-radius: 10px; justify-self: end; }
-  .login-page .login-heading h2 { font-size: 1.5rem; }
+  .login-page .login-heading h1 { font-size: 1.5rem; }
   .login-page .field-label { margin-bottom: .75rem; }
   .login-page .login-assurance { margin-top: 1rem; padding-top: .75rem; }
 }
 
 @media (max-width: 360px) and (max-height: 600px) {
-  .employee-auth .login-form { padding-block: .75rem; }
+  .login-page .login-form { padding-block: .75rem; }
   .employee-auth .field-label { margin-bottom: .5rem; }
   .employee-auth .login-assurance { margin-top: .75rem; }
 }

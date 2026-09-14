@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       account_sessions: {
         Row: {
+          auth_session_id: string | null
           assurance_level: string
           created_at: string
           device: string
@@ -28,6 +29,7 @@ export type Database = {
           trust_status: string
         }
         Insert: {
+          auth_session_id?: string | null
           assurance_level?: string
           created_at?: string
           device: string
@@ -40,6 +42,7 @@ export type Database = {
           trust_status?: string
         }
         Update: {
+          auth_session_id?: string | null
           assurance_level?: string
           created_at?: string
           device?: string
@@ -1354,6 +1357,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      read_employee_document: { Args: { selected_document_id: number }; Returns: string }
+      security_account_options: { Args: Record<PropertyKey, never>; Returns: Array<{ employee_code: string; first_name: string; last_name: string }> }
+      assert_hrms_access: { Args: Record<PropertyKey, never>; Returns: undefined }
+      get_hrms_identity: { Args: Record<PropertyKey, never>; Returns: Json }
+      record_hrms_session: { Args: { device_label: string; location_label: string }; Returns: string }
+      revoke_hrms_sessions: { Args: { operation: string; target_code?: string }; Returns: number }
+      security_overview: { Args: { window_days?: number }; Returns: Json }
       acknowledge_document: {
         Args: { selected_document_id: number }
         Returns: undefined
@@ -1370,7 +1380,7 @@ export type Database = {
         Args: { selected_request_id: number }
         Returns: undefined
       }
-      clock_attendance: { Args: never; Returns: undefined }
+      clock_attendance: { Args: { clock_action: string }; Returns: undefined }
       create_lifecycle_case: {
         Args: {
           selected_case_type: string
@@ -1453,6 +1463,7 @@ export type Database = {
       }
       submit_employee_request: {
         Args: {
+          request_key: string
           requested_date?: string
           requested_description: string
           requested_priority?: string

@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { BellRing, CalendarDays, CheckCircle2, FileCheck2, FileKey2, FileText, FolderLock, LockKeyhole, Plus, Send, ShieldCheck, Sparkles, Tags, UsersRound } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDateTime } from '../utils/format.js'
+import { businessDate } from '../utils/securityMetrics.js'
 import type { DocumentInput, HrmsSnapshot } from '../types/hrms.js'
 
 const personName = (data: HrmsSnapshot, employeeId: string) => {
@@ -11,8 +13,10 @@ const personName = (data: HrmsSnapshot, employeeId: string) => {
 }
 
 export default function AdminDocumentOperations() {
+  const submission = useSubmissionLock()
   const { data, createDocument } = useHrms()
   const [showCreate, setShowCreate] = useState(false)
+  const [formError, setFormError] = useState('')
   const [form, setForm] = useState<DocumentInput>({ employeeId: '', title: '', type: 'Policy', period: `${new Date().getFullYear()}`, content: '', filename: '', version: '1.0', requiresAck: true, sensitive: false, expiresOn: '' })
   if (!data) return null
   const acknowledgedPairs = new Set(data.documentAcknowledgements.map((item) => `${item.documentId}:${item.employeeId}`))
@@ -21,13 +25,19 @@ export default function AdminDocumentOperations() {
   const audienceLabel = selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : 'All eligible employees'
   const targetCount = selectedEmployee ? 1 : activeEmployees.length
   const requiredCount = data.documents.reduce((count, document) => {
-    if (!document.requiresAck) return count
+    if (!document.requiresAck || (document.expiresOn && document.expiresOn < businessDate())) return count
     const targets = document.employeeId ? [document.employeeId] : activeEmployees.map((item) => item.id)
     return count + targets.filter((employeeId) => !acknowledgedPairs.has(`${document.id}:${employeeId}`)).length
   }, 0)
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '' }) } catch { /* Keep protected input. */ }
+    setFormError('')
+    if (form.sensitive && !form.employeeId) {
+      setFormError('Select a specific employee as the audience. Sensitive employee records cannot be published to everyone.')
+      return
+    }
+    if (!submission.begin()) return
+    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '' }) } catch { /* Keep protected input. */ } finally { submission.finish() }
   }
 
   return <div className="page-stack">
@@ -36,6 +46,7 @@ export default function AdminDocumentOperations() {
     <section className="panel"><div className="panel-header"><div><h2>Document register</h2><p>Audience, version, sensitivity, and acknowledgement status</p></div></div>{data.documents.length ? <TableShell><thead><tr><th>Document</th><th>Audience</th><th>Version</th><th>Added</th><th>Acknowledgement</th><th>Classification</th></tr></thead><tbody>{data.documents.map((item) => { const targets = item.employeeId ? [item.employeeId] : activeEmployees.map((employee) => employee.id); const acknowledged = targets.filter((employeeId) => acknowledgedPairs.has(`${item.id}:${employeeId}`)).length; return <tr key={item.id}><td><strong>{item.title}</strong><small className="table-subtitle">{item.type} · {item.filename}</small></td><td>{item.employeeId ? personName(data, item.employeeId) : 'All active employees'}</td><td>{item.version}</td><td>{formatDateTime(item.createdAt)}</td><td>{item.requiresAck ? <Badge tone={acknowledged === targets.length ? 'success' : 'warning'}>{acknowledged}/{targets.length} acknowledged</Badge> : <Badge tone="neutral">Not required</Badge>}</td><td><Badge tone={item.sensitive ? 'warning' : 'info'}>{item.sensitive ? 'Sensitive' : 'Standard'}</Badge></td></tr> })}</tbody></TableShell> : <EmptyState icon={FolderLock} title="No documents" text="Publish a policy or employee record to begin." />}</section>
     {showCreate && <Modal title="Publish HR document" onClose={() => setShowCreate(false)} size="large">
       <form className="document-publish-shell" onSubmit={submit}>
+        {formError && <div className="form-error" role="alert">{formError}</div>}
         <section className="document-publish-intro">
           <span className="document-publish-intro-icon"><FileKey2 aria-hidden="true" /></span>
           <div><small>Controlled document release</small><h3>Publish with confidence and clear accountability</h3><p>Prepare the employee-facing content, define its governance rules, and verify the delivery scope before release.</p></div>
@@ -93,7 +104,7 @@ export default function AdminDocumentOperations() {
 
         <footer className="document-publish-footer">
           <div><ShieldCheck aria-hidden="true" /><p><strong>Authorized delivery only.</strong> Content is read through Supabase RLS before an employee download is generated.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary"><Send aria-hidden="true" />Publish & notify</button></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary" disabled={submission.busy}><Send aria-hidden="true" />Publish & notify</button></div>
         </footer>
       </form>
     </Modal>}

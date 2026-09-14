@@ -8,6 +8,8 @@ import { downloadCsv } from '../utils/downloads.js'
 import AdminAnalyticsReports from './AdminAnalyticsReports.js'
 import AdminCommunications from './AdminCommunications.js'
 import EmployeePortal from './EmployeePortal.js'
+const documentRpc = vi.hoisted(() => vi.fn(async () => ({ data: 'Authorized fictional classroom document.', error: null })))
+vi.mock('../services/supabaseClient.js', () => ({ requireSupabase: () => ({ rpc: documentRpc }) }))
 
 vi.mock('../utils/downloads.js', async (importOriginal) => {
   const original = await importOriginal<typeof import('../utils/downloads.js')>()
@@ -138,7 +140,7 @@ describe('communications, report, and employee-download boundaries', () => {
       data: {
         ...emptySnapshot,
         documents: [{
-          id: 'DOC-AUDIT-1', employeeId: employee.id, title: 'Employment Certificate', type: 'Certificate',
+          id: '101', employeeId: employee.id, title: 'Employment Certificate', type: 'Certificate',
           version: '1.0', requiresAck: false, filename: 'employment-certificate.txt',
           content: 'Authorized fictional classroom document.', sensitive: true,
           createdAt: '2026-08-30T04:00:00.000Z',
@@ -150,9 +152,6 @@ describe('communications, report, and employee-download boundaries', () => {
 
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1)
-    await waitFor(() => expect(recordActivity).toHaveBeenCalledWith({
-      action: 'Downloaded own HR document',
-      target: 'Employment Certificate',
-    }))
+    await waitFor(() => expect(documentRpc).toHaveBeenCalledWith('read_employee_document', { selected_document_id: 101 }))
   })
 })

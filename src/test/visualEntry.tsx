@@ -63,8 +63,8 @@ const demoSnapshot: HrmsSnapshot = {
     { id: 'NTF-502', employeeId: 'EMP001', readAt: null, category: 'HR request', createdAt: '2026-08-29T09:20:00+08:00', title: 'Your request is under review', message: 'HR is validating your attendance correction.', destination: 'requests', actionLabel: 'View request' },
   ],
   sessions: [
-    { id: 'SES-801', employeeId: 'EMP001', device: 'Chrome on macOS', location: 'Makati, Philippines', assuranceLevel: 'aal2', current: true, lastSeenAt: '2026-08-30T09:30:00+08:00', createdAt: '2026-08-30T08:40:00+08:00', trustStatus: 'Trusted' },
-    { id: 'SES-802', employeeId: 'EMP002', device: 'Edge on Windows', location: 'Quezon City, Philippines', assuranceLevel: 'aal1', current: false, lastSeenAt: '2026-08-30T08:55:00+08:00', createdAt: '2026-08-29T16:15:00+08:00', trustStatus: 'Review' },
+    { id: 'SES-801', authSessionId: '00000000-0000-4000-8000-000000000001', employeeId: 'EMP001', device: 'Chrome on macOS', location: 'Makati, Philippines', assuranceLevel: 'aal2', current: true, lastSeenAt: '2026-08-30T09:30:00+08:00', createdAt: '2026-08-30T08:40:00+08:00', trustStatus: 'Trusted' },
+    { id: 'SES-802', authSessionId: '00000000-0000-4000-8000-000000000001', employeeId: 'EMP002', device: 'Edge on Windows', location: 'Quezon City, Philippines', assuranceLevel: 'aal1', current: false, lastSeenAt: '2026-08-30T08:55:00+08:00', createdAt: '2026-08-29T16:15:00+08:00', trustStatus: 'Review' },
   ],
   auditLog: [
     { id: 'AUD-901', actor: 'Alex Reyes', action: 'Started security alert investigation', target: 'ALT-701 · EMP001', time: 'Aug 30, 2026, 9:12 AM' },
@@ -119,6 +119,18 @@ const context = createTestContext({
   user,
   data: params.get('audit') === 'empty' ? emptySnapshot : params.has('audit') ? auditSnapshot : demoSnapshot,
   getOrganizationSecuritySummary: async () => ({ totalAccounts: 3, mfaEnabled: 2, mfaPending: 1, privilegedAccounts: 1, privilegedMfaEnabled: 1 }),
+  lastSyncedAt: '2026-08-30T04:00:00.000Z',
+  getSecurityOverview: async (days) => ({
+    asOf: '2026-08-30T04:00:00.000Z', windowDays: days,
+    accounts: { total: 3, mfaEnabled: 2, privileged: 1, privilegedMfaEnabled: 1 },
+    alerts: { open: 12, critical: 1, resolvedInWindow: 8, falsePositivesInWindow: 2 },
+    sessions: { observedRecently: 2, legacyObservations: 1 },
+    trend: Array.from({ length: days }, (_, index) => ({ date: new Date(Date.UTC(2026, 7, 30 - days + 1 + index)).toISOString().slice(0,10), total: index % 6, high: index % 9 === 0 ? 1 : 0 })),
+    bySeverity: [{ severity:'Critical',total:1 },{ severity:'High',total:2 },{ severity:'Medium',total:3 },{ severity:'Low',total:6 }],
+    byStatus: [{ status:'New',total:6 },{ status:'Investigating',total:6 }],
+    latestScan: { scan_code:'ZAP-VISUAL',scan_type:'Baseline',completed_at:'2026-08-29T04:00:00Z',status:'Review Needed',high_count:0,medium_count:1,low_count:2,informational_count:4,target_url:'https://quantumnhr.com' },
+    recentAlerts: [{ alert_code:'ALT-VISUAL',title:'Review an unfamiliar browser session',severity:'High',status:'Investigating',created_at:'2026-08-30T01:00:00Z' }],
+  }),
   // Fictional login states for layout QA only; never call hosted Auth.
   ...(params.get('loginState') === 'error' ? {
     login: async () => { throw new Error('We could not verify this fictional account. Check your work email and password, then try again. Contact your administrator if you still need help.') },

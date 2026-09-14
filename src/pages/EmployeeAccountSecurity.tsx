@@ -46,7 +46,7 @@ export default function EmployeeAccountSecurity() {
   useEffect(() => {
     let current = true
     getMfaStatus().then((result) => current && setMfaStatus(result))
-      .catch(() => current && setMfaStatus({ enabled: false, currentLevel: 'aal1', factorId: null }))
+      .catch(() => current && setMfaError('MFA coverage could not be verified. Refresh before changing security settings.'))
       .finally(() => current && setMfaLoading(false))
     return () => { current = false }
   }, [getMfaStatus])
@@ -54,9 +54,9 @@ export default function EmployeeAccountSecurity() {
   const alerts = useMemo(() => data.securityAlerts.filter((alert) => alert.employeeId === user.id), [data.securityAlerts, user.id])
   const sessions = useMemo(() => data.sessions.filter((session) => session.employeeId === user.id), [data.sessions, user.id])
   const responses = useMemo(() => data.alertResponses.filter((response) => response.actorId === user.id), [data.alertResponses, user.id])
-  const openAlerts = alerts.filter((alert) => !['Acknowledged', 'Resolved', 'False Positive'].includes(alert.status))
-  const unfamiliar = sessions.filter((session) => !session.current && session.trustStatus !== 'Revoked')
-  const protectionStatus = openAlerts.some((alert) => ['Critical', 'High'].includes(alert.severity))
+  const openAlerts = alerts.filter((alert) => !['Resolved', 'False Positive'].includes(alert.status))
+  const unfamiliar = sessions.filter((session) => !session.current && Boolean(session.authSessionId) && session.trustStatus !== 'Revoked')
+  const protectionStatus = mfaError ? 'Coverage unverified' : openAlerts.some((alert) => ['Critical', 'High'].includes(alert.severity))
     ? 'At risk'
     : !mfaStatus.enabled || openAlerts.length || unfamiliar.length
       ? 'Review needed'
@@ -107,7 +107,7 @@ export default function EmployeeAccountSecurity() {
   }
   const revokeOthers = async () => {
     if (!selectedSession) return
-    await endSession(selectedSession.id)
+    await endSession('all-other-sessions')
     setSelectedSession(null)
   }
   const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
@@ -141,7 +141,7 @@ export default function EmployeeAccountSecurity() {
 
     {activeTab === 'Overview' && <>
       <div className="stats-grid stats-grid-4">
-        <StatCard icon={ShieldCheck} label="Authenticator MFA" value={mfaLoading ? 'Checking' : mfaStatus.enabled ? 'Enabled' : 'Not enabled'} detail="Personal second-factor protection" tone={mfaStatus.enabled ? 'green' : 'amber'} />
+        <StatCard icon={ShieldCheck} label="Authenticator MFA" value={mfaLoading ? 'Checking' : mfaError ? 'Unverified' : mfaStatus.enabled ? 'Enabled' : 'Not enabled'} detail="Personal second-factor protection" tone={mfaStatus.enabled ? 'green' : 'amber'} />
         <StatCard icon={AlertTriangle} label="Alerts to review" value={openAlerts.length} detail="Only activity connected to you" tone={openAlerts.length ? 'amber' : 'green'} />
         <StatCard icon={Laptop} label="Recorded sessions" value={sessions.length} detail={`${unfamiliar.length} other browser${unfamiliar.length === 1 ? '' : 's'}`} tone="blue" />
         <StatCard icon={UserCheck} label="Responses recorded" value={responses.length} detail="Your security decisions" tone="purple" />
@@ -150,20 +150,20 @@ export default function EmployeeAccountSecurity() {
         <section className="panel personal-security-controls"><div className="panel-header"><div><h2>Your security controls</h2><p>Only you can configure these controls for your account.</p></div></div>
           <article><span className={mfaStatus.enabled ? 'secure' : 'attention'}><ShieldCheck /></span><div><strong>Authenticator MFA</strong><p>{mfaStatus.enabled ? `Enabled · current assurance ${mfaStatus.currentLevel.toUpperCase()}` : 'Add a six-digit authenticator code after your password.'}</p></div><button className="button button-secondary" disabled={mfaLoading || mfaSaving} onClick={mfaStatus.enabled ? () => setMfaEnrollment({ manage: true }) : beginMfa}>{mfaLoading ? 'Checking…' : mfaStatus.enabled ? 'Manage MFA' : 'Set up MFA'}</button></article>
           <article><span><KeyRound /></span><div><strong>Private password</strong><p>Use a long, unique passphrase that you do not use elsewhere.</p></div><button className="button button-secondary" onClick={() => setShowPassword(true)}>Change password</button></article>
-          <article><span className="secure"><LockKeyhole /></span><div><strong>Automatic timeout</strong><p>Inactive employee sessions close after 30 minutes.</p></div><Badge tone="success">Active</Badge></article>
+          <article><span className="secure"><LockKeyhole /></span><div><strong>Automatic timeout</strong><p>Inactive {user.portal === 'admin' ? 'administrator' : 'employee'} sessions close after {user.portal === 'admin' ? 15 : 30} minutes.</p></div><Badge tone="success">Active</Badge></article>
         </section>
         <section className="panel"><div className="panel-header"><div><h2>What needs attention</h2><p>Complete the safest next action first.</p></div></div><div className="security-next-actions">
-          {!mfaStatus.enabled && <button onClick={beginMfa}><ShieldQuestion /><div><strong>Enable authenticator MFA</strong><span>Recommended protection against stolen passwords</span></div></button>}
+          {!mfaStatus.enabled && !mfaError && <button onClick={beginMfa}><ShieldQuestion /><div><strong>Enable authenticator MFA</strong><span>Recommended protection against stolen passwords</span></div></button>}
           {openAlerts.slice(0, 3).map((alert) => <button key={alert.id} onClick={() => setSelectedAlert(alert)}><AlertTriangle /><div><strong>{alert.title}</strong><span>{alert.recommendedAction}</span></div></button>)}
           {unfamiliar.length > 0 && <button onClick={() => setSelectedSession(unfamiliar[0])}><LogOut /><div><strong>Review other browser sessions</strong><span>End access on devices you no longer recognize</span></div></button>}
-          {mfaStatus.enabled && !openAlerts.length && !unfamiliar.length && <div className="security-all-clear"><CheckCircle2 /><strong>No action needed</strong><p>New security activity will appear here.</p></div>}
+          {!mfaError && mfaStatus.enabled && !openAlerts.length && !unfamiliar.length && <div className="security-all-clear"><CheckCircle2 /><strong>No action needed</strong><p>New security activity will appear here.</p></div>}
         </div></section>
       </div>
     </>}
 
     {activeTab === 'My alerts' && <section className="panel"><div className="panel-header"><div><h2>Security activity involving your account</h2><p>Every alert explains what happened, why it matters, and what you can do.</p></div></div><div className="alert-list">{alerts.map((alert) => <article className={`security-alert severity-${alert.severity.toLowerCase()}`} key={alert.id}><div className="alert-severity-icon"><AlertTriangle /></div><div className="alert-main"><div className="alert-labels"><Badge tone={severityTone[alert.severity]}>{alert.severity}</Badge><Badge tone={statusTone(alert.status)}>{alert.status}</Badge><span>{alert.id}</span></div><h3>{alert.title}</h3><p>{alert.description}</p><div className="alert-meta"><span><Clock3 />{alert.time}</span></div></div><button className="button button-secondary" onClick={() => setSelectedAlert(alert)}><Eye size={16} />Review</button></article>)}{!alerts.length && <div className="security-all-clear roomy"><CheckCircle2 /><strong>No security alerts</strong><p>Only activity connected to your own account will appear here.</p></div>}</div></section>}
 
-    {activeTab === 'My sessions' && <section className="panel"><div className="panel-header"><div><h2>Your signed-in browsers</h2><p>Location is approximate. End all other sessions if one is unfamiliar.</p></div>{unfamiliar.length > 0 && <button className="button button-secondary danger-text" onClick={() => setSelectedSession(unfamiliar[0])}><LogOut size={16} />End other sessions</button>}</div><div className="session-list">{sessions.map((session) => <article className={session.current ? 'current-session' : ''} key={session.id}><div className="session-icon">{session.device.includes('iPhone') ? <Smartphone /> : <Laptop />}</div><div><strong>{session.device}</strong><span>{session.location}</span><span>First recorded {when(session.createdAt)} · {session.assuranceLevel.toUpperCase()}</span></div><div className="session-actions"><Badge tone={session.current ? 'success' : 'neutral'}>{session.current ? 'This browser' : session.trustStatus}</Badge></div></article>)}</div></section>}
+    {activeTab === 'My sessions' && <section className="panel"><div className="panel-header"><div><h2>Your recorded browsers</h2><p>Device and region labels are browser-reported, not verified locations.</p></div>{unfamiliar.length > 0 && <button className="button button-secondary danger-text" onClick={() => setSelectedSession(unfamiliar[0])}><LogOut size={16} />End other sessions</button>}</div><div className="session-list">{sessions.map((session) => <article className={session.current ? 'current-session' : ''} key={session.id}><div className="session-icon">{session.device.includes('iPhone') ? <Smartphone /> : <Laptop />}</div><div><strong>{session.device}</strong><span>{session.location}</span><span>First recorded {when(session.createdAt)} · {session.assuranceLevel.toUpperCase()}</span></div><div className="session-actions"><Badge tone={session.current ? 'success' : 'neutral'}>{session.current ? 'This browser' : session.authSessionId ? session.trustStatus : 'Historical observation'}</Badge></div></article>)}</div></section>}
 
     {activeTab === 'Security history' && <section className="panel"><div className="panel-header"><div><h2>Your security history</h2><p>A personal timeline assembled from your alerts, responses, and sessions.</p></div></div><div className="personal-security-timeline">{timeline.map(({ id, at, icon: Icon, title, detail }) => <article key={id}><span><Icon /></span><div><strong>{title}</strong><p>{detail}</p></div><time>{when(at)}</time></article>)}</div></section>}
 

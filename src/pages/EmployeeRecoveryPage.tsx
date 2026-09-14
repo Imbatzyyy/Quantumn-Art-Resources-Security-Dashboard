@@ -10,19 +10,12 @@ import {
   Mail,
   ShieldCheck,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { validatePermanentPassword } from '../utils/passwordPolicy.js'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
 import { isSupabaseConfigured, requireSupabase } from '../services/supabaseClient.js'
 
-const strongPassword = (password: string) =>
-  password.length >= 12 &&
-  /[a-z]/.test(password) &&
-  /[A-Z]/.test(password) &&
-  /\d/.test(password) &&
-  /[^A-Za-z0-9]/.test(password)
-
-export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'update' }) {
-  const navigate = useNavigate()
+export default function EmployeeRecoveryPage({ mode, portal = 'employee' }: { mode: 'request' | 'update'; portal?: 'employee' | 'admin' }) {
   const isUpdate = mode === 'update'
   const recoveryUnavailable = isUpdate && !isSupabaseConfigured
   const [email, setEmail] = useState('')
@@ -36,6 +29,8 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
     ? 'Secure account recovery is not configured in this preview environment.'
     : '')
   const [success, setSuccess] = useState('')
+  const [mfaFactor, setMfaFactor] = useState<string | null>(null)
+  const [mfaCode, setMfaCode] = useState('')
 
   useEffect(() => {
     if (!isUpdate || !isSupabaseConfigured) return undefined
@@ -44,18 +39,28 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
     let active = true
 
     const verifyRecoverySession = async () => {
-      const { data } = await client.auth.getSession()
-      if (active) {
-        setRecoveryReady(Boolean(data.session))
-        setCheckingLink(false)
-      }
+      try {
+        const { data, error: sessionError } = await client.auth.getSession()
+        if (sessionError) throw sessionError
+        if (!data.session) { if (active) setRecoveryReady(false); return }
+        const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (assuranceError) throw assuranceError
+        let factor: string | null = null
+        if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+          const { data: factors, error: factorError } = await client.auth.mfa.listFactors()
+          if (factorError || !factors.totp[0]) throw new Error('Authenticator verification is unavailable. Try opening the recovery link again.')
+          factor = factors.totp[0].id
+        }
+        if (active) { setMfaFactor(factor); setRecoveryReady(true) }
+      } catch { if (active) { setError('Your recovery session could not be verified. Open the link again or request a new email.'); setRecoveryReady(false) } }
+      finally { if (active) setCheckingLink(false) }
     }
 
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
       if (!active) return
       if (event === 'PASSWORD_RECOVERY' || session) {
-        setRecoveryReady(true)
-        setCheckingLink(false)
+        // Supabase Auth callbacks must not await another Auth operation under its lock.
+        window.setTimeout(() => { if (active) void verifyRecoverySession() }, 0)
       }
     })
 
@@ -68,16 +73,17 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
 
   const requestReset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitting) return
     setSubmitting(true)
     setError('')
     setSuccess('')
 
     try {
       const client = requireSupabase()
-      const redirectOrigin = window.location.hostname === 'localhost'
+      const redirectOrigin = ['localhost', '127.0.0.1'].includes(window.location.hostname)
         ? window.location.origin
         : 'https://quantumnhr.com'
-      const redirectTo = `${redirectOrigin}/employee/reset-password`
+      const redirectTo = `${redirectOrigin}/${portal}/reset-password`
       const { error: resetError } = await client.auth.resetPasswordForEmail(
         email.trim().toLowerCase(),
         { redirectTo },
@@ -88,7 +94,7 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
         }
         throw new Error('The recovery email could not be sent. Please try again shortly.')
       }
-      setSuccess('If this email belongs to an employee account, a secure password-reset link has been sent.')
+      setSuccess('If this email belongs to a registered account, a secure password-reset link has been sent.')
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'The recovery email could not be sent.')
     } finally {
@@ -98,11 +104,12 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
 
   const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitting) return
     setError('')
     setSuccess('')
 
-    if (!strongPassword(password)) {
-      setError('Use at least 12 characters with uppercase, lowercase, a number, and a symbol.')
+    if (validatePermanentPassword(password)) {
+      setError(validatePermanentPassword(password) || 'Choose a secure passphrase.')
       return
     }
     if (password !== confirmPassword) {
@@ -113,11 +120,16 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
     setSubmitting(true)
     try {
       const client = requireSupabase()
+      if (mfaFactor) {
+        const { error: mfaError } = await client.auth.mfa.challengeAndVerify({ factorId: mfaFactor, code: mfaCode.trim() })
+        if (mfaError) { setError('Enter the current 6-digit code from your authenticator.'); return }
+        setMfaFactor(null); setMfaCode('')
+      }
       const { error: updateError } = await client.auth.updateUser({ password })
       if (updateError) throw updateError
       await client.auth.signOut()
       setSuccess('Your password has been updated. You can now sign in with your new password.')
-      window.setTimeout(() => navigate('/employee/login', { replace: true }), 1800)
+      window.setTimeout(() => window.location.replace(`/${portal}/login`), 1800)
     } catch {
       setError('This recovery link is invalid or has expired. Request a new password-reset email.')
       setRecoveryReady(false)
@@ -131,18 +143,18 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
       <section className="recovery-shell">
         <div className="recovery-brand">
           <img src={logoBlue} alt="Quantumn Art Resources" />
-          <span>Employee account recovery</span>
+          <span>{portal === 'admin' ? 'Administrator' : 'Employee'} account recovery</span>
         </div>
 
         <div className="recovery-card">
           <span className="portal-mark" aria-hidden="true">
             {success ? <CheckCircle2 size={23} /> : <ShieldCheck size={23} />}
           </span>
-          <span className="portal-label">Employee portal</span>
+          <span className="portal-label">{portal === 'admin' ? 'Administrator' : 'Employee'} portal</span>
           <h1>{isUpdate ? 'Create a new password' : 'Recover your account'}</h1>
           <p>
             {isUpdate
-              ? 'Choose a strong, unique password for your employee account.'
+              ? 'Choose a strong, unique passphrase for your work account.'
               : 'Enter the same work email registered by your HR administrator.'}
           </p>
 
@@ -187,6 +199,10 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
 
           {isUpdate && recoveryReady && !success && (
             <form onSubmit={updatePassword} aria-busy={submitting}>
+              {mfaFactor && <label className="field-label" htmlFor="recovery-mfa">Authenticator code
+                <span className="login-input"><ShieldCheck size={18} aria-hidden="true" /><input id="recovery-mfa" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required placeholder="6-digit code" /></span>
+                <small>Your enrolled authenticator is required even when resetting by email. If you lost access, contact your administrator for verified recovery.</small>
+              </label>}
               <label className="field-label" htmlFor="new-password">
                 New password
                 <span className="login-input password-field">
@@ -224,7 +240,7 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
                   />
                 </span>
               </label>
-              <p className="password-requirement">12+ characters · uppercase · lowercase · number · symbol</p>
+              <p className="password-requirement">15+ characters · unique passphrase</p>
               {error && <div className="form-error" role="alert" aria-live="polite">{error}</div>}
               <button className="login-submit" type="submit" disabled={submitting}>
                 <span>{submitting ? 'Updating password…' : 'Update password'}</span>
@@ -245,9 +261,9 @@ export default function EmployeeRecoveryPage({ mode }: { mode: 'request' | 'upda
             <span>For privacy, the recovery request does not reveal whether an email is registered.</span>
           </div>
 
-          <Link className="recovery-back" to={isUpdate && !recoveryReady ? '/employee/forgot-password' : '/employee/login'}>
+          <Link className="recovery-back" to={isUpdate && !recoveryReady ? `/${portal}/forgot-password` : `/${portal}/login`}>
             <ArrowLeft size={17} />
-            {isUpdate && !recoveryReady ? 'Request a new recovery email' : 'Back to employee sign in'}
+            {isUpdate && !recoveryReady ? 'Request a new recovery email' : `Back to ${portal === 'admin' ? 'administrator' : 'employee'} sign in`}
           </Link>
         </div>
       </section>

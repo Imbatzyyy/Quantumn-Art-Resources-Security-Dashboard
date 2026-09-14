@@ -126,7 +126,7 @@ describe('Employee Account Security', () => {
     expect(screen.queryByRole('dialog', { name: 'Set up authenticator MFA' })).not.toBeInTheDocument()
   })
 
-  it('records the employee response to an alert and revokes only the selected other session', async () => {
+  it('records the employee response to an alert and revokes other authenticated sessions after confirmation', async () => {
     const user = userEvent.setup()
     const respondToAlert = vi.fn(async () => emptySnapshot)
     const endSession = vi.fn(async () => emptySnapshot)
@@ -145,7 +145,7 @@ describe('Employee Account Security', () => {
       createdAt: '2026-08-30T07:00:00.000Z',
     }
     const otherSession = {
-      id: 'SES-OTHER-1',
+      id: 'SES-OTHER-1', authSessionId: '00000000-0000-4000-8000-000000000001',
       employeeId: employeeIdentity.id,
       device: 'Safari on iPhone',
       location: 'Quezon City, PH',
@@ -172,6 +172,6 @@ describe('Employee Account Security', () => {
     await user.click(screen.getByRole('button', { name: 'End other sessions' }))
     const sessionDialog = screen.getByRole('dialog', { name: 'End other sessions' })
     await user.click(within(sessionDialog).getByRole('button', { name: 'End other sessions' }))
-    await waitFor(() => expect(endSession).toHaveBeenCalledWith(otherSession.id))
+    await waitFor(() => expect(endSession).toHaveBeenCalledWith('all-other-sessions'))
   })
 })

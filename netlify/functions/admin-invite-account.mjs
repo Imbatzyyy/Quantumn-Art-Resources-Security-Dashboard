@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { assertCallerAccess } from './_shared/hrms-access.mjs'
 import { invitationEmail } from './_shared/email-templates.mjs'
 
 const json = (body, status = 200) => globalThis.Response.json(body, {
@@ -35,10 +36,13 @@ export default async (request) => {
   const authorization = request.headers.get('authorization') || ''
   const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
   if (!accessToken) return json({ error: 'System Administrator authentication is required.' }, 401)
+  try { await assertCallerAccess(supabaseUrl, serviceKey, accessToken) }
+  catch { return json({ error: 'Verify your administrator session and authenticator before inviting accounts.' }, 403) }
 
   let input
   try { input = await request.json() } catch { return json({ error: 'The request body must be valid JSON.' }, 400) }
 
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return json({ error: 'A JSON object is required.' }, 400)
   const account = {
     firstName: clean(input.firstName, 80),
     lastName: clean(input.lastName, 80),

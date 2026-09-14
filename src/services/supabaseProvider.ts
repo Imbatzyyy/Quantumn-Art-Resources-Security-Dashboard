@@ -1,6 +1,7 @@
-import { requireSupabase } from './supabaseClient.js'
+import { requireSupabase, isolatedAuthenticator } from './supabaseClient.js'
 import { validatePermanentPassword } from '../utils/passwordPolicy.js'
 import { profilePhotoExtension } from '../utils/profilePhotoCrop.js'
+import { businessDate } from '../utils/securityMetrics.js'
 import {
   currentBrowserSessionCode,
   currentSession,
@@ -28,7 +29,7 @@ type PublicTable = keyof Database['public']['Tables']
 const realtimeTables = [
   'profiles', 'attendance', 'leave_requests', 'payroll', 'payroll_runs',
   'performance_reviews', 'performance_cycles', 'announcements',
-  'security_alerts', 'security_alert_responses', 'account_sessions', 'audit_logs',
+  'security_alerts', 'security_alert_responses',
   'zap_scan_runs', 'zap_findings', 'employee_requests',
   'request_comments', 'notifications', 'employee_documents',
   'document_acknowledgements', 'work_schedules', 'employee_benefits',
@@ -257,6 +258,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async submitRequest(input) {
     const { error } = await requireSupabase().rpc('submit_employee_request', {
+      request_key: input.idempotencyKey || crypto.randomUUID(),
       requested_type: input.type,
       requested_subject: input.subject,
       requested_description: input.description,
@@ -328,7 +330,12 @@ export const supabaseProvider: HrmsDataProvider = {
   },
 
   async clock() {
-    const { error } = await requireSupabase().rpc('clock_attendance')
+    const client = requireSupabase()
+    const user = await requireCurrentUser()
+    const yesterday = businessDate(new Date(Date.now() - 86_400_000))
+    const { data: pending, error: readError } = await client.from('attendance').select('id').eq('employee_code', user.id).is('clock_out', null).gte('work_date', yesterday).limit(1)
+    if (readError) throw readError
+    const { error } = await client.rpc('clock_attendance', { clock_action: pending?.length ? 'out' : 'in' })
     if (error) throw error
     return fetchSnapshot()
   },
@@ -337,11 +344,7 @@ export const supabaseProvider: HrmsDataProvider = {
     if (!['Acknowledged', 'Investigating', 'Resolved'].includes(status)) {
       throw new Error('Select a valid alert status.')
     }
-    const { error } = await requireSupabase()
-      .from('security_alerts')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('alert_code', id)
-    if (error) throw error
+    await securityOperation({ action: 'update-alert', alertCode: id, status, resolutionReason: status === 'Resolved' ? 'Reviewed and resolved by security administrator' : '', note: '' })
     return fetchSnapshot()
   },
 
@@ -384,10 +387,10 @@ export const supabaseProvider: HrmsDataProvider = {
     const session = await currentSession()
     if (!session) throw new Error('Your session has expired. Sign in again.')
     const currentSessionCode = currentBrowserSessionCode(session.user.id)
-    if (profile.role === 'employee') {
+    if (profile.role === 'employee' || id === 'all-other-sessions') {
+      await securityOperation({ action: 'revoke-other-sessions', currentSessionCode })
       const { error: signOutError } = await client.auth.signOut({ scope: 'others' })
       if (signOutError) throw signOutError
-      await securityOperation({ action: 'revoke-other-sessions', currentSessionCode })
     } else {
       await securityOperation({ action: 'revoke-session', sessionCode: id, currentSessionCode })
     }
@@ -410,13 +413,13 @@ export const supabaseProvider: HrmsDataProvider = {
       throw new Error('Your session has expired. Sign in again.')
     }
 
-    const { error: verifyError } = await client.auth.signInWithPassword({
-      email: userData.user.email,
-      password: currentPassword,
-    })
+    // Verify in an isolated Auth client so reauthentication cannot replace AAL2
+    // in the portal or sign out the user's other browsers.
+    const verifier = isolatedAuthenticator()
+    const { error: verifyError } = await verifier.auth.signInWithPassword({ email: userData.user.email, password: currentPassword })
     if (verifyError) throw new Error('The current password is incorrect.')
-
-    const { error: updateError } = await client.auth.updateUser({ password: newPassword })
+    await verifier.auth.signOut({ scope: 'local' })
+    const { error: updateError } = await client.auth.updateUser({ password: newPassword, current_password: currentPassword })
     if (updateError) throw updateError
 
     await client.rpc('record_user_activity', {

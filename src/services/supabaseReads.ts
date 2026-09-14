@@ -11,10 +11,22 @@ import {
   type DatabaseRow,
 } from './supabaseMappers.js'
 import type { EmployeeRecord, HrmsSnapshot } from '../types/hrms.js'
+import type { Tables } from '../types/database.js'
 
 interface QueryResultLike<Row> {
   data: Row[] | null
   error: unknown
+}
+
+async function paged<Row extends object>(query: { range: (from: number, to: number) => PromiseLike<QueryResultLike<Row>> }): Promise<QueryResultLike<Row>> {
+  const rows: Row[] = []
+  for (let offset = 0; offset < 200_000; offset += 500) {
+    const page = await query.range(offset, offset + 499)
+    if (page.error) return { data: null, error: page.error }
+    rows.push(...(page.data || []))
+    if ((page.data?.length || 0) < 500) return { data: rows, error: null }
+  }
+  throw new Error('The workspace exceeds the supported snapshot size. Contact an administrator; partial totals were not displayed.')
 }
 
 const isDatabaseRow = (value: unknown): value is DatabaseRow =>
@@ -36,11 +48,7 @@ export async function currentSession(): Promise<Session | null> {
 }
 
 export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRecord & { authUserId?: string }> {
-  const { data, error } = await requireSupabase()
-    .from('profiles')
-    .select('*')
-    .eq('auth_user_id', authUserId)
-    .single()
+  const { data, error } = await requireSupabase().rpc('get_hrms_identity')
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -49,13 +57,23 @@ export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRe
     throw error
   }
   if (!isDatabaseRow(data)) throw new Error('Supabase returned an invalid employee profile.')
-  return employeeFromRow(data)
+  if (data.auth_user_id !== authUserId) throw new Error('The authenticated identity does not match.')
+  return { ...employeeFromRow(data as Tables<'profiles'>), mustChangePassword: data.must_change_password === true, mustSetPassword: data.must_set_password === true }
 }
 
 export async function fetchSnapshot(): Promise<HrmsSnapshot> {
   const client = requireSupabase()
   const session = await currentSession()
   if (!session) return emptySnapshot()
+  if (session.user.app_metadata?.must_change_password || session.user.app_metadata?.must_set_password) return emptySnapshot()
+  const { error: accessError } = await client.rpc('assert_hrms_access')
+  if (accessError) {
+    if (accessError.code === '42501') {
+      const profile = await getProfileByAuthId(session.user.id)
+      if (profile.mustChangePassword || profile.mustSetPassword) return emptySnapshot()
+    }
+    throw accessError
+  }
 
   const [
     profiles, attendance, leaveRequests, payroll, payrollRuns, performance,
@@ -64,30 +82,30 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     notifications, documents, documentAcknowledgements, schedules, benefits,
     goals, lifecycleCases, lifecycleTasks,
   ] = await Promise.all([
-    client.from('profiles').select('*').order('employee_code'),
-    client.from('attendance').select('*').order('work_date', { ascending: false }),
-    client.from('leave_requests').select('*').order('created_at', { ascending: false }),
-    client.from('payroll').select('*').order('id', { ascending: false }),
-    client.from('payroll_runs').select('*').order('created_at', { ascending: false }),
-    client.from('performance_reviews').select('*').order('id', { ascending: false }),
-    client.from('performance_cycles').select('*').order('created_at', { ascending: false }),
-    client.from('announcements').select('*').order('published_on', { ascending: false }),
-    client.from('security_alerts').select('*').order('created_at', { ascending: false }),
-    client.from('security_alert_responses').select('*').order('created_at', { ascending: false }),
-    client.from('account_sessions').select('*').order('created_at', { ascending: false }),
-    client.from('audit_logs').select('*').order('created_at', { ascending: false }),
-    client.from('zap_scan_runs').select('*').order('completed_at', { ascending: false }),
-    client.from('zap_findings').select('*').order('id', { ascending: false }),
-    client.from('employee_requests').select('*').order('created_at', { ascending: false }),
-    client.from('request_comments').select('*').order('created_at', { ascending: true }),
-    client.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
-    client.from('employee_documents').select('*').order('created_at', { ascending: false }),
-    client.from('document_acknowledgements').select('*').order('acknowledged_at', { ascending: false }),
-    client.from('work_schedules').select('*').order('work_date', { ascending: true }),
-    client.from('employee_benefits').select('*').order('benefit_type', { ascending: true }),
-    client.from('employee_goals').select('*').order('due_date', { ascending: true }),
-    client.from('lifecycle_cases').select('*').order('created_at', { ascending: false }),
-    client.from('lifecycle_tasks').select('*').order('id', { ascending: true }),
+    paged(client.from('profiles').select('*').order('employee_code')),
+    paged(client.from('attendance').select('*').order('work_date', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('leave_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('payroll').select('*').order('id', { ascending: false })),
+    paged(client.from('payroll_runs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('performance_reviews').select('*').order('id', { ascending: false })),
+    paged(client.from('performance_cycles').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('announcements').select('*').order('published_on', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('security_alerts').select('*').order('created_at', { ascending: false }).order('alert_code', { ascending: true })),
+    paged(client.from('security_alert_responses').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('account_sessions').select('*').order('created_at', { ascending: false }).order('session_code', { ascending: true })),
+    paged(client.from('audit_logs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('zap_scan_runs').select('*').order('completed_at', { ascending: false }).order('scan_code', { ascending: true })),
+    paged(client.from('zap_findings').select('*').order('id', { ascending: false })),
+    paged(client.from('employee_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('request_comments').select('*').order('created_at', { ascending: true }).order('id', { ascending: true })),
+    paged(client.from('notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('employee_documents').select('id,employee_code,document_type,title,filename,version,period,requires_ack,sensitive,expires_on,created_at,updated_at,uploaded_by').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('document_acknowledgements').select('*').order('acknowledged_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('work_schedules').select('*').order('work_date', { ascending: true }).order('id', { ascending: true })),
+    paged(client.from('employee_benefits').select('*').order('benefit_type', { ascending: true }).order('id', { ascending: true })),
+    paged(client.from('employee_goals').select('*').order('due_date', { ascending: true }).order('id', { ascending: true })),
+    paged(client.from('lifecycle_cases').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('lifecycle_tasks').select('*').order('id', { ascending: true })),
   ])
 
   const currentCode = currentBrowserSessionCode(session.user.id)
@@ -124,14 +142,18 @@ const sessionKey = (authUserId: string): string => `quantum-hrms-session-${authU
 export function currentBrowserSessionCode(authUserId: string): string {
   if (!authUserId || typeof window === 'undefined') return ''
   const key = sessionKey(authUserId)
-  let code = window.localStorage.getItem(key)
+  let code = window.sessionStorage.getItem(key)
   if (!code) {
     code = `SES-${window.crypto.randomUUID().replaceAll('-', '').toUpperCase()}`
-    window.localStorage.setItem(key, code)
+    window.sessionStorage.setItem(key, code)
   }
   return code
 }
 
 export function clearCurrentBrowserSessionCode(authUserId: string): void {
-  window.localStorage.removeItem(sessionKey(authUserId))
+  window.sessionStorage.removeItem(sessionKey(authUserId))
+}
+
+export function saveCurrentBrowserSessionCode(authUserId: string, code: string): void {
+  window.sessionStorage.setItem(sessionKey(authUserId), code)
 }

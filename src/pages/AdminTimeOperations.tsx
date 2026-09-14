@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Building2, CalendarClock, CalendarDays, CheckCircle2, Clock3, Coffee, Home, MapPin, MonitorSmartphone, Plus, ShieldCheck, Sparkles, UserRound } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
+import { businessDate } from '../utils/securityMetrics.js'
 import { formatDate, statusTone } from '../utils/format.js'
 import type { HrmsSnapshot, ScheduleInput } from '../types/hrms.js'
 
@@ -18,9 +20,10 @@ const personName = (data: HrmsSnapshot, employeeId: string) => {
 }
 
 export default function AdminTimeOperations() {
+  const submission = useSubmissionLock()
   const { data, saveSchedule } = useHrms()
   const [showSchedule, setShowSchedule] = useState(false)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = businessDate()
   const defaultEmployee = data?.employees.find((item) => item.role === 'employee' && item.status === 'Active')?.id ?? ''
   const [form, setForm] = useState<ScheduleInput>({ employeeId: defaultEmployee, date: today, shiftStart: '08:00', shiftEnd: '17:00', location: 'Main Office', workMode: 'On-site', notes: '' })
   if (!data) return null
@@ -38,12 +41,13 @@ export default function AdminTimeOperations() {
     const [hours = 0, minutes = 0] = value.split(':').map(Number)
     return hours * 60 + minutes
   }
-  const shiftMinutes = isRestDay ? 0 : Math.max(0, timeToMinutes(form.shiftEnd) - timeToMinutes(form.shiftStart))
+  const shiftMinutes = isRestDay ? 0 : (timeToMinutes(form.shiftEnd) - timeToMinutes(form.shiftStart) + 1440) % 1440
   const durationLabel = isRestDay ? 'Rest day' : `${Math.floor(shiftMinutes / 60)}h ${shiftMinutes % 60 ? `${shiftMinutes % 60}m` : ''}`.trim()
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    try { await saveSchedule(form); setShowSchedule(false) } catch { /* Preserve server-validated input. */ }
+    if (!submission.begin()) return
+    try { await saveSchedule(form); setShowSchedule(false) } catch { /* Preserve server-validated input. */ } finally { submission.finish() }
   }
 
   return <div className="page-stack">
@@ -109,7 +113,7 @@ export default function AdminTimeOperations() {
 
         <footer className="schedule-create-footer">
           <div className="schedule-create-footnote"><ShieldCheck aria-hidden="true" /><p><strong>Accountable schedule change.</strong> Saving creates or updates one record for the selected employee and work date.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowSchedule(false)}>Cancel</button><button className="button button-primary"><CalendarClock aria-hidden="true" />Save schedule</button></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowSchedule(false)}>Cancel</button><button className="button button-primary" disabled={submission.busy}><CalendarClock aria-hidden="true" />Save schedule</button></div>
         </footer>
       </form>
     </Modal>}

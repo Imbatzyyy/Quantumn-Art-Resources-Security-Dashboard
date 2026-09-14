@@ -5,6 +5,7 @@ import {
   currentBrowserSessionCode,
   currentSession,
   getProfileByAuthId,
+  saveCurrentBrowserSessionCode,
 } from './supabaseReads.js'
 import type {
   AuthenticationResult,
@@ -23,7 +24,7 @@ const profileAvatarUrl = async (avatarPath?: string): Promise<string | undefined
   if (!avatarPath) return undefined
   const { data, error } = await requireSupabase().storage
     .from('profile-avatars')
-    .createSignedUrl(avatarPath, 60 * 60)
+    .createSignedUrl(avatarPath, 5 * 60)
   if (error) return undefined
   return `${data.signedUrl}${data.signedUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
 }
@@ -51,7 +52,8 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
     throw new Error('This account is inactive. Contact an HR administrator.')
   }
   const { data: assurance, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (!error && assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+  if (error) throw new Error('Authenticator status could not be verified. Please try signing in again.')
+  if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
     await client.auth.signOut()
     return null
   }
@@ -59,8 +61,8 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
     ...profile,
     portal: portalForRole(profile.role),
     avatarUrl: await profileAvatarUrl(profile.avatarPath),
-    mustChangePassword: session.user.app_metadata?.must_change_password === true,
-    mustSetPassword: session.user.app_metadata?.must_set_password === true,
+    mustChangePassword: profile.mustChangePassword === true,
+    mustSetPassword: profile.mustSetPassword === true,
   }
 }
 
@@ -81,7 +83,7 @@ export async function authenticate({ email, password, portal }: LoginCredentials
         ? 'This account does not have administrator access.'
         : 'Use the administrator portal for this account.')
     }
-    if (resolvedPortal === 'admin' && data.user.app_metadata?.must_set_password === true) {
+    if (resolvedPortal === 'admin' && profile.mustSetPassword === true) {
       await client.auth.signOut()
       throw new Error('Accept the invitation email and create your password before signing in.')
     }
@@ -98,7 +100,7 @@ export async function authenticate({ email, password, portal }: LoginCredentials
     return {
       ...profile, portal: resolvedPortal,
       avatarUrl: await profileAvatarUrl(profile.avatarPath),
-      mustChangePassword: data.user.app_metadata?.must_change_password === true,
+      mustChangePassword: profile.mustChangePassword === true,
       mustSetPassword: false,
     }
   } catch (reason: unknown) {
@@ -133,20 +135,19 @@ export async function verifyMfaLogin({ factorId, code, portal }: MfaLoginInput):
     await client.auth.signOut()
     throw new Error('This account cannot access the selected portal.')
   }
-  return { ...profile, portal: resolvedPortal, avatarUrl: await profileAvatarUrl(profile.avatarPath), mustChangePassword: false }
+  return { ...profile, portal: resolvedPortal, avatarUrl: await profileAvatarUrl(profile.avatarPath), mustChangePassword: profile.mustChangePassword === true }
 }
 
 export async function recordCurrentSession(): Promise<string | null> {
   const session = await currentSession()
   if (!session) return null
-  const sessionCode = currentBrowserSessionCode(session.user.id)
+  if (session.user.app_metadata?.must_change_password || session.user.app_metadata?.must_set_password) return null
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Location unavailable'
-  const { data: assurance } = await requireSupabase().auth.mfa.getAuthenticatorAssuranceLevel()
-  await securityOperation({
-    action: 'record-session', sessionCode, device: browserDeviceLabel(),
-    location: timeZone === 'Asia/Manila' ? 'Philippines · Asia/Manila' : timeZone,
-    assuranceLevel: assurance?.currentLevel ?? 'aal1',
+  const { data: sessionCode, error } = await requireSupabase().rpc('record_hrms_session', {
+    device_label: browserDeviceLabel(), location_label: `${timeZone} (browser reported)`,
   })
+  if (error || !sessionCode) throw new Error('Your session is no longer authorized. Please sign in again.')
+  saveCurrentBrowserSessionCode(session.user.id, sessionCode)
   return sessionCode
 }
 

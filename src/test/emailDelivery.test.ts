@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import createEmployee from '../../netlify/functions/admin-create-employee.mjs'
 import inviteAdmin from '../../netlify/functions/admin-invite-account.mjs'
+import completeEmployee from '../../netlify/functions/complete-initial-password.mjs'
+import completeAdmin from '../../netlify/functions/complete-admin-invite.mjs'
 import { EMAIL_LOGO_URL } from '../../netlify/functions/_shared/email-templates.mjs'
 
 const { createClient } = vi.hoisted(() => ({ createClient: vi.fn() }))
@@ -23,6 +25,7 @@ const fetchEmail = vi.fn()
 beforeEach(() => {
   vi.stubEnv('SUPABASE_URL', 'https://project.supabase.co')
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'fictional-service-key')
+  vi.stubEnv('SUPABASE_PUBLISHABLE_KEY', 'fictional-publishable-key')
   vi.stubEnv('SUPABASE_SECRET_KEY', '')
   vi.stubEnv('RESEND_API_KEY', 'fictional-provider-key')
   vi.stubEnv('RESEND_FROM_EMAIL', 'Quantumn Art Resources <test@example.test>')
@@ -32,6 +35,7 @@ beforeEach(() => {
   deleteUser.mockReset().mockResolvedValue({ error: null })
   profileQueries = []
   createClient.mockReturnValue({
+    rpc: vi.fn().mockResolvedValue({ error: null }),
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'caller' } } }), admin: {
       createUser: vi.fn().mockResolvedValue({ data: { user: { id: 'new-user' } } }),
       generateLink: vi.fn().mockResolvedValue({ data: { user: { id: 'new-user' }, properties: { action_link: actionLink } } }),
@@ -48,6 +52,15 @@ beforeEach(() => {
 })
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals() })
+
+describe.each([createEmployee, inviteAdmin, completeEmployee, completeAdmin])('protected account endpoint input guard', (handler) => {
+  it.each([null, [], 'invalid'])('rejects a non-object JSON body without sending email or creating an account', async (body) => {
+    const response = await handler(request('/api/test-account-input', body))
+    expect(response.status).toBe(400)
+    expect(fetchEmail).not.toHaveBeenCalled()
+    expect(deleteUser).not.toHaveBeenCalled()
+  })
+})
 
 describe.each([
   { label: 'Employee credentials', handler: createEmployee, path: '/api/admin-create-employee', body: employeeBody },

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { dataProvider } from '../services/dataProvider.js'
 import { HrmsState } from './HrmsState.js'
+import { securityOperation } from '../services/supabaseSecurityApi.js'
+import { requireSupabase } from '../services/supabaseClient.js'
 import type {
   HrmsContextValue,
   HrmsSnapshot,
@@ -17,12 +19,24 @@ const errorMessage = (error: unknown) => error instanceof Error
 const isMfaChallenge = (result: PortalIdentity | MfaChallenge): result is MfaChallenge =>
   'mfaRequired' in result
 
+const getSecurityOverview: NonNullable<HrmsContextValue['getSecurityOverview']> = (windowDays) => securityOperation({ action: 'security-overview', windowDays })
+const getSecurityAccountOptions = async () => {
+  const { data, error } = await requireSupabase().rpc('security_account_options')
+  if (error) throw error
+  return data
+}
+
 export function HrmsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<HrmsSnapshot | null>(null)
   const [user, setUser] = useState<PortalIdentity | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const toastSequence = useRef(0)
+  const userId = user?.id
+  const userPortal = user?.portal
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState(false)
+  const mutations = useRef(new Map<unknown, Promise<HrmsSnapshot>>())
 
   const notify = useCallback((message: string, tone: ToastTone = 'success') => {
     toastSequence.current += 1
@@ -53,8 +67,10 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
     const restore = async () => {
       try {
+        // Recovery/setup owns the pre-verification Auth session on these routes.
+        if (/\/(reset-password|setup-password)$/.test(window.location.pathname)) return
         const restoredUser = await dataProvider.getCurrentUser()
-        if (restoredUser && dataProvider.recordCurrentSession) {
+        if (restoredUser && !restoredUser.mustChangePassword && !restoredUser.mustSetPassword && dataProvider.recordCurrentSession) {
           await dataProvider.recordCurrentSession()
         }
         const snapshot = await dataProvider.getSnapshot()
@@ -62,6 +78,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (active) {
           setUser(restoredUser)
           setData(snapshot)
+          setLastSyncedAt(new Date().toISOString())
+          setSyncError(false)
         }
       } catch (error: unknown) {
         if (active) {
@@ -81,26 +99,36 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [notify])
 
   useEffect(() => {
-    if (!user) return undefined
+    if (!userId) return undefined
 
     let active = true
     let syncing = false
     const sync = async () => {
-      if (syncing) return
+      if (syncing || /\/(reset-password|setup-password)$/.test(window.location.pathname)) return
       syncing = true
       try {
-        if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
+        const refreshedUser = await dataProvider.getCurrentUser()
+        if (!refreshedUser) {
+          if (active) { setUser(null); setData(null) }
+          return
+        }
+        if (!refreshedUser.mustChangePassword && !refreshedUser.mustSetPassword && dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = dataProvider.refresh
           ? await dataProvider.refresh()
           : await dataProvider.getSnapshot()
-        const refreshedUser = await dataProvider.getCurrentUser()
         if (active) {
           setData(snapshot)
           setUser(refreshedUser)
+          setLastSyncedAt(new Date().toISOString())
+          setSyncError(false)
         }
-      } catch {
-        // Background synchronization is intentionally quiet; an explicit
-        // refresh still reports useful errors to the user.
+      } catch (error: unknown) {
+        if (active) {
+          if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') {
+            setUser(null); setData(null)
+            void dataProvider.signOut?.().catch(() => undefined)
+          } else setSyncError(true)
+        }
       } finally {
         syncing = false
       }
@@ -120,19 +148,21 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (unsubscribe) unsubscribe()
       document.removeEventListener('visibilitychange', syncWhenVisible)
     }
-  }, [user])
+  }, [userId])
 
   useEffect(() => {
-    if (!user) return undefined
+    if (!userId) return undefined
 
-    const timeoutMs = user.portal === 'admin' ? 15 * 60 * 1000 : 30 * 60 * 1000
+    const timeoutMs = userPortal === 'admin' ? 15 * 60 * 1000 : 30 * 60 * 1000
     let timeout: number | undefined
     const expire = async () => {
       try {
         if (dataProvider.signOut) await dataProvider.signOut()
+      } catch {
+        // An unavailable network must never retain the private workspace on expiry.
       } finally {
         setUser(null)
-        setData(await dataProvider.getSnapshot())
+        setData(null)
         notify('You were signed out after a period of inactivity.', 'error')
       }
     }
@@ -148,21 +178,30 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timeout)
       events.forEach((eventName) => window.removeEventListener(eventName, reset))
     }
-  }, [notify, user])
+  }, [notify, userId, userPortal])
 
   const run = async (
     operation: () => Promise<HrmsSnapshot>,
     successMessage?: string,
     options: { reportError?: boolean } = {},
   ) => {
+    const mutationKey = successMessage || operation
+    const pending = mutations.current.get(mutationKey)
+    if (pending) return pending
+    const task = operation()
+    mutations.current.set(mutationKey, task)
     try {
-      const snapshot = await operation()
+      const snapshot = await task
       setData(snapshot)
+      setLastSyncedAt(new Date().toISOString())
+      setSyncError(false)
       if (successMessage) notify(successMessage)
       return snapshot
     } catch (error: unknown) {
       if (options.reportError !== false) notify(errorMessage(error), 'error')
       throw error
+    } finally {
+      mutations.current.delete(mutationKey)
     }
   }
 
@@ -170,6 +209,10 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       data,
       user,
       loading,
+      lastSyncedAt,
+      syncError,
+      getSecurityOverview,
+      getSecurityAccountOptions,
       toast,
       notify,
       async login(credentials) {
@@ -259,8 +302,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       ),
       endSession: (id) => run(() => dataProvider.endSession(id), 'Unfamiliar session ended.'),
       changePassword: (input) => run(() => dataProvider.changePassword(input), 'Password changed successfully.'),
-      getMfaStatus: () => dataProvider.getMfaStatus(),
-      getOrganizationSecuritySummary: () => dataProvider.getOrganizationSecuritySummary(),
+      getMfaStatus: dataProvider.getMfaStatus,
+      getOrganizationSecuritySummary: dataProvider.getOrganizationSecuritySummary,
       beginMfaEnrollment: () => dataProvider.beginMfaEnrollment(),
       verifyMfaEnrollment: (input) => dataProvider.verifyMfaEnrollment(input),
       disableMfa: (factorId) => dataProvider.disableMfa(factorId),

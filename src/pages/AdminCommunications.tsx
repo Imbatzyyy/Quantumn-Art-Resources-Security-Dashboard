@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { AlertTriangle, BellRing, Eye, Megaphone, MessageSquareText, Plus, Send, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading } from '../components/ui.js'
+import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate } from '../utils/format.js'
 import type { AnnouncementInput } from '../types/hrms.js'
@@ -8,6 +9,7 @@ import type { AnnouncementInput } from '../types/hrms.js'
 const emptyAnnouncement: AnnouncementInput = { title: '', content: '', priority: 'Normal' }
 
 export default function AdminCommunications() {
+  const submission = useSubmissionLock()
   const { data, addAnnouncement } = useHrms()
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<AnnouncementInput>(emptyAnnouncement)
@@ -16,7 +18,8 @@ export default function AdminCommunications() {
   const isHighPriority = form.priority === 'High'
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    try { await addAnnouncement(form); setShowAdd(false); setForm(emptyAnnouncement) } catch { /* Keep protected input. */ }
+    if (!submission.begin()) return
+    try { await addAnnouncement(form); setShowAdd(false); setForm(emptyAnnouncement) } catch { /* Keep protected input. */ } finally { submission.finish() }
   }
   return <div className="page-stack"><SectionHeading eyebrow="Clear organization updates" title="Communications" description="Publish concise announcements that also create employee notifications." actions={<button className="button button-primary" onClick={() => setShowAdd(true)}><Plus />New announcement</button>} /><div className="announcement-grid">{data.announcements.map((item) => <article className="panel announcement-card" key={item.id}><div><Badge tone={item.priority === 'High' ? 'warning' : 'info'}>{item.priority}</Badge><time>{formatDate(item.date)}</time></div><h2>{item.title}</h2><p>{item.content}</p></article>)}</div>{!data.announcements.length && <EmptyState icon={BellRing} title="No announcements" text="Publish the first organization update." />}{showAdd && <Modal title="Publish announcement" onClose={() => setShowAdd(false)} size="large">
     <form className="announcement-create-shell" onSubmit={submit}>
@@ -66,7 +69,7 @@ export default function AdminCommunications() {
 
       <footer className="announcement-create-footer">
         <div className="announcement-create-footnote"><Send aria-hidden="true" /><p><strong>Ready for organization-wide delivery.</strong> Review the title, message, and priority before notifying employees.</p></div>
-        <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowAdd(false)}>Cancel</button><button className="button button-primary"><Send aria-hidden="true" />Publish & notify</button></div>
+        <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowAdd(false)}>Cancel</button><button className="button button-primary" disabled={submission.busy}><Send aria-hidden="true" />Publish & notify</button></div>
       </footer>
     </form>
   </Modal>}</div>
