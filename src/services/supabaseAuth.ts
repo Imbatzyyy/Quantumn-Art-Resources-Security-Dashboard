@@ -1,6 +1,8 @@
 import { requireSupabase } from './supabaseClient.js'
 import { securityOperation } from './supabaseSecurityApi.js'
-import { emailSignInContext } from './supabaseEmailVerification.js'
+import { prepareEmailCode } from './supabaseEmailVerification.js'
+import { employeeFromRow } from './supabaseMappers.js'
+import type { Tables } from '../types/database.js'
 import {
   clearCurrentBrowserSessionCode,
   currentBrowserSessionCode,
@@ -48,18 +50,12 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
   if (!session) return null
   const client = requireSupabase()
   const profile = await getProfileByAuthId(session.user.id)
-  const emailContext = await emailSignInContext()
-  if (!emailContext.setupRequired && !emailContext.verified) return null
+  if (!profile.mustChangePassword && !profile.mustSetPassword && !profile.emailVerified) return null
   if (!['Active', 'On Leave'].includes(profile.status)) {
     await client.auth.signOut()
     throw new Error('This account is inactive. Contact an HR administrator.')
   }
-  const { data: assurance, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (error) throw new Error('Authenticator status could not be verified. Please try signing in again.')
-  if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
-    await client.auth.signOut()
-    return null
-  }
+  if (profile.requiresMfa) return null
   return {
     ...profile,
     portal: portalForRole(profile.role),
@@ -73,6 +69,13 @@ export async function authenticate({ email, password, portal }: LoginCredentials
   const client = requireSupabase()
   const { data, error } = await client.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
   if (error) throw new Error('Email or password is incorrect.')
+
+  // Metadata here only chooses a UI route. The email endpoint independently
+  // checks fresh account status, setup state and portal before sending anything.
+  if (!data.user.app_metadata?.must_change_password && !data.user.app_metadata?.must_set_password) {
+    prepareEmailCode(portal, data.session.access_token)
+    return { emailVerificationRequired: true, portal }
+  }
 
   try {
     const profile = await getProfileByAuthId(data.user.id)
@@ -91,8 +94,8 @@ export async function authenticate({ email, password, portal }: LoginCredentials
       throw new Error('Accept the invitation email and create your password before signing in.')
     }
 
-    const emailContext = await emailSignInContext()
-    if (!emailContext.setupRequired && !emailContext.verified) {
+    if (!profile.mustChangePassword && !profile.mustSetPassword && !profile.emailVerified) {
+      prepareEmailCode(resolvedPortal, data.session.access_token)
       return { emailVerificationRequired: true, portal: resolvedPortal }
     }
     const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
@@ -129,34 +132,42 @@ export async function signOut(): Promise<void> {
 }
 
 export async function completeEmailSignIn(portal: PortalKind): Promise<AuthenticationResult> {
-  const context = await emailSignInContext()
-  if (context.portal !== portal || context.setupRequired || !context.verified || !context.passwordAuthenticated) {
-    throw new Error('Verify your sign-in email before opening your workspace.')
+  const session = await currentSession()
+  if (!session) throw new Error('Your sign-in session expired. Please sign in again.')
+  const { data, error } = await requireSupabase().rpc('finish_hrms_signin', {
+    selected_portal: portal, device_label: browserDeviceLabel(),
+    location_label: `${Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown'} (browser reported)`,
+  })
+  if (error) throw error
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Sign-in could not be completed.')
+  if (data.mfaRequired === true && typeof data.factorId === 'string' && data.portal === portal) {
+    return { mfaRequired: true, factorId: data.factorId, portal, email: '' }
   }
-  const client = requireSupabase()
-  const { data: assurance, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (error) throw new Error('Authenticator status could not be verified. Please try again.')
-  if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
-    const { data: factors, error: factorError } = await client.auth.mfa.listFactors()
-    const factor = factors?.totp?.[0]
-    if (factorError || !factor) throw new Error('Your authenticator could not be verified. Contact your administrator.')
-    return { mfaRequired: true, factorId: factor.id, portal, email: '' }
+  const row = data.profile
+  if (!row || typeof row !== 'object' || Array.isArray(row) || row.auth_user_id !== session.user.id || typeof data.sessionCode !== 'string') {
+    throw new Error('Your sign-in identity could not be verified.')
   }
-  const user = await getCurrentUser()
-  if (!user) throw new Error('Your sign-in session expired. Please sign in again.')
-  return user
+  const profile = employeeFromRow(row as Tables<'profiles'>)
+  if (portalForRole(profile.role ?? '') !== portal) throw new Error('This account cannot access the selected portal.')
+  saveCurrentBrowserSessionCode(session.user.id, data.sessionCode)
+  // Photos arrive through the existing batched snapshot fetch, not a duplicate
+  // signed-URL request on the verification critical path.
+  return { ...profile, portal, mustChangePassword: false, mustSetPassword: false }
 }
 
 export async function verifyMfaLogin({ factorId, code, portal }: MfaLoginInput): Promise<PortalIdentity> {
   const client = requireSupabase()
-  const emailContext = await emailSignInContext()
-  if (!emailContext.setupRequired && !emailContext.verified) throw new Error('Verify your sign-in email first.')
   const normalizedCode = String(code ?? '').replace(/\s/g, '')
   if (!/^\d{6}$/.test(normalizedCode)) throw new Error('Enter the 6-digit authenticator code.')
   const { error } = await client.auth.mfa.challengeAndVerify({ factorId, code: normalizedCode })
   if (error) throw new Error('The authenticator code is invalid or expired.')
   const session = await currentSession()
   if (!session) throw new Error('Your authentication session has expired. Sign in again.')
+  if (!session.user.app_metadata?.must_change_password && !session.user.app_metadata?.must_set_password) {
+    const result = await completeEmailSignIn(portal)
+    if ('mfaRequired' in result || 'emailVerificationRequired' in result) throw new Error('Verification is still required.')
+    return result
+  }
   const profile = await getProfileByAuthId(session.user.id)
   const resolvedPortal = portalForRole(profile.role)
   if (resolvedPortal !== portal) {

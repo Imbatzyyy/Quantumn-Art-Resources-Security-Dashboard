@@ -1358,6 +1358,7 @@ export type Database = {
     }
     Functions: {
       signin_email_context: { Args: Record<PropertyKey, never>; Returns: Json }
+      finish_hrms_signin: { Args: { selected_portal: string; device_label: string; location_label: string }; Returns: Json }
       read_employee_document: { Args: { selected_document_id: number }; Returns: string }
       security_account_options: { Args: Record<PropertyKey, never>; Returns: Array<{ employee_code: string; first_name: string; last_name: string }> }
       assert_hrms_access: { Args: Record<PropertyKey, never>; Returns: undefined }

@@ -39,3 +39,28 @@ Deploy the application/function bundle together with migration `20260928083351_e
 Local-only fixture helpers refuse remote targets and reset only the isolated fictional database's rate-limit fixtures. They are not shipped as production API endpoints. Real endpoint rate limits are tested separately in pgTAP.
 
 Release email smoke tests use Resend's documented `delivered@resend.dev` test sink with fictional, unusable code values. Production employee/admin credentials and inboxes are not used for automated tests. Confirm receipt and rendering in the user's real mail client during their next sign-in.
+
+## Faster, lower-request sign-in handoff
+
+The follow-up optimization uses migration `20260928090750_faster_signin_handoff.sql`:
+
+- Start the send request immediately after password authentication, before the verification route finishes loading. Only the routing decision uses Auth response metadata; the server still checks fresh setup, status, session and portal before sending.
+- Reuse that in-flight request once, keyed to the same access token and portal for up to 30 seconds. A reload, different session/portal, cancellation or older request goes through the server again. Rejected delivery is surfaced, not silently resent.
+- `finish_hrms_signin` consolidates post-code identity, setup, email, MFA and session-registration checks into one authenticated RPC. It cannot grant email verification, rejects OTP/recovery-only sessions, and returns no full profile while enrolled MFA is pending.
+- Open the verified workspace route without waiting on the complete HR snapshot. Display a genuine loading state until records arrive, with retry on network failure. A generation guard discards stale loads after sign-out or a new sign-in; authorization failure clears the workspace.
+- Use the snapshot's batched avatar URL instead of signing the same person's photo separately during verification. Authorized snapshot refreshes no longer need a separate email-context request; the guarded access assertion and all RLS checks remain.
+- No extra polling, Realtime subscriptions or automatic resend loops. The countdown is a local timer, not a database read. Existing visible-page refresh behavior remains unchanged.
+
+Controlled local comparison (fictional accounts, 120 ms added to each browser API request, one baseline/optimized sample):
+
+| Measurement | Before | Optimized |
+| --- | --- | --- |
+| Browser requests through email-code readiness, either portal | 4 | 2 |
+| Browser requests after entering code, Admin | 32 | 28 |
+| Browser requests after entering code, Employee with photo | 34 | 29 |
+| Verify click to verified workspace route | 1.81 s | 0.30–0.31 s |
+| Verify click to populated dashboard | 1.81 s | 1.59 s |
+
+Request-count regression assertions live in `authenticated-tests/signin-performance.authenticated.spec.ts`. Timings vary with machine, cache, network and test concurrency; these are not production delivery guarantees. Decoded REST payload size is recorded for diagnostics, not treated as measured billable egress. Full HR records still load once and normal synchronization continues, so this is not a claim to eliminate all dashboard egress. Actual mailbox arrival remains controlled by the email provider and recipient server. This release does not change plans, move regions or add paid infrastructure.
+
+Release order: test/build the candidate with production environment configuration, apply this additive migration, then publish the candidate. The previous app remains compatible with these added identity fields and RPC; reverting this frontend does not require removing the email-verification security gate.

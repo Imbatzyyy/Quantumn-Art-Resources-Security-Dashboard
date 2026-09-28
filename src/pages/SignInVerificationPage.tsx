@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ArrowLeft, ArrowRight, MailCheck, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useHrms } from '../state/useHrms.js'
-import { EmailCodeError, emailCodeOperation, cancelEmailSignIn, type EmailCodeState } from '../services/supabaseEmailVerification.js'
+import { EmailCodeError, emailCodeOperation, initialEmailCode, cancelEmailSignIn, type EmailCodeState } from '../services/supabaseEmailVerification.js'
 import type { MfaChallenge, PortalKind } from '../types/hrms.js'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
 import { readThemePreference } from '../utils/theme.js'
@@ -26,7 +26,7 @@ export default function SignInVerificationPage({ portal }: { portal: PortalKind 
     document.documentElement.dataset.theme = readThemePreference()
     let active = true
     // Reuse the request across StrictMode effects; the server also deduplicates.
-    initialRequest.current ??= emailCodeOperation(portal, 'send')
+    initialRequest.current ??= initialEmailCode(portal)
     initialRequest.current.then(result => { if (active) setDelivery(result) }).catch(reason => {
       if (!active) return
       setError(reason instanceof Error ? reason.message : 'We could not send your verification code. Please try again.')

@@ -37,6 +37,35 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncError, setSyncError] = useState(false)
   const mutations = useRef(new Map<unknown, Promise<HrmsSnapshot>>())
+  const workspaceGeneration = useRef(0)
+  const workspaceReady = data !== null
+
+  const loadVerifiedWorkspace = async (identity: PortalIdentity, generation: number) => {
+    if (workspaceGeneration.current !== generation) return
+    setUser(identity)
+    setData(null)
+    setLoading(true)
+    setSyncError(false)
+    try {
+      const snapshot = await dataProvider.getSnapshot()
+      if (workspaceGeneration.current !== generation) return
+      const ownRecord = snapshot.employees.find(employee => employee.id === identity.id)
+      if (!ownRecord && !identity.mustChangePassword && !identity.mustSetPassword) {
+        throw Object.assign(new Error('Your workspace access changed. Please sign in again.'), { code: '42501' })
+      }
+      setData(snapshot)
+      setUser({ ...identity, avatarUrl: ownRecord?.avatarUrl })
+      setLastSyncedAt(new Date().toISOString())
+    } catch (error: unknown) {
+      if (workspaceGeneration.current !== generation) return
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') {
+        setUser(null)
+        void dataProvider.signOut?.().catch(() => undefined)
+      } else setSyncError(true)
+    } finally {
+      if (workspaceGeneration.current === generation) setLoading(false)
+    }
+  }
 
   const notify = useCallback((message: string, tone: ToastTone = 'success') => {
     toastSequence.current += 1
@@ -64,6 +93,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true
+    const generation = workspaceGeneration.current
+    const isCurrent = () => active && workspaceGeneration.current === generation
 
     const restore = async () => {
       try {
@@ -75,20 +106,20 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         }
         const snapshot = await dataProvider.getSnapshot()
 
-        if (active) {
+        if (isCurrent()) {
           setUser(restoredUser)
           setData(snapshot)
           setLastSyncedAt(new Date().toISOString())
           setSyncError(false)
         }
       } catch (error: unknown) {
-        if (active) {
+        if (isCurrent()) {
           setUser(null)
           setData(null)
           notify(errorMessage(error), 'error')
         }
       } finally {
-        if (active) setLoading(false)
+        if (isCurrent()) setLoading(false)
       }
     }
 
@@ -99,9 +130,11 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [notify])
 
   useEffect(() => {
-    if (!userId) return undefined
+    if (!userId || !workspaceReady) return undefined
 
     let active = true
+    const generation = workspaceGeneration.current
+    const isCurrent = () => active && workspaceGeneration.current === generation
     let syncing = false
     const sync = async () => {
       if (syncing || /\/(reset-password|setup-password)$/.test(window.location.pathname)) return
@@ -109,21 +142,21 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       try {
         const refreshedUser = await dataProvider.getCurrentUser()
         if (!refreshedUser) {
-          if (active) { setUser(null); setData(null) }
+          if (isCurrent()) { setUser(null); setData(null) }
           return
         }
         if (!refreshedUser.mustChangePassword && !refreshedUser.mustSetPassword && dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = dataProvider.refresh
           ? await dataProvider.refresh()
           : await dataProvider.getSnapshot()
-        if (active) {
+        if (isCurrent()) {
           setData(snapshot)
           setUser(refreshedUser)
           setLastSyncedAt(new Date().toISOString())
           setSyncError(false)
         }
       } catch (error: unknown) {
-        if (active) {
+        if (isCurrent()) {
           if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') {
             setUser(null); setData(null)
             void dataProvider.signOut?.().catch(() => undefined)
@@ -148,7 +181,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (unsubscribe) unsubscribe()
       document.removeEventListener('visibilitychange', syncWhenVisible)
     }
-  }, [userId])
+  }, [userId, workspaceReady])
 
   useEffect(() => {
     if (!userId) return undefined
@@ -156,14 +189,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const timeoutMs = userPortal === 'admin' ? 15 * 60 * 1000 : 30 * 60 * 1000
     let timeout: number | undefined
     const expire = async () => {
+      const generation = ++workspaceGeneration.current
       try {
         if (dataProvider.signOut) await dataProvider.signOut()
       } catch {
         // An unavailable network must never retain the private workspace on expiry.
       } finally {
-        setUser(null)
-        setData(null)
-        notify('You were signed out after a period of inactivity.', 'error')
+        if (workspaceGeneration.current === generation) {
+          setUser(null)
+          setData(null)
+          setLoading(false)
+          notify('You were signed out after a period of inactivity.', 'error')
+        }
       }
     }
     const reset = () => {
@@ -218,38 +255,52 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       async login(credentials) {
         // Never retain another portal's identity/data while a new sign-in is
         // waiting for email verification or an authenticator challenge.
+        const generation = ++workspaceGeneration.current
         setUser(null)
         setData(null)
+        setLoading(false)
         const authenticated = await dataProvider.authenticate(credentials)
+        if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
         if (!isIdentity(authenticated)) return authenticated
         if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = await dataProvider.getSnapshot()
+        if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
         setUser(authenticated)
         setData(snapshot)
         return authenticated
       },
       async completeEmailSignIn(portal) {
         if (!dataProvider.completeEmailSignIn) throw new Error('Email verification is unavailable.')
+        const generation = ++workspaceGeneration.current
         const authenticated = await dataProvider.completeEmailSignIn(portal)
+        if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
         if (!isIdentity(authenticated)) return authenticated
-        if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
-        const snapshot = await dataProvider.getSnapshot()
-        setUser(authenticated)
-        setData(snapshot)
+        // The server handoff already registered this verified session. Do not
+        // repeat it or keep the code form blocked on all workspace records.
+        void loadVerifiedWorkspace(authenticated, generation)
         return authenticated
       },
       async verifyMfaLogin(input) {
+        const generation = ++workspaceGeneration.current
         const authenticated = await dataProvider.verifyMfaLogin(input)
-        if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
-        const snapshot = await dataProvider.getSnapshot()
-        setUser(authenticated)
-        setData(snapshot)
+        if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
+        void loadVerifiedWorkspace(authenticated, generation)
         return authenticated
       },
+      async retryWorkspaceLoad() {
+        if (user && !loading) await loadVerifiedWorkspace(user, ++workspaceGeneration.current)
+      },
       async logout() {
-        if (dataProvider.signOut) await dataProvider.signOut()
-        setUser(null)
-        setData(await dataProvider.getSnapshot())
+        const generation = ++workspaceGeneration.current
+        try {
+          if (dataProvider.signOut) await dataProvider.signOut()
+        } finally {
+          if (workspaceGeneration.current === generation) {
+            setUser(null)
+            setData(null)
+            setLoading(false)
+          }
+        }
       },
       addEmployee: (input) => run(() => dataProvider.addEmployee(input), 'Employee created and temporary credentials emailed securely.'),
       inviteAdminAccount: (input) => run(() => dataProvider.inviteAdminAccount(input), 'Administrator invitation sent securely.'),

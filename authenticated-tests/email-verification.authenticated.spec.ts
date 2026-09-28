@@ -16,6 +16,33 @@ function authenticatorCode(secret: string) {
 }
 
 for (const portal of ['admin', 'employee'] as const) {
+  test(`${portal} can retry an offline workspace after verification without another email`, async ({ page }) => {
+    resetLocalEmailLimits(process.env.SUPABASE_URL!)
+    await page.setViewportSize({ width: 320, height: 700 })
+    let emailRequests = 0
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/signin-email') emailRequests++ })
+    await page.route('**/rest/v1/profiles?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Local QA offline fixture"}' }))
+    const account = authenticatedAccounts[portal]
+    await page.goto(`/${portal}/login`)
+    await page.getByLabel('Work email').fill(account.email)
+    await page.getByLabel('Password', { exact: true }).fill(account.password)
+    await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
+    await expect(page.getByLabel('Email verification code')).toBeEnabled()
+    const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
+    await page.getByLabel('Email verification code').fill(code!)
+    await page.getByRole('button', { name: 'Verify & continue' }).click()
+    await expect(page).toHaveURL(new RegExp(`/${portal}/?$`))
+    // Preserve the SDK's bounded transient-error retries before offering ours.
+    await expect(page.getByRole('alert')).toContainText('Your records could not load', { timeout: 15_000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Confirm sign out' })).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.unroute('**/rest/v1/profiles?*')
+    await page.getByRole('button', { name: 'Try loading again' }).click()
+    await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
+    expect(emailRequests).toBe(2) // One send and one verification, not a resend.
+  })
   test(`${portal} still requires its enrolled authenticator after email verification`, async ({ page }) => {
     const apiUrl = process.env.SUPABASE_URL!
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!

@@ -44,7 +44,7 @@ const run = async () => {
     globalThis.console.log('Local Supabase is ready with two fictional identities. Passwords remain only in this test process.')
     const test = spawn(
       globalThis.process.execPath,
-      ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.authenticated.config.ts'],
+      ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.authenticated.config.ts', ...globalThis.process.argv.slice(2)],
       {
         cwd: globalThis.process.cwd(),
         env: {

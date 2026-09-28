@@ -48,7 +48,7 @@ export async function currentSession(): Promise<Session | null> {
   return data.session
 }
 
-export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRecord & { authUserId?: string }> {
+export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRecord & { authUserId?: string; emailVerified: boolean; requiresMfa: boolean }> {
   const { data, error } = await requireSupabase().rpc('get_hrms_identity')
 
   if (error) {
@@ -59,7 +59,7 @@ export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRe
   }
   if (!isDatabaseRow(data)) throw new Error('Supabase returned an invalid employee profile.')
   if (data.auth_user_id !== authUserId) throw new Error('The authenticated identity does not match.')
-  return { ...employeeFromRow(data as Tables<'profiles'>), mustChangePassword: data.must_change_password === true, mustSetPassword: data.must_set_password === true }
+  return { ...employeeFromRow(data as Tables<'profiles'>), mustChangePassword: data.must_change_password === true, mustSetPassword: data.must_set_password === true, emailVerified: data.email_verified === true, requiresMfa: data.mfa_required === true }
 }
 
 export async function fetchSnapshot(): Promise<HrmsSnapshot> {
@@ -67,13 +67,13 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
   const session = await currentSession()
   if (!session) return emptySnapshot()
   if (session.user.app_metadata?.must_change_password || session.user.app_metadata?.must_set_password) return emptySnapshot()
-  const emailContext = await emailSignInContext()
-  if (emailContext.setupRequired || !emailContext.verified) return emptySnapshot()
   const { error: accessError } = await client.rpc('assert_hrms_access')
   if (accessError) {
     if (accessError.code === '42501') {
-      const profile = await getProfileByAuthId(session.user.id)
-      if (profile.mustChangePassword || profile.mustSetPassword) return emptySnapshot()
+      // Keep the authorization error if bootstrap also rejects a revoked or
+      // expired session; callers must not mistake denial for an offline load.
+      const emailContext = await emailSignInContext().catch(() => { throw accessError })
+      if (emailContext.setupRequired || !emailContext.verified) return emptySnapshot()
     }
     throw accessError
   }

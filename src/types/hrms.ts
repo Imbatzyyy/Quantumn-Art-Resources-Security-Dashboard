@@ -641,6 +641,7 @@ export interface HrmsContextValue {
   verifyMfaLogin: (input: MfaLoginInput) => Promise<PortalIdentity>
   logout: () => Promise<void>
   refreshData: () => Promise<unknown>
+  retryWorkspaceLoad?: () => Promise<void>
   inviteAdminAccount: (input: AdminInviteInput) => Promise<unknown>
   completeAdminInvitation: (input: AdminInvitationCompletionInput) => Promise<unknown>
   addSecurityAlert: (input: SecurityAlertInput) => Promise<unknown>

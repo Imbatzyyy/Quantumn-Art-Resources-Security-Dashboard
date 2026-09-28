@@ -26,7 +26,25 @@ export interface EmailCodeState {
   resendAt: string | null
 }
 
+// Start sending as soon as password authentication returns, without waiting for
+// the verification route's JS to load. This is session-keyed, one-shot reuse,
+// never a cached authorization decision and never background polling.
+let prepared: { token: string; portal: PortalKind; started: number; request: Promise<EmailCodeState> } | undefined
+export function prepareEmailCode(portal: PortalKind, token: string): void {
+  const request = emailCodeOperation(portal, 'send')
+  void request.catch(() => undefined) // The verification page displays the error.
+  prepared = { token, portal, started: Date.now(), request }
+}
+export async function initialEmailCode(portal: PortalKind): Promise<EmailCodeState> {
+  const { data } = await requireSupabase().auth.getSession()
+  const pending = prepared
+  prepared = undefined
+  if (pending && pending.portal === portal && pending.token === data.session?.access_token && Date.now() - pending.started < 30_000) return pending.request
+  return emailCodeOperation(portal, 'send')
+}
+
 export async function cancelEmailSignIn(): Promise<void> {
+  prepared = undefined
   // Cancelling an unfinished sign-in must not sign out the user's other devices.
   const { error } = await requireSupabase().auth.signOut({ scope: 'local' })
   if (error) throw new Error('The sign-in could not be cancelled. Please try again.')

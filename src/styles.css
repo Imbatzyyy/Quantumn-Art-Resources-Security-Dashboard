@@ -748,7 +748,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .empty-state { min-height: 220px; padding: 2rem; display: grid; place-items: center; align-content: center; gap: .5rem; color: var(--text-faint); text-align: center; }
 .empty-state p { max-width: 380px; margin: 0; }
 .app-loading { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: .8rem; color: var(--text-soft); }
-.app-loading span { width: 38px; height: 38px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
+.app-loading > span { width: 38px; height: 38px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
+.workspace-load-error { padding: 24px; text-align: center; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Overview and HR modules */

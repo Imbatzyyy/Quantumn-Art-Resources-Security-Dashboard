@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, cleanup } from '@testing-library/react'
+import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HrmsProvider } from './HrmsContext.js'
 import { useHrms } from './useHrms.js'
 import { emptySnapshot, employeeIdentity, adminIdentity } from '../test/testContext.js'
 
-const provider = vi.hoisted(() => ({ getCurrentUser:vi.fn(), getSnapshot:vi.fn(), refresh:vi.fn(), signOut:vi.fn(), recordCurrentSession:vi.fn(), subscribeToChanges:vi.fn(), addAnnouncement:vi.fn() }))
+const provider = vi.hoisted(() => ({ getCurrentUser:vi.fn(), getSnapshot:vi.fn(), refresh:vi.fn(), signOut:vi.fn(), recordCurrentSession:vi.fn(), subscribeToChanges:vi.fn(), addAnnouncement:vi.fn(), completeEmailSignIn:vi.fn() }))
 vi.mock('../services/dataProvider.js', () => ({ dataProvider:provider }))
 function Harness() {
   const { user, syncError, addAnnouncement }=useHrms()
@@ -57,5 +58,80 @@ describe('session refresh and mutation boundaries', () => {
     fireEvent.click(screen.getByRole('button',{name:'Publish'})); fireEvent.click(screen.getByRole('button',{name:'Publish'}))
     expect(provider.addAnnouncement).toHaveBeenCalledTimes(1)
     await act(async () => {finish(emptySnapshot)})
+  })
+})
+
+let state: ReturnType<typeof useHrms>
+function HandoffHarness() {
+  const current = useHrms()
+  useEffect(() => { state = current }, [current])
+  return null
+}
+const loadedSnapshot = { ...emptySnapshot, employees: [{ ...employeeIdentity, email: 'employee@example.test', role: 'employee', status: 'Active', department: 'QA', position: 'Tester', avatarUrl: 'https://example.test/avatar' }] }
+describe('verified sign-in workspace handoff', () => {
+  const start = async () => {
+    provider.getCurrentUser.mockResolvedValue(null)
+    provider.getSnapshot.mockResolvedValue(emptySnapshot)
+    provider.completeEmailSignIn.mockResolvedValue(employeeIdentity)
+    provider.signOut.mockResolvedValue(undefined)
+    provider.subscribeToChanges.mockReturnValue(() => undefined)
+    await act(async () => { render(<HrmsProvider><HandoffHarness /></HrmsProvider>) })
+    provider.recordCurrentSession.mockClear()
+    provider.subscribeToChanges.mockClear()
+  }
+  it('returns the verified identity before the snapshot, then supplies its batched avatar', async () => {
+    await start()
+    let resolve!: (value: typeof emptySnapshot) => void
+    provider.getSnapshot.mockImplementation(() => new Promise(done => { resolve = done }))
+    await act(async () => { expect(await state.completeEmailSignIn!('employee')).toEqual(employeeIdentity) })
+    expect(state.loading).toBe(true)
+    expect(state.data).toBeNull()
+    expect(state.user?.id).toBe(employeeIdentity.id)
+    expect(provider.recordCurrentSession).not.toHaveBeenCalled()
+    expect(provider.subscribeToChanges).not.toHaveBeenCalled()
+    await act(async () => { resolve(loadedSnapshot) })
+    expect(state.loading).toBe(false)
+    expect(state.user?.avatarUrl).toBe('https://example.test/avatar')
+    expect(provider.subscribeToChanges).toHaveBeenCalledTimes(1)
+  })
+  it('does not restore private records if logout wins the loading race', async () => {
+    await start()
+    let resolve!: (value: typeof emptySnapshot) => void
+    provider.getSnapshot.mockImplementation(() => new Promise(done => { resolve = done }))
+    await act(async () => { await state.completeEmailSignIn!('employee') })
+    await act(async () => { await state.logout() })
+    await act(async () => { resolve(emptySnapshot) })
+    expect(state.user).toBeNull()
+    expect(state.data).toBeNull()
+    expect(state.loading).toBe(false)
+  })
+  it('allows an offline workspace load to be retried without re-verifying or signing in again', async () => {
+    await start()
+    provider.getSnapshot.mockRejectedValue(new Error('Offline'))
+    await act(async () => { await state.completeEmailSignIn!('employee') })
+    expect(state.user?.id).toBe(employeeIdentity.id)
+    expect(state.syncError).toBe(true)
+    expect(state.data).toBeNull()
+    provider.getSnapshot.mockResolvedValue(loadedSnapshot)
+    await act(async () => { await state.retryWorkspaceLoad!() })
+    expect(state.syncError).toBe(false)
+    expect(state.data).toEqual(loadedSnapshot)
+    expect(provider.completeEmailSignIn).toHaveBeenCalledTimes(1)
+  })
+  it('fails closed when the database revokes access during the initial load', async () => {
+    await start()
+    provider.getSnapshot.mockRejectedValue({ code: '42501' })
+    await act(async () => { await state.completeEmailSignIn!('employee') })
+    expect(state.user).toBeNull()
+    expect(state.data).toBeNull()
+    expect(provider.signOut).toHaveBeenCalledTimes(1)
+  })
+  it('does not display empty totals if access changes between verification and the snapshot', async () => {
+    await start()
+    provider.getSnapshot.mockResolvedValue(emptySnapshot)
+    await act(async () => { await state.completeEmailSignIn!('employee') })
+    expect(state.user).toBeNull()
+    expect(state.data).toBeNull()
+    expect(provider.signOut).toHaveBeenCalledTimes(1)
   })
 })
