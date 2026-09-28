@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { requireSupabase } from './supabaseClient.js'
+import { emailSignInContext } from './supabaseEmailVerification.js'
 import { withEmployeeAvatarUrls } from './supabaseAvatars.js'
 import {
   acknowledgementFromRow, alertFromRow, alertResponseFromRow, announcementFromRow,
@@ -66,6 +67,8 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
   const session = await currentSession()
   if (!session) return emptySnapshot()
   if (session.user.app_metadata?.must_change_password || session.user.app_metadata?.must_set_password) return emptySnapshot()
+  const emailContext = await emailSignInContext()
+  if (emailContext.setupRequired || !emailContext.verified) return emptySnapshot()
   const { error: accessError } = await client.rpc('assert_hrms_access')
   if (accessError) {
     if (accessError.code === '42501') {

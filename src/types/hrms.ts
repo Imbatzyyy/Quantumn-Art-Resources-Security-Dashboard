@@ -54,7 +54,12 @@ export interface MfaChallenge {
   email: string
 }
 
-export type AuthenticationResult = PortalIdentity | MfaChallenge
+export interface EmailSignInChallenge {
+  emailVerificationRequired: true
+  portal: PortalKind
+}
+
+export type AuthenticationResult = PortalIdentity | MfaChallenge | EmailSignInChallenge
 
 export interface PasswordChangeInput {
   currentPassword: string
@@ -573,6 +578,7 @@ export interface HrmsDataProvider {
   subscribeToChanges?: (onChange: () => void | Promise<void>) => (() => void) | undefined
   getCurrentUser: () => Promise<PortalIdentity | null>
   authenticate: (credentials: LoginCredentials) => Promise<AuthenticationResult>
+  completeEmailSignIn?: (portal: PortalKind) => Promise<AuthenticationResult>
   verifyMfaLogin: (input: MfaLoginInput) => Promise<PortalIdentity>
   signOut?: () => Promise<void>
   recordCurrentSession?: () => Promise<string | null>
@@ -631,6 +637,7 @@ export interface HrmsContextValue {
   toast: ToastMessage | null
   notify: (message: string, tone?: ToastTone) => void
   login: (credentials: LoginCredentials) => Promise<AuthenticationResult>
+  completeEmailSignIn?: (portal: PortalKind) => Promise<AuthenticationResult>
   verifyMfaLogin: (input: MfaLoginInput) => Promise<PortalIdentity>
   logout: () => Promise<void>
   refreshData: () => Promise<unknown>

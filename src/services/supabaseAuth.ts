@@ -1,5 +1,6 @@
 import { requireSupabase } from './supabaseClient.js'
 import { securityOperation } from './supabaseSecurityApi.js'
+import { emailSignInContext } from './supabaseEmailVerification.js'
 import {
   clearCurrentBrowserSessionCode,
   currentBrowserSessionCode,
@@ -47,6 +48,8 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
   if (!session) return null
   const client = requireSupabase()
   const profile = await getProfileByAuthId(session.user.id)
+  const emailContext = await emailSignInContext()
+  if (!emailContext.setupRequired && !emailContext.verified) return null
   if (!['Active', 'On Leave'].includes(profile.status)) {
     await client.auth.signOut()
     throw new Error('This account is inactive. Contact an HR administrator.')
@@ -88,6 +91,10 @@ export async function authenticate({ email, password, portal }: LoginCredentials
       throw new Error('Accept the invitation email and create your password before signing in.')
     }
 
+    const emailContext = await emailSignInContext()
+    if (!emailContext.setupRequired && !emailContext.verified) {
+      return { emailVerificationRequired: true, portal: resolvedPortal }
+    }
     const { data: assurance, error: assuranceError } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
     if (assuranceError) throw assuranceError
     if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
@@ -121,8 +128,29 @@ export async function signOut(): Promise<void> {
   if (error) throw error
 }
 
+export async function completeEmailSignIn(portal: PortalKind): Promise<AuthenticationResult> {
+  const context = await emailSignInContext()
+  if (context.portal !== portal || context.setupRequired || !context.verified || !context.passwordAuthenticated) {
+    throw new Error('Verify your sign-in email before opening your workspace.')
+  }
+  const client = requireSupabase()
+  const { data: assurance, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (error) throw new Error('Authenticator status could not be verified. Please try again.')
+  if (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2') {
+    const { data: factors, error: factorError } = await client.auth.mfa.listFactors()
+    const factor = factors?.totp?.[0]
+    if (factorError || !factor) throw new Error('Your authenticator could not be verified. Contact your administrator.')
+    return { mfaRequired: true, factorId: factor.id, portal, email: '' }
+  }
+  const user = await getCurrentUser()
+  if (!user) throw new Error('Your sign-in session expired. Please sign in again.')
+  return user
+}
+
 export async function verifyMfaLogin({ factorId, code, portal }: MfaLoginInput): Promise<PortalIdentity> {
   const client = requireSupabase()
+  const emailContext = await emailSignInContext()
+  if (!emailContext.setupRequired && !emailContext.verified) throw new Error('Verify your sign-in email first.')
   const normalizedCode = String(code ?? '').replace(/\s/g, '')
   if (!/^\d{6}$/.test(normalizedCode)) throw new Error('Enter the 6-digit authenticator code.')
   const { error } = await client.auth.mfa.challengeAndVerify({ factorId, code: normalizedCode })

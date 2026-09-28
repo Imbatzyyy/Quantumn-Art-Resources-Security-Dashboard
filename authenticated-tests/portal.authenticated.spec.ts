@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { authenticatedAccounts } from '../playwright.authenticated.config.js'
+import { capturedLocalCode, resetLocalEmailLimits } from '../scripts/local-email-verification.mjs'
 
 interface BrowserEvidence {
   consoleErrors: string[]
@@ -19,10 +20,17 @@ const observeBrowserEvidence = (page: Page): BrowserEvidence => {
 
 const signIn = async (page: Page, portal: 'admin' | 'employee') => {
   const account = authenticatedAccounts[portal]
+  resetLocalEmailLimits(process.env.SUPABASE_URL!)
   await page.goto(`/${portal}/login`)
   await page.getByLabel('Work email').fill(account.email)
   await page.getByLabel('Password', { exact: true }).fill(account.password)
   await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
+  await expect(page).toHaveURL(new RegExp(`/${portal}/verify-email$`))
+  await expect(page.getByLabel('Email verification code')).toBeEnabled()
+  const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
+  expect(code).toMatch(/^\d{6}$/)
+  await page.getByLabel('Email verification code').fill(code!)
+  await page.getByRole('button', { name: 'Verify & continue' }).click()
 
   const mfaField = page.getByLabel('Authenticator code')
   if (await mfaField.isVisible().catch(() => false)) {

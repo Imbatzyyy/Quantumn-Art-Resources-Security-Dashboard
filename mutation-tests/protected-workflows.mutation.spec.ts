@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Page } from '@playwright/test'
+import { capturedLocalCode, resetLocalEmailLimits, verifyLocalFixtureSession } from '../scripts/local-email-verification.mjs'
 
 const required = (name: string) => {
   const value = process.env[name]
@@ -36,12 +37,21 @@ let adminAccessToken = ''
 let employeeAccessToken = ''
 
 const signInPortal = async (page: Page, portal: 'admin' | 'employee', email: string, password: string) => {
+  resetLocalEmailLimits(supabaseUrl)
   await page.goto(`/${portal}/login`)
   await page.getByLabel('Work email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', {
     name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal',
   }).click()
+  await page.waitForURL(url => !url.pathname.endsWith('/login'))
+  if (page.url().endsWith('/verify-email')) {
+    await expect(page.getByLabel('Email verification code')).toBeEnabled()
+    const code = await capturedLocalCode(baseURL, email, captureToken)
+    expect(code).toMatch(/^\d{6}$/)
+    await page.getByLabel('Email verification code').fill(code!)
+    await page.getByRole('button', { name: 'Verify & continue' }).click()
+  }
   await expect(page).toHaveURL(new RegExp(`/${portal}/?$`), { timeout: 20_000 })
 }
 
@@ -76,6 +86,9 @@ test.describe.serial('isolated protected mutation workflows', () => {
     if (employeeSession.error || !employeeSession.data.session) throw employeeSession.error || new Error('Employee QA sign-in failed.')
     adminAccessToken = adminSession.data.session.access_token
     employeeAccessToken = employeeSession.data.session.access_token
+    for (const session of [adminSession.data.session, employeeSession.data.session]) {
+      await verifyLocalFixtureSession({ apiUrl: supabaseUrl, serviceRoleKey }, service, session)
+    }
 
     const unauthorizedCapture = await globalThis.fetch(`${baseURL}/api/local-email-captures`)
     expect(unauthorizedCapture.status).toBe(403)

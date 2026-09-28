@@ -16,6 +16,10 @@ insert into public.profiles (employee_code, auth_user_id, first_name, last_name,
 insert into storage.objects (bucket_id, name) values
   ('profile-avatars', '00000000-0000-4000-8000-00000000a002/avatar.png'),
   ('profile-avatars', '00000000-0000-4000-8000-00000000a002/avatar.webp');
+-- These fixtures represent accounts that have already completed email verification.
+insert into private.email_signin_sessions(session_id,user_id,email,state,verified_at)
+select s.id,s.user_id,u.email,'verified',now() from auth.sessions s join auth.users u on u.id=s.user_id
+where u.email like 'avatar-%@example.test';
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000a001', true);

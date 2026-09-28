@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer'
 import { createClient } from '@supabase/supabase-js'
 import { loadLocalQaRuntime } from './local-qa-runtime.mjs'
 import { seedLocalQaIdentities, localQaAccounts } from './local-qa-identities.mjs'
+import { verifyLocalFixtureSession } from './local-email-verification.mjs'
 
 // Refuses remote URLs. No tokens, passwords or TOTP secrets are printed or saved.
 const runtime = await loadLocalQaRuntime()
@@ -13,6 +14,7 @@ const login = async (account) => {
   const client=newClient()
   const result=await client.auth.signInWithPassword({ email:account.email,password:passwords.get(account.email) })
   assert.equal(result.error,null)
+  await verifyLocalFixtureSession(runtime, service, result.data.session)
   return client
 }
 const ok = async (promise) => { const r=await promise; assert.equal(r.error,null, r.error?.message); return r.data }

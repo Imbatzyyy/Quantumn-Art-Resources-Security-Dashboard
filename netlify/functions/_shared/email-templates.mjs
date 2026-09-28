@@ -46,6 +46,25 @@ ${action ? `<table role="presentation" width="100%" cellpadding="0" cellspacing=
 </td></tr></table></body></html>`
 }
 
+export const signinCodeEmail = ({ firstName, portal, code }) => {
+  if (!/^\d{6}$/.test(code)) throw new Error('A six-digit sign-in code is required.')
+  const portalLabel = portal === 'admin' ? 'Administrator portal' : 'Employee portal'
+  const notice = 'Never share this code. If you did not try to sign in, do not use the code. Open quantumnhr.com directly to reset your password and contact your administrator.'
+  return {
+    subject: 'Your Quantum HRMS sign-in verification code',
+    text: `${BRAND_NAME} | Sign-in verification\n\nHello ${firstName},\n\nVerify your sign-in to the ${portalLabel}.\n\nVerification code: ${code}\n\nThis code expires in 10 minutes and works only for this sign-in. Return to the verification page in the same browser. A new code replaces the previous code for that sign-in.\n\n${notice}`,
+    html: layout({
+      title: 'Verify your sign-in', category: portalLabel,
+      preheader: 'Your one-time sign-in code expires in 10 minutes. Keep it private.',
+      bodyHtml: paragraph(`Hello <strong>${escapeHtml(firstName)}</strong>,`) + paragraph('Enter this six-digit code on the verification page in the same browser where you entered your password.') + details([
+        ['Your verification code', `<strong style="font-family:Consolas,monospace;font-size:32px;letter-spacing:6px;white-space:nowrap">${code}</strong>`],
+        ['Expires in', '10 minutes'],
+      ]) + paragraph('This code works only for this sign-in. Requesting another code replaces the previous one for that sign-in.'),
+      notice,
+    }),
+  }
+}
+
 export const credentialsEmail = ({ employee, employeeCode, loginUrl }) => {
   const name = employee.preferredName || employee.firstName
   const notice = 'Keep these credentials private. Quantumn Art Resources will never ask you to send your password by email or chat. Replace this temporary password at your first sign-in.'

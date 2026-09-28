@@ -8,6 +8,7 @@ import {
   waitForLocalHealth,
 } from './local-qa-runtime.mjs'
 import { localQaAccounts as accounts, seedLocalQaIdentities } from './local-qa-identities.mjs'
+import { verifyLocalFixtureSession } from './local-email-verification.mjs'
 
 const stopChild = async (child) => {
   if (child.exitCode !== null || child.signalCode !== null) return
@@ -23,6 +24,7 @@ const run = async () => {
   const employeeClient = createClient(apiUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const { data: login, error: loginError } = await employeeClient.auth.signInWithPassword({ email: accounts[1].email, password: passwords.get(accounts[1].email) })
   if (loginError) throw loginError
+  await verifyLocalFixtureSession({ apiUrl, serviceRoleKey }, createClient(apiUrl, serviceRoleKey), login.session)
   const avatarPath = `${login.user.id}/avatar.png`
   const photo = await readFile(new globalThis.URL('../assets/images/default-avatar.png', import.meta.url))
   const { error: uploadError } = await employeeClient.storage.from('profile-avatars').upload(avatarPath, photo, { contentType: 'image/png', upsert: true })

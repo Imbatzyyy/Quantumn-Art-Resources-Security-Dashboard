@@ -1357,6 +1357,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      signin_email_context: { Args: Record<PropertyKey, never>; Returns: Json }
       read_employee_document: { Args: { selected_document_id: number }; Returns: string }
       security_account_options: { Args: Record<PropertyKey, never>; Returns: Array<{ employee_code: string; first_name: string; last_name: string }> }
       assert_hrms_access: { Args: Record<PropertyKey, never>; Returns: undefined }

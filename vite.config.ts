@@ -10,6 +10,7 @@ import completeInitialPassword from './netlify/functions/complete-initial-passwo
 import completeAdminInvite from './netlify/functions/complete-admin-invite.mjs'
 import importZapReport from './netlify/functions/import-zap-report.mjs'
 import securityOperations from './netlify/functions/security-operations.mjs'
+import signinEmail from './netlify/functions/signin-email.mjs'
 import { validateBrowserBuildEnv } from './scripts/validate-browser-build-env.mjs'
 
 interface CapturedEmail {
@@ -118,6 +119,7 @@ const localApiEndpoints = (): Plugin => {
       })
 
       const webEndpoints: Array<[string, WebHandler, boolean]> = [
+        ['/api/signin-email', signinEmail, true],
         ['/api/admin-create-employee', adminCreateEmployee, true],
         ['/api/admin-invite-account', adminInviteAccount, true],
         ['/api/complete-initial-password', completeInitialPassword, false],

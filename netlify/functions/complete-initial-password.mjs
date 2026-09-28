@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { Buffer } from 'node:buffer'
 import { assertSetupAccess } from './_shared/hrms-access.mjs'
 import { validatePermanentPassword } from '../../src/utils/passwordPolicy.js'
 
@@ -104,7 +105,24 @@ export default async (request) => {
     display_time: 'Just now',
   })
 
-  return json({ passwordChanged: true, changedAt })
+  // First-time setup is exempt from the existing-account email challenge.
+  // Establish its replacement session here, not in a bypassable browser flow.
+  const { data: signedIn, error: signInError } = await verifier.auth.signInWithPassword({
+    email: callerData.user.email, password: newPassword,
+  })
+  if (signInError || !signedIn.session) return json({ error: 'Your password was changed. Sign in again with your new password.' }, 409)
+  const claims = JSON.parse(Buffer.from(signedIn.session.access_token.split('.')[1], 'base64url').toString())
+  const { data: handoff, error: handoffError } = await admin.rpc('manage_signin_email', {
+    operation: 'complete-setup-session', sid: claims.session_id, uid: callerData.user.id,
+  })
+  if (handoffError || !handoff?.verified) {
+    await verifier.auth.signOut({ scope: 'local' })
+    return json({ error: 'Your password was changed. Sign in again with your new password.' }, 409)
+  }
+  await admin.auth.admin.signOut(signedIn.session.access_token, 'others')
+  return json({ passwordChanged: true, changedAt, session: {
+    access_token: signedIn.session.access_token, refresh_token: signedIn.session.refresh_token,
+  } })
 }
 
 export const config = {

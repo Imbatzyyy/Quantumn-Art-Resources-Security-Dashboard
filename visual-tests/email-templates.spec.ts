@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail } from '../netlify/functions/_shared/email-templates.mjs'
+import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail, signinCodeEmail } from '../netlify/functions/_shared/email-templates.mjs'
 
 // Fictional values only. No provider API, authentication, or outgoing email.
 const values: Record<string, string> = {
@@ -10,6 +10,7 @@ const values: Record<string, string> = {
   ConfirmationURL: 'https://project.supabase.co/auth/v1/verify?token=fictional&type=recovery&redirect_to=https%3A%2F%2Fquantumnhr.com%2Femployee%2Freset-password',
 }
 const templates = [
+  ...['admin', 'employee'].map(portal => ({ id: `signin-${portal}`, ...signinCodeEmail({ firstName: 'Avery', portal, code: '012345' }) })),
   { id: 'employee', ...credentialsEmail({ employee: { firstName: 'Avery', preferredName: 'Avery', email: values.Email, password: 'Fictional-Test-Password42!' }, employeeCode: 'EMP-TEST', loginUrl: 'https://quantumnhr.com/employee/login' }) },
   { id: 'administrator', ...invitationEmail({ firstName: 'Sierra', roleLabel: 'Security Administrator', setupLink: values.ConfirmationURL.replace('type=recovery', 'type=invite').replace('employee%2Freset-password', 'admin%2Fsetup-password'), appUrl: 'https://quantumnhr.com' }) },
   ...authEmailTemplates.map(t => ({ ...t, html: t.html.replace(/{{\s*\.(\w+)\s*}}/g, (_, key: string) => values[key].replaceAll('&', '&amp;')) })),

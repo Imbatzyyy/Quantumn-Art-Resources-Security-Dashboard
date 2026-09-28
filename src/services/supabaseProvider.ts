@@ -10,6 +10,7 @@ import {
 import { securityOperation } from './supabaseSecurityApi.js'
 import {
   authenticate,
+  completeEmailSignIn,
   beginMfaEnrollment,
   disableMfa,
   getCurrentUser,
@@ -71,6 +72,7 @@ export const supabaseProvider: HrmsDataProvider = {
 
   getCurrentUser,
   authenticate,
+  completeEmailSignIn,
   signOut,
   verifyMfaLogin,
   recordCurrentSession,
@@ -149,16 +151,12 @@ export const supabaseProvider: HrmsDataProvider = {
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.error || 'The new password could not be saved.')
 
-    // Supabase can invalidate the existing refresh token when an administrator
-    // changes a password. Establish a fresh employee session with the new
-    // password so the cleared must_change_password app metadata is available
-    // immediately and the setup modal can close without a manual sign-in.
-    await client.auth.signOut({ scope: 'others' })
-    if (!session.user.email) throw new Error('The invited account has no sign-in email.')
-    const { error: signInError } = await client.auth.signInWithPassword({
-      email: session.user.email,
-      password: newPassword,
-    })
+    // The setup endpoint issues a session-specific first-login exemption only
+    // after checking the temporary password and completing the account setup.
+    if (!result.session?.access_token || !result.session?.refresh_token) {
+      throw new Error('Your password was changed. Sign in again with your new password.')
+    }
+    const { error: signInError } = await client.auth.setSession(result.session)
     if (signInError) {
       await client.auth.signOut({ scope: 'local' })
       throw new Error('Your password was changed. Sign in again with your new password.')

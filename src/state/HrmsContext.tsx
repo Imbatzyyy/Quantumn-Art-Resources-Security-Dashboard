@@ -6,7 +6,7 @@ import { requireSupabase } from '../services/supabaseClient.js'
 import type {
   HrmsContextValue,
   HrmsSnapshot,
-  MfaChallenge,
+  AuthenticationResult,
   PortalIdentity,
   ToastMessage,
   ToastTone,
@@ -16,8 +16,8 @@ const errorMessage = (error: unknown) => error instanceof Error
   ? error.message
   : 'The request could not be completed.'
 
-const isMfaChallenge = (result: PortalIdentity | MfaChallenge): result is MfaChallenge =>
-  'mfaRequired' in result
+const isIdentity = (result: AuthenticationResult): result is PortalIdentity =>
+  !('mfaRequired' in result) && !('emailVerificationRequired' in result)
 
 const getSecurityOverview: NonNullable<HrmsContextValue['getSecurityOverview']> = (windowDays) => securityOperation({ action: 'security-overview', windowDays })
 const getSecurityAccountOptions = async () => {
@@ -68,7 +68,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const restore = async () => {
       try {
         // Recovery/setup owns the pre-verification Auth session on these routes.
-        if (/\/(reset-password|setup-password)$/.test(window.location.pathname)) return
+        if (/\/(reset-password|setup-password|verify-email)$/.test(window.location.pathname)) return
         const restoredUser = await dataProvider.getCurrentUser()
         if (restoredUser && !restoredUser.mustChangePassword && !restoredUser.mustSetPassword && dataProvider.recordCurrentSession) {
           await dataProvider.recordCurrentSession()
@@ -216,8 +216,22 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       toast,
       notify,
       async login(credentials) {
+        // Never retain another portal's identity/data while a new sign-in is
+        // waiting for email verification or an authenticator challenge.
+        setUser(null)
+        setData(null)
         const authenticated = await dataProvider.authenticate(credentials)
-        if (isMfaChallenge(authenticated)) return authenticated
+        if (!isIdentity(authenticated)) return authenticated
+        if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
+        const snapshot = await dataProvider.getSnapshot()
+        setUser(authenticated)
+        setData(snapshot)
+        return authenticated
+      },
+      async completeEmailSignIn(portal) {
+        if (!dataProvider.completeEmailSignIn) throw new Error('Email verification is unavailable.')
+        const authenticated = await dataProvider.completeEmailSignIn(portal)
+        if (!isIdentity(authenticated)) return authenticated
         if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = await dataProvider.getSnapshot()
         setUser(authenticated)

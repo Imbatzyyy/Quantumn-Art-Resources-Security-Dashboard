@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail, supabaseTemplatePatch } from '../../netlify/functions/_shared/email-templates.mjs'
+import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail, signinCodeEmail, supabaseTemplatePatch } from '../../netlify/functions/_shared/email-templates.mjs'
 
 const employee = { firstName: 'Avery', preferredName: 'Avery <QA> & Team', email: 'avery@example.test', password: 'Fictional<&>"Passphrase42!' }
 const inviteUrl = 'https://project.supabase.co/auth/v1/verify?token=fictional&type=invite&redirect_to=https%3A%2F%2Fquantumnhr.com%2Fadmin%2Fsetup-password'
 const appEmails = [
   { id: 'employee', ...credentialsEmail({ employee, employeeCode: 'EMP-TEST', loginUrl: 'https://quantumnhr.com/employee/login' }) },
   { id: 'administrator', ...invitationEmail({ firstName: 'Sierra', roleLabel: 'Security Administrator', setupLink: inviteUrl, appUrl: 'https://quantumnhr.com' }) },
+  ...['admin', 'employee'].map(portal => ({ id: `signin-${portal}`, ...signinCodeEmail({ firstName: 'Avery <QA>', portal, code: '012345' }) })),
 ]
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html')
 

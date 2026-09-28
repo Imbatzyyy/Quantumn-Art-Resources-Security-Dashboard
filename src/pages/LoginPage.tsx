@@ -46,6 +46,11 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
     setError('')
     try {
       const result = await login({ ...form, portal })
+      if ('emailVerificationRequired' in result) {
+        setForm((current) => ({ ...current, password: '' }))
+        navigate(`/${portal}/verify-email`)
+        return
+      }
       if (isMfaChallenge(result)) {
         setMfaChallenge(result)
         setForm((current) => ({ ...current, password: '' }))
