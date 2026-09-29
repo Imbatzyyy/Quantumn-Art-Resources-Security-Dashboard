@@ -5,6 +5,7 @@ import App from './App.js'
 import { HrmsProvider } from './state/HrmsContext.js'
 import './styles.css'
 import './workspace-redesign.css'
+import './readable-ui.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

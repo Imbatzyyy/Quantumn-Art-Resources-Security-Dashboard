@@ -100,7 +100,7 @@ describe('core administrator operation boundaries', () => {
     await user.click(within(dialog).getByRole('radio', { name: /Remote/ }))
     await user.clear(within(dialog).getByLabelText('Location'))
     await user.type(within(dialog).getByLabelText('Location'), 'Approved remote workspace')
-    await user.type(within(dialog).getByLabelText('Notes'), 'Remote coverage schedule')
+    await user.type(within(dialog).getByLabelText(/^Notes/), 'Remote coverage schedule')
     fireEvent.submit(dialog.querySelector('form')!)
 
     await waitFor(() => expect(saveSchedule).toHaveBeenCalledWith(expect.objectContaining({
@@ -170,7 +170,7 @@ describe('core administrator operation boundaries', () => {
     await user.click(screen.getByRole('button', { name: 'Publish document' }))
     const dialog = screen.getByRole('dialog', { name: 'Publish HR document' })
     await user.selectOptions(within(dialog).getByLabelText('Audience'), employee.id)
-    await user.type(within(dialog).getByLabelText('Title'), 'Remote Work Security Policy')
+    await user.type(within(dialog).getByLabelText('Document title'), 'Remote Work Security Policy')
     await user.type(within(dialog).getByLabelText('Filename'), 'remote-work-security-policy.txt')
     await user.type(within(dialog).getByLabelText('Document text'), 'Use approved devices and report unfamiliar account activity immediately.')
     await user.click(within(dialog).getByLabelText('Sensitive employee record'))

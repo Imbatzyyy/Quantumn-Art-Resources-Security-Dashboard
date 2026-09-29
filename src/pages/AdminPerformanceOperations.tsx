@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Award, BookOpenCheck, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Check, CheckCircle2, Compass, FileText, Flag, Gauge, GraduationCap, Layers3, LockKeyhole, MessageSquareText, Plus, Rocket, Save, Send, ShieldCheck, Sparkles, Star, Target, TrendingUp, UserRound, UsersRound } from 'lucide-react'
+import { Award, BriefcaseBusiness, CalendarCheck, CalendarDays, Check, FileText, GraduationCap, LockKeyhole, Plus, Save, Send, ShieldCheck, Star, Target, TrendingUp } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { Field, FormFooter, FormIntro, Note, PersonCard, SummaryList } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, statusTone } from '../utils/format.js'
 import type { GoalInput, HrmsSnapshot, PerformanceCycleInput, PerformanceRecord, PerformanceReviewInput } from '../types/hrms.js'
@@ -10,11 +11,11 @@ const personName = (data: HrmsSnapshot, employeeId: string) => {
   return employee ? `${employee.firstName} ${employee.lastName}` : employeeId
 }
 const reviewMetrics = [
-  { key: 'score' as const, label: 'Overall score', icon: Gauge },
-  { key: 'goalProgress' as const, label: 'Goal progress', icon: Target },
-  { key: 'quality' as const, label: 'Quality', icon: Star },
-  { key: 'productivity' as const, label: 'Productivity', icon: TrendingUp },
-  { key: 'teamwork' as const, label: 'Teamwork', icon: UsersRound },
+  { key: 'score' as const, label: 'Overall score' },
+  { key: 'goalProgress' as const, label: 'Goal progress' },
+  { key: 'quality' as const, label: 'Quality' },
+  { key: 'productivity' as const, label: 'Productivity' },
+  { key: 'teamwork' as const, label: 'Teamwork' },
 ]
 const ratingForScore = (score: number) => score >= 90 ? 'Outstanding' : score >= 80 ? 'Exceeds expectations' : score >= 70 ? 'Meets expectations' : 'Needs improvement'
 
@@ -29,10 +30,10 @@ export default function AdminPerformanceOperations() {
   const [goalForm, setGoalForm] = useState<GoalInput>({ employeeId: defaultEmployee, title: '', description: '', category: 'Growth', progress: 0, status: 'Active', dueDate: '' })
   if (!data) return null
   const cycleStatuses = [
-    { value: 'Draft', description: 'Private planning', icon: FileText },
-    { value: 'Active', description: 'Reviews in progress', icon: Rocket },
-    { value: 'Review', description: 'Calibration stage', icon: Star },
-    { value: 'Closed', description: 'Cycle completed', icon: CheckCircle2 },
+    { value: 'Draft', description: 'Private, still being planned' },
+    { value: 'Active', description: 'Reviews in progress' },
+    { value: 'Review', description: 'Scores being calibrated' },
+    { value: 'Closed', description: 'Cycle finished' },
   ]
   const selectedStatusIndex = cycleStatuses.findIndex((item) => item.value === cycleForm.status)
   const cycleWindowDays = cycleForm.startDate && cycleForm.endDate
@@ -67,182 +68,124 @@ export default function AdminPerformanceOperations() {
     <section className="panel"><div className="panel-header"><div><h2>Review records</h2><p>Employees retrieve only Published records through RLS.</p></div></div>{data.performance.length ? <TableShell><thead><tr><th>Employee</th><th>Period</th><th>Score</th><th>Goal progress</th><th>Rating</th><th>Status / Action</th></tr></thead><tbody>{data.performance.map((review) => <tr key={review.id}><td><strong>{personName(data, review.employeeId)}</strong><small className="table-subtitle">{review.employeeId}</small></td><td>{review.period}</td><td><strong>{review.score}/100</strong></td><td>{review.goalProgress}%</td><td>{review.rating}</td><td><div className="table-actions"><Badge tone={statusTone(review.status)}>{review.status}</Badge><button className="mini-button" onClick={() => openReview(review)}>Edit</button>{review.status === 'Draft' && <button className="mini-button approve" onClick={() => void publishPerformance(review.id)}><Check />Publish</button>}</div></td></tr>)}</tbody></TableShell> : <EmptyState icon={Star} title="No performance reviews" text="Create a draft, review it, then publish it to the employee." />}</section>
     <section className="panel"><div className="panel-header"><div><h2>Employee goals</h2><p>Shared progress values for coaching conversations</p></div></div><div className="goal-admin-grid">{data.goals.map((goal) => <article key={goal.id}><div><Badge tone={statusTone(goal.status)}>{goal.status}</Badge><h3>{goal.title}</h3><p>{personName(data, goal.employeeId)} · {goal.category} · Due {formatDate(goal.dueDate)}</p></div><strong>{goal.progress}%</strong><ProgressBar value={goal.progress} label="Progress" /></article>)}</div></section>
     {reviewForm && <Modal title="Save performance review draft" onClose={() => setReviewForm(null)} size="large">
-      <form className="performance-review-shell" onSubmit={submitReview}>
-        <section className="performance-review-intro">
-          <span className="performance-review-intro-icon"><LockKeyhole aria-hidden="true" /></span>
-          <div><small>Private calibration workspace</small><h3>Evaluate performance with clarity and controlled disclosure</h3><p>Capture evidence-based scores and reviewer context. The employee sees nothing until an authorized administrator publishes the completed review.</p></div>
-          <span className="performance-review-state"><ShieldCheck aria-hidden="true" />Draft protected</span>
-        </section>
+      <form className="rf-form" onSubmit={submitReview}>
+        <FormIntro>Score the employee and add your comments. This is saved as a private draft. The employee sees nothing until an authorized administrator publishes the review.</FormIntro>
 
-        <div className="performance-review-content">
-          <section className="performance-scorecard" aria-labelledby="performance-scorecard-title">
-            <header className="performance-review-heading"><span><Gauge aria-hidden="true" /></span><div><h4 id="performance-scorecard-title">Review scorecard</h4><p>Define the employee, review period, and calibrated performance measures.</p></div></header>
-
-            <div className="performance-review-context-grid">
-              <label className="performance-review-field">Employee
-                <span className="performance-review-select"><UserRound aria-hidden="true" /><select aria-label="Employee" value={reviewForm.employeeId} onChange={(event) => setReviewForm({ ...reviewForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></span>
-              </label>
-              <label className="performance-review-field">Cycle
-                <span className="performance-review-select"><CalendarCheck aria-hidden="true" /><select aria-label="Cycle" value={reviewForm.cycleId} onChange={(event) => { const cycle = data.performanceCycles.find((item) => item.id === Number(event.target.value)); setReviewForm({ ...reviewForm, cycleId: event.target.value, period: cycle?.period ?? reviewForm.period }) }}><option value="">No cycle</option>{data.performanceCycles.map((item) => <option value={item.id} key={item.id}>{item.period} · {item.status}</option>)}</select></span>
-              </label>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <div className="rf-grid">
+              <Field label="Employee">{(control) => <select {...control} value={reviewForm.employeeId} onChange={(event) => setReviewForm({ ...reviewForm, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select>}</Field>
+              <Field label="Cycle">{(control) => <select {...control} value={reviewForm.cycleId} onChange={(event) => { const cycle = data.performanceCycles.find((item) => item.id === Number(event.target.value)); setReviewForm({ ...reviewForm, cycleId: event.target.value, period: cycle?.period ?? reviewForm.period }) }}><option value="">No cycle</option>{data.performanceCycles.map((item) => <option value={item.id} key={item.id}>{item.period} · {item.status}</option>)}</select>}</Field>
             </div>
+            {selectedReviewEmployee && <PersonCard name={`${selectedReviewEmployee.firstName} ${selectedReviewEmployee.lastName}`} meta={`${selectedReviewEmployee.position || 'Employee'} · ${selectedReviewEmployee.department || 'Organization'}`} badge={<Badge tone="info">{selectedReviewCycle?.title || 'Independent review'}</Badge>} />}
+            <Field label="Review period" help="The employee and period together identify this draft.">{(control) => <input {...control} value={reviewForm.period} onChange={(event) => setReviewForm({ ...reviewForm, period: event.target.value })} required />}</Field>
 
-            {selectedReviewEmployee && <div className="performance-review-person"><span>{selectedReviewEmployee.firstName[0]}{selectedReviewEmployee.lastName[0]}</span><div><strong>{selectedReviewEmployee.firstName} {selectedReviewEmployee.lastName}</strong><p>{selectedReviewEmployee.position || 'Employee'} · {selectedReviewEmployee.department || 'Organization'}</p></div><Badge tone="info">{selectedReviewCycle?.title || 'Independent review'}</Badge></div>}
+            <fieldset className="rf-field">
+              <legend className="rf-label">Scores from 0 to 100</legend>
+              <div className="rf-scores">{reviewMetrics.map(({ key, label }) => <div className={`rf-score${key === 'score' ? ' rf-score--primary' : ''}`} key={key}>
+                <label htmlFor={`review-${key}`}>{label}</label>
+                <input id={`review-${key}`} type="number" min={0} max={100} value={reviewForm[key]} onChange={(event) => setReviewForm({ ...reviewForm, [key]: Number(event.target.value) })} required />
+                <div className="rf-bar" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm[key])))}%` }} /></div>
+              </div>)}</div>
+            </fieldset>
 
-            <label className="performance-review-field">Review period
-              <span className="performance-review-input"><CalendarDays aria-hidden="true" /><input aria-label="Review period" value={reviewForm.period} onChange={(event) => setReviewForm({ ...reviewForm, period: event.target.value })} required /></span>
-              <small>Employee and period together identify the private draft record.</small>
-            </label>
+            <Field label="Comments" status={<span className="rf-status rf-status--editing">Private draft</span>} count={`${reviewForm.comments.length}/1000`} help="Keep it factual, specific, and actionable.">{(control) => <textarea {...control} rows={5} maxLength={1000} value={reviewForm.comments} onChange={(event) => setReviewForm({ ...reviewForm, comments: event.target.value })} placeholder="Achievements, evidence, and development priorities for the review conversation" />}</Field>
+          </div>
 
-            <div className="performance-metric-grid">{reviewMetrics.map(({ key, label, icon: Icon }) => <label className={`performance-metric-card ${key === 'score' ? 'primary' : ''}`} key={key}><span><Icon aria-hidden="true" /></span><div><strong>{label}</strong><small>Score from 0 to 100</small><i><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm[key])))}%` }} /></i></div><input aria-label={label} type="number" min={0} max={100} value={reviewForm[key]} onChange={(event) => setReviewForm({ ...reviewForm, [key]: Number(event.target.value) })} required /></label>)}</div>
-          </section>
-
-          <aside className="performance-review-preview" aria-labelledby="performance-review-preview-title">
-            <header><div><small>Calibration preview</small><h4 id="performance-review-preview-title">Private review summary</h4></div><span><Award aria-hidden="true" /></span></header>
-
-            <section className="performance-rating-card">
-              <div><span><Gauge aria-hidden="true" /></span><div><small>Calculated rating</small><h5>{calculatedReviewRating}</h5><p>{reviewForm.period}</p></div><strong>{reviewForm.score}</strong></div>
-              <div className="performance-rating-scale"><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm.score)))}%` }} /></div>
-            </section>
-
-            <div className="performance-preview-metrics">{reviewMetrics.slice(1).map(({ key, label, icon: Icon }) => <article key={key}><span><Icon aria-hidden="true" /></span><div><small>{label}</small><strong>{reviewForm[key]}/100</strong></div><i><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm[key])))}%` }} /></i></article>)}</div>
-
-            <label className="performance-comments-field">Reviewer comments <em>Private draft</em>
-              <span><MessageSquareText aria-hidden="true" /><textarea aria-label="Comments" rows={6} maxLength={1000} value={reviewForm.comments} onChange={(event) => setReviewForm({ ...reviewForm, comments: event.target.value })} placeholder="Record evidence, achievements, development priorities, and context for the final conversation…" /></span>
-              <small><span>Keep the narrative factual, specific, and actionable.</span><strong>{reviewForm.comments.length}/1000</strong></small>
-            </label>
-
-            <div className="performance-draft-assurance"><LockKeyhole aria-hidden="true" /><div><strong>Not visible to the employee</strong><p>Saving creates or replaces a private draft. Employee access and notification begin only after the separate Publish action succeeds.</p></div></div>
+          <aside className="rf-summary" aria-label="Review summary">
+            <h3>Review summary</h3>
+            <div className="rf-rating"><div><span>Calculated rating</span><h4>{calculatedReviewRating}</h4></div><strong>{reviewForm.score}<small>/100</small></strong></div>
+            <div className="rf-bar" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, Number(reviewForm.score)))}%` }} /></div>
+            <SummaryList items={[
+              ['Employee', selectedReviewEmployee ? `${selectedReviewEmployee.firstName} ${selectedReviewEmployee.lastName}` : 'Not selected'],
+              ['Period', reviewForm.period || '—'],
+              ...reviewMetrics.slice(1).map(({ key, label }) => [label, `${reviewForm[key]}/100`] as [string, string]),
+            ]} />
+            <Note icon={LockKeyhole}>Not visible to the employee. Saving creates or replaces a private draft; the employee is notified only after it is published.</Note>
           </aside>
         </div>
 
-        <footer className="performance-review-footer">
-          <div><ShieldCheck aria-hidden="true" /><p><strong>Protected reviewer workspace.</strong> Confirm the metrics and narrative before saving this private calibration record.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setReviewForm(null)}>Cancel</button><button className="button button-primary"><Save aria-hidden="true" />Save private draft</button></div>
-        </footer>
+        <FormFooter icon={ShieldCheck} note="Check the scores and comments before saving this private draft.">
+          <button type="button" className="button button-secondary" onClick={() => setReviewForm(null)}>Cancel</button>
+          <button className="button button-primary"><Save aria-hidden="true" />Save private draft</button>
+        </FormFooter>
       </form>
     </Modal>}
     {showCycle && <Modal title="Create performance cycle" onClose={() => setShowCycle(false)} size="large">
-      <form className="performance-cycle-shell" onSubmit={submitCycle}>
-        <section className="performance-cycle-intro">
-          <span className="performance-cycle-intro-icon"><CalendarCheck aria-hidden="true" /></span>
-          <div><small>Performance program design</small><h3>Build a focused review cycle with a clear cadence</h3><p>Define the cycle identity, select its operating stage, and establish a review window before employees and managers participate.</p></div>
-          <span className="performance-cycle-state"><Sparkles aria-hidden="true" />Live blueprint</span>
-        </section>
+      <form className="rf-form" onSubmit={submitCycle}>
+        <FormIntro>Name the review cycle, choose the stage it starts in, and optionally set the review window.</FormIntro>
 
-        <div className="performance-cycle-content">
-          <section className="performance-cycle-fields" aria-labelledby="performance-cycle-fields-title">
-            <header className="performance-cycle-heading"><span><Layers3 aria-hidden="true" /></span><div><h4 id="performance-cycle-fields-title">Cycle foundations</h4><p>Create a recognizable review program with an unambiguous reporting period.</p></div></header>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <Field label="Cycle title" help="A name managers and employees will recognize.">{(control) => <input {...control} value={cycleForm.title} onChange={(event) => setCycleForm({ ...cycleForm, title: event.target.value })} placeholder="e.g. Quarterly Performance Cycle" required />}</Field>
+            <Field label="Period label" help="Must be unique, for example “Q3 2026”.">{(control) => <input {...control} value={cycleForm.period} onChange={(event) => setCycleForm({ ...cycleForm, period: event.target.value })} placeholder="e.g. Q3 2026" required />}</Field>
 
-            <label className="performance-cycle-field">Cycle title
-              <span className="performance-cycle-input"><Flag aria-hidden="true" /><input aria-label="Cycle title" value={cycleForm.title} onChange={(event) => setCycleForm({ ...cycleForm, title: event.target.value })} placeholder="e.g. Quarterly Performance Cycle" required /></span>
-              <small>Use a name managers and employees will immediately recognize.</small>
-            </label>
-
-            <label className="performance-cycle-field">Period label
-              <span className="performance-cycle-input"><CalendarDays aria-hidden="true" /><input aria-label="Period label" value={cycleForm.period} onChange={(event) => setCycleForm({ ...cycleForm, period: event.target.value })} placeholder="e.g. Q3 2026" required /></span>
-              <small>This reporting label must be unique in the performance register.</small>
-            </label>
-
-            <fieldset className="performance-status-picker">
-              <legend>Starting status</legend>
-              <div>{cycleStatuses.map(({ value, description, icon: Icon }) => <label className={cycleForm.status === value ? `active status-${value.toLowerCase()}` : ''} key={value}><input aria-label={value} type="radio" name="performance-cycle-status" value={value} checked={cycleForm.status === value} onChange={(event) => setCycleForm({ ...cycleForm, status: event.target.value })} /><span><Icon aria-hidden="true" /></span><div><strong>{value}</strong><small>{description}</small></div></label>)}</div>
+            <fieldset className="rf-field rf-choices rf-choices--2">
+              <legend className="rf-label">Starting status</legend>
+              <div>{cycleStatuses.map(({ value, description }) => <label className={`rf-choice${cycleForm.status === value ? ' is-selected' : ''}`} key={value}><input aria-label={value} type="radio" name="performance-cycle-status" value={value} checked={cycleForm.status === value} onChange={(event) => setCycleForm({ ...cycleForm, status: event.target.value })} /><span><strong>{value}</strong><small>{description}</small></span></label>)}</div>
             </fieldset>
 
-            <div className="performance-cycle-date-grid">
-              <label className="performance-cycle-field">Start date <em>Optional</em>
-                <span className="performance-cycle-input"><CalendarClock aria-hidden="true" /><input aria-label="Start date" type="date" value={cycleForm.startDate} onChange={(event) => setCycleForm({ ...cycleForm, startDate: event.target.value })} /></span>
-              </label>
-              <label className="performance-cycle-field">End date <em>Optional</em>
-                <span className="performance-cycle-input"><CalendarCheck aria-hidden="true" /><input aria-label="End date" type="date" min={cycleForm.startDate || undefined} value={cycleForm.endDate} onChange={(event) => setCycleForm({ ...cycleForm, endDate: event.target.value })} /></span>
-              </label>
+            <div className="rf-grid">
+              <Field label="Start date" optional>{(control) => <input {...control} type="date" value={cycleForm.startDate} onChange={(event) => setCycleForm({ ...cycleForm, startDate: event.target.value })} />}</Field>
+              <Field label="End date" optional>{(control) => <input {...control} type="date" min={cycleForm.startDate || undefined} value={cycleForm.endDate} onChange={(event) => setCycleForm({ ...cycleForm, endDate: event.target.value })} />}</Field>
             </div>
-          </section>
+          </div>
 
-          <aside className="performance-cycle-preview" aria-labelledby="performance-cycle-preview-title">
-            <header><div><small>Cycle blueprint</small><h4 id="performance-cycle-preview-title">Program readiness</h4></div><span><TrendingUp aria-hidden="true" /></span></header>
-            <section className="performance-cycle-identity">
-              <span><CalendarCheck aria-hidden="true" /></span>
-              <div><small>{cycleForm.period.trim() || 'Reporting period'}</small><h5>{cycleForm.title.trim() || 'Untitled performance cycle'}</h5><p>Starts in <strong>{cycleForm.status}</strong></p></div>
-            </section>
-
-            <div className="performance-cycle-timeline" aria-label="Performance cycle stages">
-              {cycleStatuses.map(({ value, description, icon: Icon }, index) => <article className={index < selectedStatusIndex ? 'complete' : index === selectedStatusIndex ? 'current' : ''} key={value}><span><Icon aria-hidden="true" /></span><div><strong>{value}</strong><small>{description}</small></div>{index < cycleStatuses.length - 1 && <i aria-hidden="true" />}</article>)}
-            </div>
-
-            <dl className="performance-cycle-window"><div><dt>Start</dt><dd>{cycleForm.startDate ? formatDate(cycleForm.startDate) : 'Open date'}</dd></div><div><dt>End</dt><dd>{cycleForm.endDate ? formatDate(cycleForm.endDate) : 'Open date'}</dd></div><div><dt>Window</dt><dd>{cycleWindowDays ? `${cycleWindowDays} days` : 'Flexible'}</dd></div></dl>
-
-            <div className="performance-cycle-assurance"><ShieldCheck aria-hidden="true" /><div><strong>Governed performance workflow</strong><p>Only authorized HR administrators can create cycles. Draft cycles remain private; non-draft cycles become visible to active HRMS users through Supabase RLS.</p></div></div>
+          <aside className="rf-summary" aria-label="Cycle summary">
+            <h3>Cycle summary</h3>
+            <ol className="rf-stages" aria-label="Cycle stages">{cycleStatuses.map(({ value }, index) => <li className={index < selectedStatusIndex ? 'is-done' : index === selectedStatusIndex ? 'is-current' : ''} key={value}>{value}</li>)}</ol>
+            <SummaryList items={[
+              ['Title', cycleForm.title.trim() || 'Untitled cycle'],
+              ['Period', cycleForm.period.trim() || '—'],
+              ['Starts in', cycleForm.status],
+              ['Start date', cycleForm.startDate ? formatDate(cycleForm.startDate) : 'Not set'],
+              ['End date', cycleForm.endDate ? formatDate(cycleForm.endDate) : 'Not set'],
+              ['Review window', cycleWindowDays ? `${cycleWindowDays} days` : 'Flexible'],
+            ]} />
+            <Note icon={ShieldCheck}>Only HR administrators can create cycles. Draft cycles stay private; other stages are visible to active HRMS users.</Note>
           </aside>
         </div>
 
-        <footer className="performance-cycle-footer">
-          <div><CalendarCheck aria-hidden="true" /><p><strong>Ready to establish the cycle.</strong> Confirm the unique period, starting stage, and optional review dates before creation.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCycle(false)}>Cancel</button><button className="button button-primary"><Plus aria-hidden="true" />Create cycle</button></div>
-        </footer>
+        <FormFooter note="Check the period, starting stage, and dates before creating the cycle.">
+          <button type="button" className="button button-secondary" onClick={() => setShowCycle(false)}>Cancel</button>
+          <button className="button button-primary"><Plus aria-hidden="true" />Create cycle</button>
+        </FormFooter>
       </form>
     </Modal>}
     {showGoal && <Modal title="Assign employee goal" onClose={() => setShowGoal(false)} size="large">
-      <form className="goal-assign-shell" onSubmit={submitGoal}>
-        <section className="goal-assign-intro">
-          <span className="goal-assign-intro-icon"><Target aria-hidden="true" /></span>
-          <div><small>Growth plan creation</small><h3>Turn expectations into a focused development goal</h3><p>Choose the employee, define a meaningful outcome, and set a clear coaching horizon before the goal enters their workspace.</p></div>
-          <span className="goal-assign-state"><Sparkles aria-hidden="true" />Live goal card</span>
-        </section>
+      <form className="rf-form" onSubmit={submitGoal}>
+        <FormIntro>Choose the employee, describe the outcome you expect, and set a due date. The goal appears on the employee’s Goals &amp; Growth page.</FormIntro>
 
-        <div className="goal-assign-content">
-          <section className="goal-assign-fields" aria-labelledby="goal-assign-fields-title">
-            <header className="goal-assign-heading"><span><Compass aria-hidden="true" /></span><div><h4 id="goal-assign-fields-title">Goal foundations</h4><p>Connect a specific employee with an outcome that is clear and coachable.</p></div></header>
-
-            <label className="goal-premium-field">Employee
-              <span className="goal-select-shell"><UserRound aria-hidden="true" /><select aria-label="Employee" value={goalForm.employeeId} onChange={(event) => setGoalForm({ ...goalForm, employeeId: event.target.value })}>{goalEmployees.map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select></span>
-            </label>
-
-            {selectedGoalEmployee && <div className="goal-employee-card"><span>{selectedGoalEmployee.firstName[0]}{selectedGoalEmployee.lastName[0]}</span><div><strong>{selectedGoalEmployee.firstName} {selectedGoalEmployee.lastName}</strong><p>{selectedGoalEmployee.position || 'Employee'} · {selectedGoalEmployee.department || 'Organization'}</p></div><Badge tone="success">{selectedGoalEmployee.status}</Badge></div>}
-
-            <label className="goal-premium-field">Goal title
-              <span className="goal-input-shell"><Target aria-hidden="true" /><input aria-label="Goal title" value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} placeholder="e.g. Lead the quarterly operations review" minLength={3} maxLength={160} required /></span>
-              <small><span>Phrase the goal as a specific outcome.</span><strong>{goalForm.title.length}/160</strong></small>
-            </label>
-
-            <div className="goal-field-grid">
-              <label className="goal-premium-field">Category
-                <span className="goal-input-shell"><BookOpenCheck aria-hidden="true" /><input aria-label="Category" value={goalForm.category} onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })} required /></span>
-              </label>
-              <label className="goal-premium-field">Due date
-                <span className="goal-input-shell"><CalendarClock aria-hidden="true" /><input aria-label="Due date" type="date" value={goalForm.dueDate} onChange={(event) => setGoalForm({ ...goalForm, dueDate: event.target.value })} required /></span>
-              </label>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <Field label="Employee">{(control) => <select {...control} value={goalForm.employeeId} onChange={(event) => setGoalForm({ ...goalForm, employeeId: event.target.value })}>{goalEmployees.map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName}</option>)}</select>}</Field>
+            {selectedGoalEmployee && <PersonCard name={`${selectedGoalEmployee.firstName} ${selectedGoalEmployee.lastName}`} meta={`${selectedGoalEmployee.position || 'Employee'} · ${selectedGoalEmployee.department || 'Organization'}`} badge={<Badge tone="success">{selectedGoalEmployee.status}</Badge>} />}
+            <Field label="Goal title" count={`${goalForm.title.length}/160`} help="Write it as a specific outcome.">{(control) => <input {...control} value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} placeholder="e.g. Lead the quarterly operations review" minLength={3} maxLength={160} required />}</Field>
+            <div className="rf-grid">
+              <Field label="Category">{(control) => <input {...control} value={goalForm.category} onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })} required />}</Field>
+              <Field label="Due date">{(control) => <input {...control} type="date" value={goalForm.dueDate} onChange={(event) => setGoalForm({ ...goalForm, dueDate: event.target.value })} required />}</Field>
             </div>
+            <div className="rf-chips" role="group" aria-label="Suggested goal categories">{goalCategories.map(({ value, icon: Icon }) => <button type="button" aria-pressed={goalForm.category === value} onClick={() => setGoalForm({ ...goalForm, category: value })} key={value}><Icon aria-hidden="true" />{value}</button>)}</div>
+            <Field label="Description" status={<span className="rf-status rf-status--editing">Recommended</span>} count={`${goalForm.description.length} characters`} help="Include a measurable result and the employee’s next step.">{(control) => <textarea {...control} rows={5} value={goalForm.description} onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })} placeholder="The expected outcome, how success is measured, and the support available" />}</Field>
+          </div>
 
-            <div className="goal-category-suggestions" aria-label="Suggested goal categories">{goalCategories.map(({ value, icon: Icon }) => <button type="button" className={goalForm.category === value ? 'active' : ''} onClick={() => setGoalForm({ ...goalForm, category: value })} key={value}><Icon aria-hidden="true" />{value}</button>)}</div>
-
-            <label className="goal-premium-field">Description <em>Recommended</em>
-              <textarea aria-label="Description" rows={6} value={goalForm.description} onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })} placeholder="Describe the expected outcome, success measures, and the support available…" />
-              <small><span>Include a measurable result and the employee’s next action.</span><strong>{goalForm.description.length} characters</strong></small>
-            </label>
-          </section>
-
-          <aside className="goal-assign-preview" aria-labelledby="goal-assign-preview-title">
-            <header><div><small>Employee view</small><h4 id="goal-assign-preview-title">Goal preview</h4></div><span><TrendingUp aria-hidden="true" /></span></header>
-
-            <article className="goal-preview-card">
-              <div className="goal-preview-owner"><span>{selectedGoalEmployee ? `${selectedGoalEmployee.firstName[0]}${selectedGoalEmployee.lastName[0]}` : '—'}</span><div><small>Assigned to</small><strong>{selectedGoalEmployee ? `${selectedGoalEmployee.firstName} ${selectedGoalEmployee.lastName}` : 'Select an employee'}</strong></div><Badge tone="success">Active</Badge></div>
-              <span className="goal-preview-icon"><Target aria-hidden="true" /></span>
-              <small className="goal-preview-category">{goalForm.category || 'Goal category'}</small>
-              <h5>{goalForm.title.trim() || 'Your goal title will appear here'}</h5>
-              <p>{goalForm.description.trim() || 'Add a concise description so the employee understands the outcome and the next step.'}</p>
-              <div className="goal-preview-progress"><div><span>Starting progress</span><strong>0%</strong></div><i><span /></i></div>
-              <dl><div><dt>Due date</dt><dd>{goalForm.dueDate ? formatDate(goalForm.dueDate) : 'Set a target date'}</dd></div><div><dt>Status</dt><dd>Active</dd></div></dl>
-            </article>
-
-            <div className="goal-coaching-note"><ShieldCheck aria-hidden="true" /><div><strong>Private, accountable coaching</strong><p>The assigned employee can read this goal through Supabase RLS. Only authorized HR administrators can create or update it.</p></div></div>
+          <aside className="rf-summary" aria-label="Goal preview">
+            <h3>What the employee will see</h3>
+            <article className="rf-preview"><span>{goalForm.category || 'Goal category'}</span><h4>{goalForm.title.trim() || 'Your goal title will appear here'}</h4><p>{goalForm.description.trim() || 'Add a short description so the employee understands the outcome and the next step.'}</p></article>
+            <SummaryList items={[
+              ['Assigned to', selectedGoalEmployee ? `${selectedGoalEmployee.firstName} ${selectedGoalEmployee.lastName}` : 'Not selected'],
+              ['Due date', goalForm.dueDate ? formatDate(goalForm.dueDate) : 'Not set'],
+              ['Starting progress', '0%'],
+              ['Status', 'Active'],
+            ]} />
+            <Note icon={ShieldCheck}>Only the assigned employee and HR administrators can see this goal.</Note>
           </aside>
         </div>
 
-        <footer className="goal-assign-footer">
-          <div><Send aria-hidden="true" /><p><strong>Ready to create the growth plan.</strong> Confirm the employee, success outcome, and due date before assignment.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowGoal(false)}>Cancel</button><button className="button button-primary"><Target aria-hidden="true" />Assign goal</button></div>
-        </footer>
+        <FormFooter icon={Send} note="Check the employee, outcome, and due date before assigning.">
+          <button type="button" className="button button-secondary" onClick={() => setShowGoal(false)}>Cancel</button>
+          <button className="button button-primary"><Target aria-hidden="true" />Assign goal</button>
+        </FormFooter>
       </form>
     </Modal>}
   </div>

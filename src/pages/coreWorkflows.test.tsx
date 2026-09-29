@@ -205,7 +205,7 @@ describe('People Directory protected workflows', () => {
     await user.click(screen.getByRole('button', { name: 'Create employee & login' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Create employee account' })
-    expect(within(dialog).getByText('Secure employee provisioning')).toBeVisible()
+    expect(within(dialog).getByText(/sign-in in one step/)).toBeVisible()
     expect(addEmployee).not.toHaveBeenCalled()
 
     await user.type(within(dialog).getByLabelText('First name'), 'Taylor')

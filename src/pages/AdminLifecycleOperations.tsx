@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Building2, CalendarDays, CheckCircle2, Clock3, Eye, EyeOff, LockKeyhole, Plus, ShieldCheck, UserMinus, UserPlus, UserRoundCheck, Workflow } from 'lucide-react'
+import { CheckCircle2, Clock3, LockKeyhole, Plus, ShieldCheck, UserRoundCheck, Workflow } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard } from '../components/ui.js'
+import { Field, FormFooter, FormIntro, Note, PersonCard } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, statusTone } from '../utils/format.js'
 import type { LifecycleCaseInput } from '../types/hrms.js'
@@ -47,118 +48,49 @@ export default function AdminLifecycleOperations() {
     })}</div>
     {!data.lifecycleCases.length && <EmptyState icon={Workflow} title="No lifecycle cases" text="Start an onboarding or offboarding checklist for an employee." />}
     {showCreate && <Modal title="Start lifecycle checklist" size="large" onClose={() => setShowCreate(false)}>
-      <div className="lifecycle-create-shell">
-        <section className="lifecycle-create-intro">
-          <span className="lifecycle-create-intro-icon"><Workflow aria-hidden="true" /></span>
-          <div>
-            <small>Accountable people transition</small>
-            <h3>Launch a guided employee journey</h3>
-            <p>Assign the right transition, confirm its deadline, and review every employee-visible and protected HR task before creating the case.</p>
-          </div>
-          <span className="lifecycle-create-state"><ShieldCheck aria-hidden="true" />Audit ready</span>
-        </section>
+      <form className="rf-form" onSubmit={submit}>
+        <FormIntro>Choose the employee and whether they are joining or leaving. A checklist is created from the template on the right, and the employee is notified.</FormIntro>
 
-        <form className="lifecycle-create-form" onSubmit={submit}>
-          <div className="lifecycle-create-content">
-            <section className="lifecycle-create-fields" aria-labelledby="lifecycle-case-settings-title">
-              <header className="lifecycle-form-heading">
-                <span><UserRoundCheck aria-hidden="true" /></span>
-                <div>
-                  <h4 id="lifecycle-case-settings-title">Case configuration</h4>
-                  <p>Choose the employee, transition type, and accountable completion date.</p>
-                </div>
-              </header>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <Field label="Employee">{(control) => <select {...control} value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })} required>
+              {data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.status}</option>)}
+            </select>}</Field>
+            {selectedEmployee && <PersonCard name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} meta={`${selectedEmployee.position || 'Employee'} · ${selectedEmployee.department || 'No department'} · ${selectedEmployee.id}`} badge={<Badge tone={selectedEmployee.status === 'Active' ? 'success' : 'neutral'}>{selectedEmployee.status}</Badge>} />}
 
-              <div className="lifecycle-premium-field">
-                <label htmlFor="lifecycle-employee">Employee</label>
-                <div className="lifecycle-select-shell">
-                  <UserRoundCheck aria-hidden="true" />
-                  <select id="lifecycle-employee" value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })} required>
-                    {data.employees.filter((item) => item.role === 'employee').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.status}</option>)}
-                  </select>
-                </div>
+            <fieldset className="rf-field rf-choices rf-choices--2">
+              <legend className="rf-label">Case type</legend>
+              <div>
+                <label className={`rf-choice${form.type === 'Onboarding' ? ' is-selected' : ''}`}><input type="radio" name="lifecycle-type" value="Onboarding" checked={form.type === 'Onboarding'} onChange={(event) => setForm({ ...form, type: event.target.value })} /><span><strong>Onboarding</strong><small>Welcome, equip, and guide a new employee</small></span></label>
+                <label className={`rf-choice${form.type === 'Offboarding' ? ' is-selected' : ''}`}><input type="radio" name="lifecycle-type" value="Offboarding" checked={form.type === 'Offboarding'} onChange={(event) => setForm({ ...form, type: event.target.value })} /><span><strong>Offboarding</strong><small>Hand over work and close access</small></span></label>
               </div>
+            </fieldset>
 
-              {selectedEmployee && <article className="lifecycle-person-card">
-                <span>{selectedEmployee.firstName.charAt(0)}{selectedEmployee.lastName.charAt(0)}</span>
-                <div>
-                  <strong>{selectedEmployee.firstName} {selectedEmployee.lastName}</strong>
-                  <p>{selectedEmployee.position || 'Employee'} · {selectedEmployee.department || 'Unassigned department'}</p>
-                  <small>{selectedEmployee.id} · {selectedEmployee.status}</small>
-                </div>
-                <Badge tone={selectedEmployee.status === 'Active' ? 'success' : 'neutral'}>{selectedEmployee.status}</Badge>
-              </article>}
-
-              <fieldset className="lifecycle-type-picker">
-                <legend>Case type</legend>
-                <div>
-                  <label className={form.type === 'Onboarding' ? 'active' : ''}>
-                    <input type="radio" name="lifecycle-type" value="Onboarding" checked={form.type === 'Onboarding'} onChange={(event) => setForm({ ...form, type: event.target.value })} />
-                    <span><UserPlus aria-hidden="true" /></span>
-                    <div><strong>Onboarding</strong><small>Welcome, equip, and guide</small></div>
-                    <CheckCircle2 className="lifecycle-choice-check" aria-hidden="true" />
-                  </label>
-                  <label className={form.type === 'Offboarding' ? 'active offboarding' : ''}>
-                    <input type="radio" name="lifecycle-type" value="Offboarding" checked={form.type === 'Offboarding'} onChange={(event) => setForm({ ...form, type: event.target.value })} />
-                    <span><UserMinus aria-hidden="true" /></span>
-                    <div><strong>Offboarding</strong><small>Clear, hand over, and close</small></div>
-                    <CheckCircle2 className="lifecycle-choice-check" aria-hidden="true" />
-                  </label>
-                </div>
-              </fieldset>
-
-              <div className="lifecycle-premium-field">
-                <label htmlFor="lifecycle-target-date">Target date</label>
-                <div className="lifecycle-date-shell">
-                  <CalendarDays aria-hidden="true" />
-                  <input id="lifecycle-target-date" type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} required />
-                </div>
-                <small>The case owner uses this date to prioritize and complete outstanding tasks.</small>
-              </div>
-            </section>
-
-            <aside className={`lifecycle-template-preview ${form.type === 'Offboarding' ? 'offboarding' : ''}`} aria-labelledby="lifecycle-template-title">
-              <header>
-                <div>
-                  <small>Supabase task template</small>
-                  <h4 id="lifecycle-template-title">{form.type} checklist preview</h4>
-                </div>
-                <span>{form.type === 'Offboarding' ? <UserMinus aria-hidden="true" /> : <UserPlus aria-hidden="true" />}</span>
-              </header>
-              <div className="lifecycle-template-metrics">
-                <div><strong>{template.length}</strong><span>accountable tasks</span></div>
-                <div><strong>{employeeVisibleTasks}</strong><span>employee visible</span></div>
-                <div><strong>{template.length - employeeVisibleTasks}</strong><span>HR protected</span></div>
-              </div>
-              <ol className="lifecycle-template-list">
-                {template.map((item, index) => <li key={item.title}>
-                  <span>{index + 1}</span>
-                  <div><strong>{item.title}</strong><small>{item.category}</small></div>
-                  <em className={item.visible ? 'visible' : 'internal'}>{item.visible ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}{item.visible ? 'Visible' : 'Internal'}</em>
-                </li>)}
-              </ol>
-              <div className="lifecycle-template-security">
-                <LockKeyhole aria-hidden="true" />
-                <div>
-                  <strong>{form.type === 'Offboarding' ? 'Access remains controlled' : 'Least-privilege setup included'}</strong>
-                  <p>{form.type === 'Offboarding' ? 'Access is not removed when the case starts. It is deactivated only after every clearance task is completed or skipped by an authorized HR administrator.' : 'Internal access provisioning remains hidden from the employee while their visible journey stays clear and usable.'}</p>
-                </div>
-              </div>
-            </aside>
+            <Field label="Target date" help="The date this checklist should be finished.">{(control) => <input {...control} type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} required />}</Field>
           </div>
 
-          <footer className="lifecycle-create-footer">
-            <div className="lifecycle-create-footnote">
-              <Building2 aria-hidden="true" />
-              <p><strong>Organization-controlled.</strong> Creating the case records the HR action, generates the four-task template, and notifies the selected employee.</p>
+          <aside className="rf-summary" aria-label="Checklist preview">
+            <h3>{form.type} checklist preview</h3>
+            <div className="rf-kpis">
+              <div><strong>{template.length}</strong><span>tasks</span></div>
+              <div><strong>{employeeVisibleTasks}</strong><span>employee sees</span></div>
+              <div><strong>{template.length - employeeVisibleTasks}</strong><span>HR only</span></div>
             </div>
-            <div className="modal-actions">
-              <button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="button button-primary"><Workflow aria-hidden="true" />Create lifecycle checklist</button>
-            </div>
-          </footer>
-        </form>
-      </div>
+            <ol className="rf-tasks">
+              {template.map((item, index) => <li key={item.title}>
+                <span aria-hidden="true">{index + 1}</span>
+                <div><strong>{item.title}</strong><span className="rf-task-meta"><small>{item.category}</small><span className={`rf-tag ${item.visible ? 'rf-tag--visible' : 'rf-tag--private'}`}>{item.visible ? 'Employee sees' : 'HR only'}</span></span></div>
+              </li>)}
+            </ol>
+            <Note icon={LockKeyhole}>{form.type === 'Offboarding' ? 'Access is not removed when the case starts. It is deactivated only after every clearance task is completed or skipped by an authorized HR administrator.' : 'Setting up system access stays hidden from the employee, so their checklist shows only the steps they need to do.'}</Note>
+          </aside>
+        </div>
+
+        <FormFooter note="Creating the checklist records your action and notifies the employee.">
+          <button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+          <button className="button button-primary"><Workflow aria-hidden="true" />Create lifecycle checklist</button>
+        </FormFooter>
+      </form>
     </Modal>}
   </div>
 }

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
+import AdminInviteSetupPage from '../pages/AdminInviteSetupPage.js'
 import AdminPortal from '../pages/AdminPortal.js'
 import EmployeePortal from '../pages/EmployeePortal.js'
 import LoginPage from '../pages/LoginPage.js'
@@ -10,6 +11,7 @@ import { createTestContext, emptySnapshot } from './testContext.js'
 import { saveThemePreference } from '../utils/theme.js'
 import '../styles.css'
 import '../workspace-redesign.css'
+import '../readable-ui.css'
 
 const adminIdentity: PortalIdentity = {
   id: 'ADM001',
@@ -97,7 +99,7 @@ const params = new URLSearchParams(window.location.search)
 const fixtureTheme = params.get('theme')
 if (fixtureTheme === 'light' || fixtureTheme === 'dark') {
   saveThemePreference(fixtureTheme)
-  if (params.get('screen')?.endsWith('-login')) document.documentElement.dataset.theme = fixtureTheme
+  if (params.get('screen')?.endsWith('-login') || params.get('screen') === 'admin-invite') document.documentElement.dataset.theme = fixtureTheme
 }
 // Opt-in populated records keep the original visual baselines stable while the
 // compatibility suite exercises tables, detail panels, and long real-world copy.
@@ -114,7 +116,8 @@ const auditSnapshot: HrmsSnapshot = {
 }
 const screen = params.get('screen') ?? 'admin'
 const isEmployee = screen.startsWith('employee')
-const user = isEmployee ? employeeIdentity : adminIdentity
+// Opt-in first sign-in state shows the required password setup dialog.
+const user = isEmployee ? { ...employeeIdentity, mustChangePassword: params.has('firstLogin') } : adminIdentity
 const context = createTestContext({
   user,
   data: params.get('audit') === 'empty' ? emptySnapshot : params.has('audit') ? auditSnapshot : demoSnapshot,
@@ -143,6 +146,8 @@ const context = createTestContext({
 
 const view = screen === 'admin-login'
   ? <LoginPage portal="admin" />
+  : screen === 'admin-invite'
+    ? <AdminInviteSetupPage preview={{ email: 'sierra.reviewer@quantum.example', firstName: 'Sierra', lastName: 'Reviewer', role: 'security_admin' }} />
   : screen === 'employee-login'
     ? <LoginPage portal="employee" />
     : isEmployee

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Building2, CalendarClock, CalendarDays, CheckCircle2, Clock3, Coffee, Home, MapPin, MonitorSmartphone, Plus, ShieldCheck, Sparkles, UserRound } from 'lucide-react'
+import { CalendarClock, CalendarDays, CheckCircle2, Clock3, Plus, ShieldCheck } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { Field, FormFooter, FormIntro, Note, PersonCard, SummaryList } from '../components/readable.js'
 import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
 import { businessDate } from '../utils/securityMetrics.js'
@@ -9,10 +10,10 @@ import type { HrmsSnapshot, ScheduleInput } from '../types/hrms.js'
 
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
 const workModes = [
-  { value: 'On-site', label: 'On-site', detail: 'Office-based shift', icon: Building2 },
-  { value: 'Remote', label: 'Remote', detail: 'Approved remote workspace', icon: Home },
-  { value: 'Hybrid', label: 'Hybrid', detail: 'Office and remote coverage', icon: MonitorSmartphone },
-  { value: 'Rest Day', label: 'Rest day', detail: 'No working shift assigned', icon: Coffee },
+  { value: 'On-site', label: 'On-site', detail: 'Works from the office' },
+  { value: 'Remote', label: 'Remote', detail: 'Approved remote workspace' },
+  { value: 'Hybrid', label: 'Hybrid', detail: 'Office and remote' },
+  { value: 'Rest Day', label: 'Rest day', detail: 'No shift on this date' },
 ]
 const personName = (data: HrmsSnapshot, employeeId: string) => {
   const employee = data.employees.find((item) => item.id === employeeId)
@@ -56,65 +57,51 @@ export default function AdminTimeOperations() {
     <div className="content-grid content-grid-2"><section className="panel"><div className="panel-header"><div><h2>Today’s attendance</h2><p>Employee clock events from Supabase</p></div></div><TableShell><thead><tr><th>Employee</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>{todayRecords.map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong><small className="table-subtitle">{item.employeeId}</small></td><td>{item.clockIn ?? '—'}</td><td>{item.clockOut ?? 'Open'}</td><td>{item.hours.toFixed(1)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td></tr>)}</tbody></TableShell></section><section className="panel"><div className="panel-header"><div><h2>Time exceptions</h2><p>Employee-submitted corrections and schedule changes</p></div><Badge tone={exceptionRequests.length ? 'warning' : 'success'}>{exceptionRequests.length} open</Badge></div><div className="compact-record-list">{exceptionRequests.map((item) => <article key={item.id}><div><strong>{item.subject}</strong><p>{personName(data, item.employeeId)} · {item.type} · {formatDate(item.requestedDate)}</p></div><Badge tone={statusTone(item.status)}>{item.status}</Badge></article>)}{!exceptionRequests.length && <EmptyState icon={CheckCircle2} title="No time exceptions" text="Correction and schedule requests will appear here and in Approvals." />}</div></section></div>
     <section className="panel"><div className="panel-header"><div><h2>Upcoming schedule roster</h2><p>Next assigned shift per employee</p></div></div><TableShell><thead><tr><th>Employee</th><th>Date</th><th>Shift</th><th>Mode</th><th>Location</th></tr></thead><tbody>{data.schedules.filter((item) => item.date >= today).slice(0, 20).map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong></td><td>{formatDate(item.date)}</td><td>{item.workMode === 'Rest Day' ? 'Rest day' : `${item.shiftStart}–${item.shiftEnd}`}</td><td><Badge tone={item.workMode === 'Rest Day' ? 'neutral' : 'info'}>{item.workMode}</Badge></td><td>{item.location}</td></tr>)}</tbody></TableShell></section>
     {showSchedule && <Modal title="Assign or update schedule" onClose={() => setShowSchedule(false)} size="large">
-      <form className="schedule-create-shell" onSubmit={submit}>
-        <section className="schedule-create-intro">
-          <span className="schedule-create-intro-icon"><CalendarClock aria-hidden="true" /></span>
-          <div><small>Workforce planning</small><h3>Build a clear, accountable workday</h3><p>Set the employee’s work arrangement, time window, and approved location in one synchronized schedule record.</p></div>
-          <span className="schedule-create-state"><Sparkles aria-hidden="true" />Live schedule</span>
-        </section>
+      <form className="rf-form" onSubmit={submit}>
+        <FormIntro>Choose an employee and a date, then set how, when, and where they work. If the employee already has a schedule on that date, saving updates it.</FormIntro>
 
-        <div className="schedule-create-content">
-          <section className="schedule-create-fields" aria-labelledby="schedule-details-title">
-            <header className="schedule-form-heading"><span><CalendarDays aria-hidden="true" /></span><div><h4 id="schedule-details-title">Schedule details</h4><p>Choose the employee, workday, and arrangement.</p></div></header>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <Field label="Employee">{(control) => <select {...control} value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee' && item.status === 'Active').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.id}</option>)}</select>}</Field>
+            {selectedEmployee && <PersonCard name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} meta={`${selectedEmployee.position || 'Position not set'} · ${selectedEmployee.department || 'Department not set'}`} badge={<Badge tone="success">Active</Badge>} />}
 
-            <label className="schedule-premium-field">Employee
-              <span className="schedule-input-shell"><UserRound aria-hidden="true" /><select value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>{data.employees.filter((item) => item.role === 'employee' && item.status === 'Active').map((item) => <option value={item.id} key={item.id}>{item.firstName} {item.lastName} · {item.id}</option>)}</select></span>
-            </label>
-            <div className="schedule-person-card"><span>{selectedEmployee ? `${selectedEmployee.firstName[0]}${selectedEmployee.lastName[0]}` : '—'}</span><div><strong>{selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : 'Select an employee'}</strong><p>{selectedEmployee?.position || 'Position unavailable'} · {selectedEmployee?.department || 'Department unavailable'}</p></div><Badge tone="success">Active</Badge></div>
+            <Field label="Date" help={existingSchedule ? 'This employee already has a schedule on this date. Saving will update it.' : 'A new schedule will be created for this date.'}>{(control) => <input {...control} type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required />}</Field>
 
-            <label className="schedule-premium-field">Date
-              <span className="schedule-input-shell"><CalendarDays aria-hidden="true" /><input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></span>
-              <small>{existingSchedule ? 'Saving will securely update the existing schedule for this employee and date.' : 'A new daily schedule record will be created.'}</small>
-            </label>
-
-            <fieldset className="schedule-mode-picker">
-              <legend>Work mode</legend>
-              <div>{workModes.map(({ value, label, detail, icon: Icon }) => <label key={value} className={form.workMode === value ? 'active' : ''}>
+            <fieldset className="rf-field rf-choices rf-choices--2">
+              <legend className="rf-label">Work mode</legend>
+              <div>{workModes.map(({ value, label, detail }) => <label key={value} className={`rf-choice${form.workMode === value ? ' is-selected' : ''}`}>
                 <input type="radio" name="work-mode" value={value} checked={form.workMode === value} onChange={(event) => setForm({ ...form, workMode: event.target.value })} />
-                <span><Icon aria-hidden="true" /></span><div><strong>{label}</strong><small>{detail}</small></div><CheckCircle2 className="schedule-choice-check" aria-hidden="true" />
+                <span><strong>{label}</strong><small>{detail}</small></span>
               </label>)}</div>
             </fieldset>
 
-            <div className="schedule-field-grid">
-              <label className="schedule-premium-field">Shift start<span className="schedule-input-shell"><Clock3 aria-hidden="true" /><input type="time" value={form.shiftStart} onChange={(event) => setForm({ ...form, shiftStart: event.target.value })} disabled={isRestDay} required /></span></label>
-              <label className="schedule-premium-field">Shift end<span className="schedule-input-shell"><Clock3 aria-hidden="true" /><input type="time" value={form.shiftEnd} onChange={(event) => setForm({ ...form, shiftEnd: event.target.value })} disabled={isRestDay} required /></span></label>
+            <div className="rf-grid">
+              <Field label="Shift start">{(control) => <input {...control} type="time" value={form.shiftStart} onChange={(event) => setForm({ ...form, shiftStart: event.target.value })} disabled={isRestDay} required />}</Field>
+              <Field label="Shift end">{(control) => <input {...control} type="time" value={form.shiftEnd} onChange={(event) => setForm({ ...form, shiftEnd: event.target.value })} disabled={isRestDay} required />}</Field>
             </div>
 
-            <label className="schedule-premium-field">Location
-              <span className="schedule-input-shell"><MapPin aria-hidden="true" /><input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} disabled={isRestDay} required /></span>
-            </label>
-            <label className="schedule-premium-field">Notes <em aria-hidden="true">Optional</em><textarea aria-label="Notes" rows={3} maxLength={500} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Add coverage instructions or an approved scheduling note…" /></label>
-          </section>
+            <Field label="Location">{(control) => <input {...control} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} disabled={isRestDay} required />}</Field>
+            <Field label="Notes" optional>{(control) => <textarea {...control} rows={3} maxLength={500} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="For example: covering the front desk in the afternoon" />}</Field>
+          </div>
 
-          <aside className="schedule-preview" aria-labelledby="schedule-preview-title">
-            <header><div><small>Assignment preview</small><h4 id="schedule-preview-title">{isRestDay ? 'Protected rest day' : 'Scheduled workday'}</h4></div><span><ShieldCheck aria-hidden="true" /></span></header>
-            <div className="schedule-preview-person"><span>{selectedEmployee ? `${selectedEmployee.firstName[0]}${selectedEmployee.lastName[0]}` : '—'}</span><div><strong>{selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : 'No employee selected'}</strong><p>{selectedEmployee?.id || 'Employee ID'} · {selectedEmployee?.department || 'Department'}</p></div></div>
-            <dl className="schedule-preview-metrics"><div><dt>Work date</dt><dd>{formatDate(form.date)}</dd></div><div><dt>Mode</dt><dd>{form.workMode}</dd></div><div><dt>Duration</dt><dd>{durationLabel}</dd></div></dl>
-            <div className={`schedule-shift-track ${isRestDay ? 'rest-day' : ''}`}>
-              <span><Clock3 aria-hidden="true" /></span>
-              <div><small>{isRestDay ? 'No shift required' : 'Start'}</small><strong>{isRestDay ? 'Rest' : form.shiftStart}</strong></div>
-              <i />
-              <div><small>{isRestDay ? 'Recovery time' : 'End'}</small><strong>{isRestDay ? 'Day' : form.shiftEnd}</strong></div>
-            </div>
-            <div className="schedule-preview-location"><MapPin aria-hidden="true" /><div><small>Approved location</small><strong>{isRestDay ? 'Not scheduled' : form.location || 'Location required'}</strong></div></div>
-            <div className="schedule-preview-assurance"><ShieldCheck aria-hidden="true" /><div><strong>Supabase synchronized</strong><p>The save operation uses the protected employee-and-date upsert. Employees can read only their own schedule.</p></div></div>
+          <aside className="rf-summary" aria-label="Schedule summary">
+            <h3>{isRestDay ? 'Rest day summary' : 'Schedule summary'}</h3>
+            <SummaryList items={[
+              ['Employee', selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : 'Not selected'],
+              ['Date', formatDate(form.date)],
+              ['Work mode', form.workMode],
+              ['Hours', isRestDay ? 'No shift' : `${form.shiftStart} – ${form.shiftEnd}`],
+              ['Duration', durationLabel],
+              ['Location', isRestDay ? 'Not scheduled' : form.location || 'Location needed'],
+            ]} />
+            <Note icon={ShieldCheck}>Employees can see only their own schedule. It appears in their portal as soon as you save.</Note>
           </aside>
         </div>
 
-        <footer className="schedule-create-footer">
-          <div className="schedule-create-footnote"><ShieldCheck aria-hidden="true" /><p><strong>Accountable schedule change.</strong> Saving creates or updates one record for the selected employee and work date.</p></div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowSchedule(false)}>Cancel</button><button className="button button-primary" disabled={submission.busy}><CalendarClock aria-hidden="true" />Save schedule</button></div>
-        </footer>
+        <FormFooter note="Saving creates or updates one schedule for this employee and date.">
+          <button type="button" className="button button-secondary" onClick={() => setShowSchedule(false)}>Cancel</button>
+          <button className="button button-primary" disabled={submission.busy}><CalendarClock aria-hidden="true" />Save schedule</button>
+        </FormFooter>
       </form>
     </Modal>}
   </div>

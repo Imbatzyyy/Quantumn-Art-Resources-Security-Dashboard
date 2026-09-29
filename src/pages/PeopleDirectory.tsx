@@ -1,10 +1,7 @@
 import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
-import {
-  BriefcaseBusiness, Building2, CalendarDays, Clock3, ContactRound, Copy, Eye, EyeOff,
-  FolderLock, KeyRound, MapPin, PhilippinePeso, Plus, Search, ShieldCheck,
-  Star, Target, UserRoundCheck, Users, Workflow,
-} from 'lucide-react'
+import { BriefcaseBusiness, Building2, CalendarDays, Clock3, ContactRound, Copy, Eye, EyeOff, FolderLock, KeyRound, PhilippinePeso, Plus, Search, ShieldCheck, Star, Target, UserRoundCheck, Users, Workflow } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { Banner, Field, FormFooter, FormIntro, SectionTitle } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, formatMoney, statusTone } from '../utils/format.js'
 import { Employee360Summary } from './people/Employee360Summary.js'
@@ -127,7 +124,7 @@ export default function PeopleDirectory({ onNavigate }: PeopleDirectoryProps) {
 
   return <div className="page-stack people-directory-page">
     <SectionHeading eyebrow="Employee intelligence" title="People Directory" description="A secure, role-aware view of every employee relationship and lifecycle record." actions={<button className="button button-primary people-add-button" onClick={() => setShowAdd(true)}><Plus />Create employee & login</button>} />
-    <section className="people-assurance-strip"><span><Users /></span><div><strong>One trusted people record</strong><p>Employment, attendance, pay, growth, documents, and access signals remain synchronized through Supabase.</p></div><Badge tone="success">Realtime directory</Badge></section>
+    <Banner icon={Users} title="One up-to-date record for every employee" badge={<Badge tone="success">Updates live</Badge>}>Job details, attendance, pay, goals, documents, and account access stay in sync across the whole system.</Banner>
     <div className="stats-grid stats-grid-3 people-metric-grid">
       <StatCard icon={Users} label="Employee records" value={employeeRecords.length} detail="Employee accounts only" tone="blue" />
       <StatCard icon={Building2} label="Departments" value={new Set(employeeRecords.map((item) => item.department)).size} detail="Employee department coverage" tone="green" />
@@ -198,20 +195,57 @@ function EmployeeForm({ form, setForm, managers, onSubmit, onCancel, busy }: Emp
   const generatePassword = () => { set('temporaryPassword', secureTemporaryPassword()); setShowPassword(true); setCopied(false) }
   const copyPassword = async () => { if (!form.temporaryPassword) return; await navigator.clipboard.writeText(form.temporaryPassword); setCopied(true) }
 
-  return <div className="employee-create-shell">
-    <div className="employee-create-intro"><span><ShieldCheck /></span><div><strong>Secure employee provisioning</strong><p>Create the employee identity, work assignment, emergency contact, and first-login access in one protected workflow.</p></div><Badge tone="success">Least privilege</Badge><div className="employee-provision-steps"><span><b>1</b>Identity</span><span><b>2</b>Employment</span><span><b>3</b>Safety contact</span><span><b>4</b>Portal access</span></div></div>
-    <form className="employee-create-form" onSubmit={onSubmit} aria-busy={busy}>
-      <section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Personal identity</h3><p>Use the employee’s legal work record; optional names improve everyday display.</p></div></div><div className="form-grid employee-field-grid">
-        <label>First name<input maxLength={80} autoComplete="given-name" value={form.firstName} onChange={(event) => set('firstName', event.target.value)} required /></label><label>Middle name <small>Optional</small><input maxLength={80} autoComplete="additional-name" value={form.middleName} onChange={(event) => set('middleName', event.target.value)} /></label><label>Last name<input maxLength={80} autoComplete="family-name" value={form.lastName} onChange={(event) => set('lastName', event.target.value)} required /></label><label>Preferred name <small>Optional</small><input maxLength={80} value={form.preferredName} onChange={(event) => set('preferredName', event.target.value)} /></label><label>Work email<input type="email" maxLength={254} autoComplete="off" value={form.email} onChange={(event) => set('email', event.target.value)} required /></label><label>Mobile number<input type="tel" minLength={7} maxLength={30} placeholder="+63 912 345 6789" autoComplete="tel" value={form.phone} onChange={(event) => set('phone', event.target.value)} required /></label>
-      </div></section>
-      <section className="employee-form-section"><div className="employee-form-heading"><BriefcaseBusiness /><div><h3>Employment assignment</h3><p>Core organization, reporting, location, and compensation information.</p></div></div><div className="form-grid employee-field-grid">
-        <label>Department<select value={form.department} onChange={(event) => set('department', event.target.value)}><option>Operations</option><option>Human Resources</option><option>Finance</option><option>Technology</option><option>Sales & Marketing</option><option>Creative</option></select></label><label>Position<input maxLength={120} value={form.position} onChange={(event) => set('position', event.target.value)} required /></label><label>Employment type<select value={form.employmentType} onChange={(event) => set('employmentType', event.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></label><label>Work arrangement<select value={form.workArrangement} onChange={(event) => set('workArrangement', event.target.value)}><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label><label>Work location<input maxLength={120} value={form.workLocation} onChange={(event) => set('workLocation', event.target.value)} required /></label><label>Cost center <small>Optional</small><input maxLength={60} placeholder="OPS-100" value={form.costCenter} onChange={(event) => set('costCenter', event.target.value)} /></label><label>Start date<input type="date" value={form.hireDate} onChange={(event) => set('hireDate', event.target.value)} required /></label><label>Reports to <small>Optional</small><select value={form.managerId} onChange={(event) => set('managerId', event.target.value)}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select></label><label className="span-2">Monthly base salary<input type="number" min={1} max={999999999} step="0.01" value={form.salary} onChange={(event) => set('salary', event.target.value)} required /><small className="field-privacy">Restricted to authorized HR and payroll roles.</small></label>
-      </div></section>
-      <section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Emergency contact</h3><p>Optional and visible only to authorized HR roles.</p></div></div><div className="form-grid employee-field-grid employee-field-grid-3"><label>Contact name <small>Optional</small><input maxLength={120} value={form.emergencyContactName} onChange={(event) => set('emergencyContactName', event.target.value)} /></label><label>Relationship <small>Optional</small><input maxLength={60} value={form.emergencyContactRelationship} onChange={(event) => set('emergencyContactRelationship', event.target.value)} /></label><label>Contact number <small>Optional</small><input type="tel" minLength={7} maxLength={30} value={form.emergencyContactPhone} onChange={(event) => set('emergencyContactPhone', event.target.value)} /></label></div></section>
-      <section className="employee-form-section employee-access-section"><div className="employee-form-heading"><KeyRound /><div><h3>Employee portal access</h3><p>The employee signs in only through the employee portal and must replace this temporary password during the first login.</p></div></div><label className="secure-password-field">Temporary password<div><input type={showPassword ? 'text' : 'password'} minLength={12} maxLength={128} autoComplete="new-password" value={form.temporaryPassword} onChange={(event) => set('temporaryPassword', event.target.value)} required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff /> : <Eye />}</button><button type="button" onClick={copyPassword} aria-label="Copy password"><Copy /></button></div></label><div className="password-tools"><button className="button button-secondary" type="button" onClick={generatePassword}>Generate strong password</button><span>{copied ? 'Copied securely.' : '12+ characters with uppercase, lowercase, number, and symbol.'}</span></div></section>
-      <div className="employee-create-footer"><div><ShieldCheck /><span>Server-validated · Auth-linked · RLS-protected · Audit logged</span></div><div className="modal-actions"><button className="button button-secondary" type="button" onClick={onCancel} disabled={busy}>Cancel</button><button className="button button-primary" disabled={busy}>{busy ? 'Creating secure account…' : 'Create employee & login'}</button></div></div>
-    </form>
-  </div>
+  return <form className="rf-form rf-form--md" onSubmit={onSubmit} aria-busy={busy}>
+    <FormIntro aside={<Badge tone="success">Least privilege</Badge>}>Create the employee’s record and their sign-in in one step. They sign in to the employee portal with a temporary password and must change it the first time.</FormIntro>
+    <div className="rf-single">
+      <section className="rf-section">
+        <SectionTitle step={1} description="Use the name on the employee’s official records.">Personal details</SectionTitle>
+        <div className="rf-grid">
+          <Field label="First name">{(control) => <input {...control} maxLength={80} autoComplete="given-name" value={form.firstName} onChange={(event) => set('firstName', event.target.value)} required />}</Field>
+          <Field label="Middle name" optional>{(control) => <input {...control} maxLength={80} autoComplete="additional-name" value={form.middleName} onChange={(event) => set('middleName', event.target.value)} />}</Field>
+          <Field label="Last name">{(control) => <input {...control} maxLength={80} autoComplete="family-name" value={form.lastName} onChange={(event) => set('lastName', event.target.value)} required />}</Field>
+          <Field label="Preferred name" optional>{(control) => <input {...control} maxLength={80} value={form.preferredName} onChange={(event) => set('preferredName', event.target.value)} />}</Field>
+          <Field label="Work email">{(control) => <input {...control} type="email" maxLength={254} autoComplete="off" value={form.email} onChange={(event) => set('email', event.target.value)} required />}</Field>
+          <Field label="Mobile number">{(control) => <input {...control} type="tel" minLength={7} maxLength={30} placeholder="+63 912 345 6789" autoComplete="tel" value={form.phone} onChange={(event) => set('phone', event.target.value)} required />}</Field>
+        </div>
+      </section>
+      <section className="rf-section">
+        <SectionTitle step={2} description="Team, role, location, and pay.">Job details</SectionTitle>
+        <div className="rf-grid">
+          <Field label="Department">{(control) => <select {...control} value={form.department} onChange={(event) => set('department', event.target.value)}><option>Operations</option><option>Human Resources</option><option>Finance</option><option>Technology</option><option>Sales & Marketing</option><option>Creative</option></select>}</Field>
+          <Field label="Position">{(control) => <input {...control} maxLength={120} value={form.position} onChange={(event) => set('position', event.target.value)} required />}</Field>
+          <Field label="Employment type">{(control) => <select {...control} value={form.employmentType} onChange={(event) => set('employmentType', event.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select>}</Field>
+          <Field label="Work arrangement">{(control) => <select {...control} value={form.workArrangement} onChange={(event) => set('workArrangement', event.target.value)}><option>On-site</option><option>Hybrid</option><option>Remote</option></select>}</Field>
+          <Field label="Work location">{(control) => <input {...control} maxLength={120} value={form.workLocation} onChange={(event) => set('workLocation', event.target.value)} required />}</Field>
+          <Field label="Cost center" optional>{(control) => <input {...control} maxLength={60} placeholder="OPS-100" value={form.costCenter} onChange={(event) => set('costCenter', event.target.value)} />}</Field>
+          <Field label="Start date">{(control) => <input {...control} type="date" value={form.hireDate} onChange={(event) => set('hireDate', event.target.value)} required />}</Field>
+          <Field label="Reports to" optional>{(control) => <select {...control} value={form.managerId} onChange={(event) => set('managerId', event.target.value)}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select>}</Field>
+          <Field label="Monthly base salary" className="rf-span-2" help="Only authorized HR and payroll staff can see this.">{(control) => <input {...control} type="number" min={1} max={999999999} step="0.01" value={form.salary} onChange={(event) => set('salary', event.target.value)} required />}</Field>
+        </div>
+      </section>
+      <section className="rf-section">
+        <SectionTitle step={3} description="Optional. Only authorized HR staff can see this.">Emergency contact</SectionTitle>
+        <div className="rf-grid rf-grid--3">
+          <Field label="Contact name" optional>{(control) => <input {...control} maxLength={120} value={form.emergencyContactName} onChange={(event) => set('emergencyContactName', event.target.value)} />}</Field>
+          <Field label="Relationship" optional>{(control) => <input {...control} maxLength={60} value={form.emergencyContactRelationship} onChange={(event) => set('emergencyContactRelationship', event.target.value)} />}</Field>
+          <Field label="Contact number" optional>{(control) => <input {...control} type="tel" minLength={7} maxLength={30} value={form.emergencyContactPhone} onChange={(event) => set('emergencyContactPhone', event.target.value)} />}</Field>
+        </div>
+      </section>
+      <section className="rf-section">
+        <SectionTitle step={4} description="The employee signs in to the employee portal with this password and must replace it at their first sign-in.">Portal sign-in</SectionTitle>
+        <Field label="Temporary password" help={copied ? 'Copied to your clipboard.' : 'At least 12 characters, with uppercase, lowercase, a number, and a symbol.'}>{(control) => <div className="rf-password">
+          <input {...control} type={showPassword ? 'text' : 'password'} minLength={12} maxLength={128} autoComplete="new-password" value={form.temporaryPassword} onChange={(event) => set('temporaryPassword', event.target.value)} required />
+          <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff /> : <Eye />}</button>
+          <button type="button" onClick={copyPassword} aria-label="Copy password"><Copy /></button>
+        </div>}</Field>
+        <button className="button button-secondary rf-inline-button" type="button" onClick={generatePassword}><KeyRound aria-hidden="true" />Generate strong password</button>
+      </section>
+    </div>
+    <FormFooter icon={ShieldCheck} note="The server checks the details, links the sign-in, and records the action in the audit log.">
+      <button className="button button-secondary" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
+      <button className="button button-primary" disabled={busy}>{busy ? 'Creating account…' : 'Create employee & login'}</button>
+    </FormFooter>
+  </form>
 }
 
 interface EmployeeEditFormProps {
@@ -224,7 +258,47 @@ interface EmployeeEditFormProps {
 
 function EmployeeEditForm({ form, setForm, managers, onSubmit, onCancel }: EmployeeEditFormProps) {
   const set = <K extends keyof EmployeeUpdateInput>(key: K, value: EmployeeUpdateInput[K]) => setForm((current) => current ? { ...current, [key]: value } : current)
-  return <form className="employee-create-form employee-edit-form" onSubmit={onSubmit}><section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Identity and contact</h3><p>Login email is tied to Supabase Auth and is not editable here.</p></div></div><div className="form-grid employee-field-grid"><label>First name<input maxLength={80} value={form.firstName} onChange={(event) => set('firstName', event.target.value)} required /></label><label>Middle name<input maxLength={80} value={form.middleName} onChange={(event) => set('middleName', event.target.value)} /></label><label>Last name<input maxLength={80} value={form.lastName} onChange={(event) => set('lastName', event.target.value)} required /></label><label>Preferred name<input maxLength={80} value={form.preferredName} onChange={(event) => set('preferredName', event.target.value)} /></label><label className="span-2">Mobile number<input type="tel" minLength={7} maxLength={30} value={form.phone} onChange={(event) => set('phone', event.target.value)} required /></label></div></section><section className="employee-form-section"><div className="employee-form-heading"><MapPin /><div><h3>Employment assignment</h3><p>Changes synchronize to the employee portal immediately.</p></div></div><div className="form-grid employee-field-grid"><label>Department<input maxLength={100} value={form.department} onChange={(event) => set('department', event.target.value)} required /></label><label>Position<input maxLength={120} value={form.position} onChange={(event) => set('position', event.target.value)} required /></label><label>Employment type<select value={form.employmentType} onChange={(event) => set('employmentType', event.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></label><label>Work arrangement<select value={form.workArrangement} onChange={(event) => set('workArrangement', event.target.value)}><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label><label>Work location<input maxLength={120} value={form.workLocation} onChange={(event) => set('workLocation', event.target.value)} required /></label><label>Cost center<input maxLength={60} value={form.costCenter} onChange={(event) => set('costCenter', event.target.value)} /></label><label>Start date<input type="date" value={form.hireDate} onChange={(event) => set('hireDate', event.target.value)} required /></label><label>Reports to<select value={form.managerId} onChange={(event) => set('managerId', event.target.value)}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select></label><label className="span-2">Monthly base salary<input type="number" min={1} step="0.01" value={form.salary} onChange={(event) => set('salary', event.target.value)} required /></label></div></section><section className="employee-form-section"><div className="employee-form-heading"><ContactRound /><div><h3>Emergency contact</h3><p>Optional and restricted to authorized HR roles.</p></div></div><div className="form-grid employee-field-grid employee-field-grid-3"><label>Name<input maxLength={120} value={form.emergencyContactName} onChange={(event) => set('emergencyContactName', event.target.value)} /></label><label>Relationship<input maxLength={60} value={form.emergencyContactRelationship} onChange={(event) => set('emergencyContactRelationship', event.target.value)} /></label><label>Phone<input type="tel" minLength={7} maxLength={30} value={form.emergencyContactPhone} onChange={(event) => set('emergencyContactPhone', event.target.value)} /></label></div></section><div className="employee-create-footer"><div><ShieldCheck /><span>Changes are protected by Supabase RLS and recorded in the audit trail.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><button className="button button-primary">Save employee details</button></div></div></form>
+  return <form className="rf-form rf-form--md" onSubmit={onSubmit}>
+    <FormIntro>Update the employee’s details. Changes appear in their portal right away. Their sign-in email can’t be changed here.</FormIntro>
+    <div className="rf-single">
+      <section className="rf-section">
+        <SectionTitle step={1}>Name and contact</SectionTitle>
+        <div className="rf-grid">
+          <Field label="First name">{(control) => <input {...control} maxLength={80} value={form.firstName} onChange={(event) => set('firstName', event.target.value)} required />}</Field>
+          <Field label="Middle name" optional>{(control) => <input {...control} maxLength={80} value={form.middleName} onChange={(event) => set('middleName', event.target.value)} />}</Field>
+          <Field label="Last name">{(control) => <input {...control} maxLength={80} value={form.lastName} onChange={(event) => set('lastName', event.target.value)} required />}</Field>
+          <Field label="Preferred name" optional>{(control) => <input {...control} maxLength={80} value={form.preferredName} onChange={(event) => set('preferredName', event.target.value)} />}</Field>
+          <Field label="Mobile number" className="rf-span-2">{(control) => <input {...control} type="tel" minLength={7} maxLength={30} value={form.phone} onChange={(event) => set('phone', event.target.value)} required />}</Field>
+        </div>
+      </section>
+      <section className="rf-section">
+        <SectionTitle step={2}>Job details</SectionTitle>
+        <div className="rf-grid">
+          <Field label="Department">{(control) => <input {...control} maxLength={100} value={form.department} onChange={(event) => set('department', event.target.value)} required />}</Field>
+          <Field label="Position">{(control) => <input {...control} maxLength={120} value={form.position} onChange={(event) => set('position', event.target.value)} required />}</Field>
+          <Field label="Employment type">{(control) => <select {...control} value={form.employmentType} onChange={(event) => set('employmentType', event.target.value)}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select>}</Field>
+          <Field label="Work arrangement">{(control) => <select {...control} value={form.workArrangement} onChange={(event) => set('workArrangement', event.target.value)}><option>On-site</option><option>Hybrid</option><option>Remote</option></select>}</Field>
+          <Field label="Work location">{(control) => <input {...control} maxLength={120} value={form.workLocation} onChange={(event) => set('workLocation', event.target.value)} required />}</Field>
+          <Field label="Cost center" optional>{(control) => <input {...control} maxLength={60} value={form.costCenter} onChange={(event) => set('costCenter', event.target.value)} />}</Field>
+          <Field label="Start date">{(control) => <input {...control} type="date" value={form.hireDate} onChange={(event) => set('hireDate', event.target.value)} required />}</Field>
+          <Field label="Reports to" optional>{(control) => <select {...control} value={form.managerId} onChange={(event) => set('managerId', event.target.value)}><option value="">No manager assigned</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.firstName} {manager.lastName} · {manager.position}</option>)}</select>}</Field>
+          <Field label="Monthly base salary" className="rf-span-2" help="Only authorized HR and payroll staff can see this.">{(control) => <input {...control} type="number" min={1} step="0.01" value={form.salary} onChange={(event) => set('salary', event.target.value)} required />}</Field>
+        </div>
+      </section>
+      <section className="rf-section">
+        <SectionTitle step={3} description="Optional. Only authorized HR staff can see this.">Emergency contact</SectionTitle>
+        <div className="rf-grid rf-grid--3">
+          <Field label="Name" optional>{(control) => <input {...control} maxLength={120} value={form.emergencyContactName} onChange={(event) => set('emergencyContactName', event.target.value)} />}</Field>
+          <Field label="Relationship" optional>{(control) => <input {...control} maxLength={60} value={form.emergencyContactRelationship} onChange={(event) => set('emergencyContactRelationship', event.target.value)} />}</Field>
+          <Field label="Phone" optional>{(control) => <input {...control} type="tel" minLength={7} maxLength={30} value={form.emergencyContactPhone} onChange={(event) => set('emergencyContactPhone', event.target.value)} />}</Field>
+        </div>
+      </section>
+    </div>
+    <FormFooter icon={ShieldCheck} note="Changes are protected by access rules and recorded in the audit trail.">
+      <button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button>
+      <button className="button button-primary">Save employee details</button>
+    </FormFooter>
+  </form>
 }
 
 interface Employee360TabProps { tab: ProfileTab; employee: EmployeeRecord; data: HrmsSnapshot; onAddBenefit: () => void }

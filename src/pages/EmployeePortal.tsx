@@ -8,7 +8,6 @@ import {
   Building2,
   Camera,
   CalendarDays,
-  CalendarRange,
   CheckCircle2,
   CircleHelp,
   Clock3,
@@ -18,7 +17,9 @@ import {
   FolderLock,
   Gauge,
   Inbox,
+  Info,
   LifeBuoy,
+  Lightbulb,
   ListChecks,
   MapPin,
   Mail,
@@ -28,6 +29,7 @@ import {
   Plus,
   Phone,
   ReceiptText,
+  RefreshCw,
   Send,
   ShieldCheck,
   Sparkles,
@@ -239,39 +241,64 @@ function EmployeeLeave() {
   }
 
   return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${balance} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={closeLeaveRequest} size="large">
-    <form className="leave-request-shell" onSubmit={submit} aria-busy={leaveSaving}>
-      <section className="leave-request-intro">
-        <span><CalendarRange /></span>
-        <div><small>Time-away planning</small><h3>Plan your leave with clarity</h3><p>Choose your dates, confirm the calculated duration, and send one protected request to your HR approval queue.</p></div>
-        <div className="leave-balance-pill"><small>Available balance</small><strong>{balance} days</strong></div>
-      </section>
+    <form className="rf-form" onSubmit={submit} aria-busy={leaveSaving}>
+      <div className="rf-intro">
+        <p>Choose a leave type and your dates, then tell your approver why you need the time off. HR reviews every request before it is approved.</p>
+        <div className="rf-balance"><span>Available balance</span><strong>{balance} days</strong></div>
+      </div>
 
-      <div className="leave-request-content">
-        <section className="leave-request-fields">
-          <header className="leave-section-heading"><span>01</span><div><small>Leave details</small><h4>What time away do you need?</h4></div></header>
-          <label className="leave-field leave-type-field"><span>Leave type <em>Required</em></span><div className="leave-control"><CalendarDays /><select aria-label="Leave type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select></div><small>{leaveGuidance[form.type]}</small></label>
+      <div className="rf-layout">
+        <div className="rf-fields">
+          <section className="rf-section">
+            <h3><span className="rf-step" aria-hidden="true">1</span>Choose a leave type</h3>
+            <label className="rf-field">
+              <span className="rf-label">Leave type</span>
+              <select aria-label="Leave type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>Vacation</option><option>Sick</option><option>Emergency</option><option>Other</option></select>
+              <span className="rf-help">{leaveGuidance[form.type]}</span>
+            </label>
+          </section>
 
-          <header className="leave-section-heading leave-schedule-heading"><span>02</span><div><small>Schedule</small><h4>Choose the dates to reserve</h4></div></header>
-          <div className="leave-date-grid">
-            <label className="leave-field"><span>Start date <em>Required</em></span><div className="leave-control"><CalendarDays /><input aria-label="Start date" type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: event.target.value > form.endDate ? '' : form.endDate })} required /></div></label>
-            <label className="leave-field"><span>End date <em>Required</em></span><div className="leave-control"><CalendarDays /><input aria-label="End date" type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></div></label>
-          </div>
-          <label className="leave-duration-field"><span><Clock3 /></span><div><small>Calculated duration</small><input aria-label="Calculated duration" value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} readOnly /></div><Badge tone={days > 30 ? 'danger' : days ? 'success' : 'neutral'}>{days > 30 ? 'Over limit' : days ? 'Ready' : 'Waiting'}</Badge></label>
-          {days > 30 && <p className="form-error leave-request-error">A single request may cover at most 30 calendar days. Please shorten the date range.</p>}
+          <section className="rf-section">
+            <h3><span className="rf-step" aria-hidden="true">2</span>Pick your dates</h3>
+            <div className="rf-grid">
+              <label className="rf-field"><span className="rf-label">Start date</span><input aria-label="Start date" type="date" min={today} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: event.target.value > form.endDate ? '' : form.endDate })} required /></label>
+              <label className="rf-field"><span className="rf-label">End date</span><input aria-label="End date" type="date" min={form.startDate || today} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required /></label>
+            </div>
+            <div className="rf-duration">
+              <label><span>Duration</span><input aria-label="Calculated duration" value={days ? `${days} day${days === 1 ? '' : 's'}` : 'Select valid dates'} readOnly /></label>
+              <Badge tone={days > 30 ? 'danger' : days ? 'success' : 'neutral'}>{days > 30 ? 'Over limit' : days ? 'Ready' : 'Waiting for dates'}</Badge>
+            </div>
+            {days > 30 && <p className="rf-error" role="alert">A single request may cover at most 30 calendar days. Please shorten the date range.</p>}
+          </section>
 
-          <header className="leave-section-heading leave-reason-heading"><span>03</span><div><small>Context</small><h4>Help your approver understand</h4></div></header>
-          <label className="leave-field leave-reason-field"><span>Reason <em>Required</em></span><div className="leave-control"><FileText /><textarea aria-label="Reason" minLength={3} maxLength={500} rows={4} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Briefly explain your leave request…" required /></div><small>{form.reason.length}/500 characters</small></label>
-        </section>
+          <section className="rf-section">
+            <h3><span className="rf-step" aria-hidden="true">3</span>Add a reason</h3>
+            <label className="rf-field">
+              <span className="rf-label-row"><span className="rf-label">Reason</span><span className="rf-count">{form.reason.length}/500</span></span>
+              <textarea aria-label="Reason" minLength={3} maxLength={500} rows={4} value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="For example: Family event out of town" required />
+            </label>
+          </section>
+        </div>
 
-        <aside className="leave-request-preview" aria-label="Leave request preview">
-          <header><span><ShieldCheck /></span><div><small>Protected request preview</small><h4>Review before sending</h4></div></header>
-          <div className="leave-preview-calendar"><small>{form.type} leave</small><strong>{days ? `${days} day${days === 1 ? '' : 's'}` : 'Dates pending'}</strong><span>{form.startDate ? formatDate(form.startDate) : 'Start date'} <i>→</i> {form.endDate ? formatDate(form.endDate) : 'End date'}</span></div>
-          <dl><div><dt>Requested by</dt><dd>{user.firstName} {user.lastName}</dd></div><div><dt>Current balance</dt><dd>{balance} days</dd></div><div><dt>Estimated after approval</dt><dd>{days ? `${remainingBalance} days` : '—'}</dd></div><div><dt>Approval status</dt><dd><Badge tone="warning">Pending review</Badge></dd></div></dl>
-          <div className="leave-request-privacy"><ShieldCheck /><p><strong>Private HR workflow.</strong> Only you and authorized HR approvers can view this request. The decision synchronizes to your leave history.</p></div>
+        <aside className="rf-summary" aria-label="Leave request preview">
+          <h3>Request summary</h3>
+          <dl>
+            <div><dt>Leave type</dt><dd>{form.type}</dd></div>
+            <div><dt>Dates</dt><dd>{form.startDate && form.endDate ? `${formatDate(form.startDate)} – ${formatDate(form.endDate)}` : form.startDate ? `From ${formatDate(form.startDate)}` : 'Not selected yet'}</dd></div>
+            <div><dt>Duration</dt><dd>{days ? `${days} day${days === 1 ? '' : 's'}` : '—'}</dd></div>
+            <div><dt>Requested by</dt><dd>{user.firstName} {user.lastName}</dd></div>
+            <div><dt>Current balance</dt><dd>{balance} days</dd></div>
+            <div><dt>Balance after approval</dt><dd>{days ? `${remainingBalance} days` : '—'}</dd></div>
+            <div><dt>Status after sending</dt><dd><Badge tone="warning">Pending review</Badge></dd></div>
+          </dl>
+          <p className="rf-note"><ShieldCheck aria-hidden="true" /><span>Only you and authorized HR approvers can see this request. The decision appears in your leave history.</span></p>
         </aside>
       </div>
 
-      <footer className="leave-request-footer"><div><Clock3 /><p><strong>Review your dates carefully.</strong> Approved requests affect your displayed leave balance.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={closeLeaveRequest} disabled={leaveSaving}>Cancel</button><button className="button button-primary" disabled={!requestReady || leaveSaving}>{leaveSaving ? 'Submitting securely…' : 'Submit leave request'}</button></div></footer>
+      <footer className="rf-footer">
+        <p><Info aria-hidden="true" /><span>Approved leave is deducted from your available balance.</span></p>
+        <div className="rf-actions"><button type="button" className="button button-secondary" onClick={closeLeaveRequest} disabled={leaveSaving}>Cancel</button><button className="button button-primary" disabled={!requestReady || leaveSaving}>{leaveSaving ? 'Submitting…' : 'Submit leave request'}</button></div>
+      </footer>
     </form>
   </Modal>}</div>
 }
@@ -311,66 +338,63 @@ function RequestCenter() {
       <div className="stats-grid stats-grid-3"><StatCard icon={Send} label="Submitted" value={requests.filter((item) => item.status === 'Submitted').length} tone="blue" /><StatCard icon={Clock3} label="In progress" value={requests.filter((item) => ['Under Review', 'More Information'].includes(item.status)).length} tone="amber" /><StatCard icon={CheckCircle2} label="Resolved" value={requests.filter((item) => ['Approved', 'Rejected', 'Completed'].includes(item.status)).length} tone="green" /></div>
       <section className="panel"><div className="panel-header"><div><h2>My requests</h2><p>Open a row to see the full decision timeline.</p></div></div>{requests.length ? <TableShell><thead><tr><th>Request</th><th>Type</th><th>Priority</th><th>Updated</th><th>Status</th><th></th></tr></thead><tbody>{requests.map((item) => <tr key={item.id}><td><strong>#{item.id} · {item.subject}</strong><small className="table-subtitle">{item.description}</small></td><td>{item.type}</td><td><Badge tone={item.priority === 'Urgent' ? 'danger' : item.priority === 'High' ? 'warning' : 'neutral'}>{item.priority}</Badge></td><td>{formatDateTime(item.updatedAt)}</td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td><td><button className="text-button" onClick={() => setSelectedId(item.id)}>View</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={FileCheck2} title="No HR requests yet" text="Use New request when you need a correction, document, answer, or HR decision." />}</section>
       {showCreate && <Modal title="Create an HR request" onClose={() => setShowCreate(false)} size="large">
-        <form className="employee-request-create-shell" onSubmit={submit}>
-          <section className="employee-request-create-intro">
-            <span><FileCheck2 aria-hidden="true" /></span>
-            <div><small>Private case intake</small><h3>Tell HR what needs attention</h3><p>Provide the essential facts once. Your request, replies, and HR decision stay together in one accountable case history.</p></div>
-            <Badge tone="success">Employee-owned record</Badge>
-          </section>
+        <form className="rf-form" onSubmit={submit}>
+          <div className="rf-intro">
+            <p>Tell HR what you need. Your request, HR’s replies, and the final decision stay together in one private case. All fields are required unless marked optional.</p>
+          </div>
 
-          <div className="employee-request-create-content">
-            <section className="employee-request-fields">
-              <header className="employee-request-section-heading"><span><MessageSquareText aria-hidden="true" /></span><div><small>Request details</small><h4>Describe the outcome you need</h4><p>{routing.guidance}</p></div></header>
-
-              <div className="employee-request-field-grid">
-                <label className="employee-request-field">
-                  <span>Request type <em aria-hidden="true">Required</em></span>
-                  <span className="employee-request-input-shell"><LifeBuoy aria-hidden="true" /><select aria-label="Request type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{requestTypes.map((type) => <option key={type}>{type}</option>)}</select></span>
+          <div className="rf-layout">
+            <div className="rf-fields">
+              <div className="rf-grid">
+                <label className="rf-field rf-span-2">
+                  <span className="rf-label">Request type</span>
+                  <select aria-label="Request type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>{requestTypes.map((type) => <option key={type}>{type}</option>)}</select>
+                  <span className="rf-help rf-tip"><Lightbulb aria-hidden="true" />{routing.guidance}</span>
                 </label>
 
-                <fieldset className="employee-request-priority" aria-label="Priority">
-                  <legend>Priority</legend>
-                  <div>{requestPriorities.map((priority) => <label className={form.priority === priority.value ? `active priority-${priority.value.toLowerCase()}` : ''} key={priority.value}><input type="radio" name="request-priority" value={priority.value} checked={form.priority === priority.value} onChange={(event) => setForm({ ...form, priority: event.target.value })} /><span>{priority.label}</span><small>{priority.detail}</small></label>)}</div>
+                <fieldset className="rf-field rf-span-2 rf-choices">
+                  <legend className="rf-label">Priority</legend>
+                  <div>{requestPriorities.map((priority) => <label className={`rf-choice${form.priority === priority.value ? ' is-selected' : ''}`} key={priority.value}><input type="radio" name="request-priority" value={priority.value} checked={form.priority === priority.value} onChange={(event) => setForm({ ...form, priority: event.target.value })} /><span><strong>{priority.label}</strong><small>{priority.detail}</small></span></label>)}</div>
                 </fieldset>
 
-                <label className="employee-request-field span-2">
-                  <span>Subject <em aria-hidden="true">Required</em><small>{subjectLength}/120</small></span>
-                  <span className="employee-request-input-shell"><FileText aria-hidden="true" /><input aria-label="Subject" minLength={3} maxLength={120} placeholder="Summarize the request in one clear sentence" value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></span>
+                <label className="rf-field rf-span-2">
+                  <span className="rf-label-row"><span className="rf-label">Subject</span><span className="rf-count">{subjectLength}/120</span></span>
+                  <input aria-label="Subject" minLength={3} maxLength={120} placeholder="Summarize your request in one sentence" value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required />
                 </label>
 
-                <label className="employee-request-field">
-                  <span>Related date <small>Optional</small></span>
-                  <span className="employee-request-input-shell"><CalendarDays aria-hidden="true" /><input aria-label="Related date (optional)" type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} /></span>
+                <label className="rf-field">
+                  <span className="rf-label">Related date <span className="rf-optional">(optional)</span></span>
+                  <input aria-label="Related date (optional)" type="date" value={form.requestedDate} onChange={(event) => setForm({ ...form, requestedDate: event.target.value })} />
                 </label>
 
-                <label className="employee-request-field">
-                  <span>Requested value <small>Optional</small></span>
-                  <span className="employee-request-input-shell"><CheckCircle2 aria-hidden="true" /><input aria-label="Requested value (optional)" maxLength={240} placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} /></span>
+                <label className="rf-field">
+                  <span className="rf-label">Requested value <span className="rf-optional">(optional)</span></span>
+                  <input aria-label="Requested value (optional)" maxLength={240} placeholder="Example: Correct clock-out to 5:06 PM" value={form.requestedValue} onChange={(event) => setForm({ ...form, requestedValue: event.target.value })} />
                 </label>
 
-                <label className="employee-request-field employee-request-details span-2">
-                  <span>Details <em aria-hidden="true">Required</em><small>{detailsLength}/1000</small></span>
-                  <textarea aria-label="Details" rows={6} minLength={3} maxLength={1000} placeholder="Explain what happened, what the record currently shows, and the outcome you are requesting." value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required />
+                <label className="rf-field rf-span-2">
+                  <span className="rf-label-row"><span className="rf-label">Details</span><span className="rf-count">{detailsLength}/1000</span></span>
+                  <textarea aria-label="Details" rows={6} minLength={3} maxLength={1000} placeholder="What happened, what the record shows now, and what you would like HR to do." value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required />
                 </label>
               </div>
-            </section>
+            </div>
 
-            <aside className="employee-request-summary" aria-live="polite">
-              <header><small>Case summary</small><h4>Review before submitting</h4><p>Confirm the classification and information HR will receive.</p></header>
-              <dl>
-                <div><dt>Request</dt><dd>{form.type}</dd></div>
-                <div><dt>Assigned queue</dt><dd>{routing.team}</dd></div>
+            <aside className="rf-summary" aria-label="HR request summary">
+              <h3>Request summary</h3>
+              <dl aria-live="polite">
+                <div><dt>Request type</dt><dd>{form.type}</dd></div>
+                <div><dt>Handled by</dt><dd>{routing.team}</dd></div>
                 <div><dt>Priority</dt><dd><Badge tone={form.priority === 'Urgent' ? 'danger' : form.priority === 'High' ? 'warning' : 'neutral'}>{form.priority}</Badge></dd></div>
                 <div><dt>Related date</dt><dd>{form.requestedDate ? formatDate(form.requestedDate) : 'Not specified'}</dd></div>
               </dl>
-              <div className="employee-request-summary-copy"><small>Request preview</small><strong>{form.subject.trim() || 'Your subject will appear here'}</strong><p>{form.description.trim() || 'Add concise facts so HR can understand and resolve the case without unnecessary follow-up.'}</p></div>
-              <div className="employee-request-security"><ShieldCheck aria-hidden="true" /><div><strong>Private by default</strong><p>Visible only to you and authorized HR roles. Submission and sensitive case actions are audited.</p></div></div>
+              <div className="rf-preview"><span>Preview</span><strong>{form.subject.trim() || 'Your subject will appear here'}</strong><p>{form.description.trim() || 'Clear, specific details help HR resolve your request without follow-up questions.'}</p></div>
+              <p className="rf-note"><ShieldCheck aria-hidden="true" /><span>Only you and authorized HR staff can see this request. Every submission and case update is logged.</span></p>
             </aside>
           </div>
 
-          <footer className="employee-request-create-footer">
-            <div><ShieldCheck aria-hidden="true" /><p><strong>{requestReady ? 'Ready to submit.' : 'Complete the required fields.'}</strong> The case is created only after Supabase accepts the protected request.</p></div>
-            <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary" disabled={!requestReady}><Send aria-hidden="true" />Submit request</button></div>
+          <footer className="rf-footer">
+            <p><Info aria-hidden="true" /><span><strong>{requestReady ? 'Ready to submit.' : 'Complete the required fields.'}</strong> Your request is created once it is securely saved.</span></p>
+            <div className="rf-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button className="button button-primary" disabled={!requestReady}><Send aria-hidden="true" />Submit request</button></div>
           </footer>
         </form>
       </Modal>}
@@ -540,38 +564,61 @@ function EmployeeProfile() {
   }
   return <div className="page-stack employee-feature-page employee-profile-page">
     <SectionHeading eyebrow="My account" title="My Profile" description="Your trusted identity, employment details, and employee-managed contact information in one secure workspace." actions={<><Badge tone="success">Supabase Realtime</Badge>{editing ? <Badge tone="info">Editing profile</Badge> : <button type="button" className="button button-secondary profile-edit-button" onClick={beginEditing}><Pencil />Edit profile</button>}</>} />
-    <section className="profile-identity-hero">
-      <input ref={photoInput} className="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile picture" onChange={choosePhoto} />
-      <button type="button" className="profile-photo-button" onClick={() => photoInput.current?.click()} aria-label="Change profile picture">
-        {user.avatarUrl ? <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName} profile`} /> : <strong>{initials}</strong>}
-        <span><Camera />Update photo</span>
+    <section className="rf-profile rf-profile-header" aria-label="Profile summary">
+      <input ref={photoInput} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose profile picture" tabIndex={-1} onChange={choosePhoto} />
+      <button type="button" className="rf-avatar-button" onClick={() => photoInput.current?.click()}>
+        <span className="rf-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span aria-hidden="true">{initials}</span>}</span>
+        <span className="rf-avatar-action"><Camera aria-hidden="true" />Update photo</span>
       </button>
-      <div className="profile-identity-copy"><small>Employee identity</small><h2>{user.preferredName || user.firstName} {user.lastName}</h2><p><BriefcaseBusiness />{user.position}<i /> <Building2 />{user.department}</p><div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="info">{user.id}</Badge><Badge tone="neutral">Live HR record</Badge></div></div>
-      <div className="profile-identity-assurance"><ShieldCheck /><div><small>Record assurance</small><strong>Verified employment profile</strong><p>Operational fields are governed by HR and synchronized in realtime.</p></div></div>
+      <div className="rf-identity">
+        <h2>{user.preferredName || user.firstName} {user.lastName}</h2>
+        <p className="rf-identity-role"><span><BriefcaseBusiness aria-hidden="true" />{user.position}</span><span><Building2 aria-hidden="true" />{user.department}</span></p>
+        <div className="inline-badges"><Badge tone={statusTone(user.status)}>{user.status}</Badge><Badge tone="info">{user.id}</Badge><Badge tone="neutral">Live HR record</Badge></div>
+      </div>
+      <div className="rf-assurance"><span className="rf-icon rf-icon--green"><ShieldCheck aria-hidden="true" /></span><div><strong>Verified employment profile</strong><p>HR manages your employment details. Approved updates appear here automatically.</p></div></div>
     </section>
 
-    <div className="profile-workspace-grid">
-      <section className="panel profile-record-card">
-        <header className="profile-card-heading"><span><BriefcaseBusiness /></span><div><small>Official record</small><h2>Employment information</h2><p>Read-only details managed by authorized HR administrators.</p></div><Badge tone="neutral">HR managed</Badge></header>
-        <div className="profile-record-grid">
-          <label>Employee ID<input value={user.id} disabled /></label><label>Work email<input value={user.email} disabled /></label>
-          <label>Legal name<input value={[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')} disabled /></label><label>Preferred name<input value={user.preferredName || '—'} disabled /></label>
-          <label>Department<input value={user.department} disabled /></label><label>Position<input value={user.position} disabled /></label>
-          <label>Employment type<input value={user.employmentType} disabled /></label><label>Work arrangement<input value={user.workArrangement} disabled /></label>
-          <label>Work location<input value={user.workLocation} disabled /></label><label>Hire date<input value={formatDate(user.hireDate)} disabled /></label>
-          <label>Cost center<input value={user.costCenter || '—'} disabled /></label>
-        </div>
+    <div className="rf-profile rf-profile-grid">
+      <section className="rf-card" aria-labelledby="profile-employment-title">
+        <header className="rf-card-head"><span className="rf-icon"><BriefcaseBusiness aria-hidden="true" /></span><div><h2 id="profile-employment-title">Employment information</h2><p>Read-only. Contact HR through Request Center if something is incorrect.</p></div><Badge tone="neutral">HR managed</Badge></header>
+        <dl className="rf-details">
+          {[
+            ['Employee ID', user.id],
+            ['Work email', user.email],
+            ['Legal name', [user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ')],
+            ['Preferred name', user.preferredName || '—'],
+            ['Department', user.department],
+            ['Position', user.position],
+            ['Employment type', user.employmentType],
+            ['Work arrangement', user.workArrangement],
+            ['Work location', user.workLocation],
+            ['Hire date', formatDate(user.hireDate)],
+            ['Cost center', user.costCenter || '—'],
+          ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || '—'}</dd></div>)}
+        </dl>
       </section>
 
-      <aside className="profile-side-stack">
-        <form className={`panel profile-contact-card${editing ? ' is-editing' : ''}`} onSubmit={requestSave}>
-          <header className="profile-card-heading"><span><Phone /></span><div><small>Employee managed</small><h2>Contact details</h2><p>Keep your direct contact number current.</p></div></header>
-          <label><span>Phone number {editing ? <em>Editing</em> : currentPhone && <em>On file</em>}</span><div><Phone /><input ref={phoneInput} type="tel" autoComplete="tel" aria-label="Phone number" value={editing ? form.phone : user.phone ?? ''} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} placeholder={editing ? '+63 912 345 6789' : 'Not provided'} disabled={!editing || phoneSaving} required /></div></label>
-          {editing && <div className="profile-contact-actions"><button type="button" className="button button-secondary" onClick={cancelEditing} disabled={phoneSaving}>Cancel</button><button type="submit" className="button button-primary" disabled={phoneSaving || !phoneChanged}>{phoneSaving ? 'Saving securely…' : 'Save changes'}</button></div>}
+      <div className="rf-profile-side">
+        <form className="rf-card" onSubmit={requestSave} aria-labelledby="profile-contact-title">
+          <header className="rf-card-head"><span className="rf-icon"><Phone aria-hidden="true" /></span><div><h2 id="profile-contact-title">Contact details</h2><p>Keep your phone number up to date so HR can reach you.</p></div></header>
+          <div className="rf-card-body">
+            <label className="rf-field">
+              <span className="rf-label-row"><span className="rf-label">Phone number</span>{editing ? <span className="rf-status rf-status--editing">Editing</span> : currentPhone && <span className="rf-status">On file</span>}</span>
+              <input ref={phoneInput} type="tel" autoComplete="tel" aria-label="Phone number" value={editing ? form.phone : user.phone ?? ''} minLength={7} maxLength={30} onChange={(event) => setForm({ phone: event.target.value })} placeholder={editing ? '+63 912 345 6789' : 'Not provided'} disabled={!editing || phoneSaving} required />
+            </label>
+            {editing
+              ? <div className="rf-actions"><button type="button" className="button button-secondary" onClick={cancelEditing} disabled={phoneSaving}>Cancel</button><button type="submit" className="button button-primary" disabled={phoneSaving || !phoneChanged}>{phoneSaving ? 'Saving…' : 'Save changes'}</button></div>
+              : <p className="rf-help">To change it, select <strong>Edit profile</strong> at the top of this page.</p>}
+          </div>
         </form>
-        <section className="panel profile-access-card"><span><ShieldCheck /></span><div><small>Data protection</small><h2>Controlled access</h2><p>Your photo is stored in an employee-owned private path. Employment changes remain restricted to authorized HR roles.</p></div><ul><li><Camera />Private photo object</li><li><Mail />Verified work email</li><li><ShieldCheck />Audited profile changes</li></ul></section>
-        <section className="profile-realtime-note"><span><ShieldCheck /></span><div><strong>Realtime profile synchronization</strong><p>Approved changes are read from Supabase and reflected across your portal session.</p></div><Badge tone="success">Connected</Badge></section>
-      </aside>
+
+        <section className="rf-card" aria-labelledby="profile-privacy-title">
+          <header className="rf-card-head"><span className="rf-icon rf-icon--green"><ShieldCheck aria-hidden="true" /></span><div><h2 id="profile-privacy-title">Privacy &amp; access</h2><p>Your photo is stored privately. Only authorized HR roles can change your employment record.</p></div></header>
+          <ul className="rf-feature-list"><li><Camera aria-hidden="true" />Private photo storage</li><li><Mail aria-hidden="true" />Verified work email</li><li><ShieldCheck aria-hidden="true" />Every profile change is logged</li></ul>
+        </section>
+
+        <section className="rf-card rf-sync" aria-label="Profile sync status"><span className="rf-icon"><RefreshCw aria-hidden="true" /></span><div><strong>Automatic updates</strong><p>Changes approved by HR appear here without refreshing.</p></div><Badge tone="success">Connected</Badge></section>
+      </div>
     </div>
     {confirmingSave && <Modal title="Confirm profile changes" onClose={() => setConfirmingSave(false)} dismissible={!phoneSaving}><div className="profile-save-confirmation"><span className="profile-save-confirmation-icon"><ShieldCheck /></span><div className="profile-save-confirmation-copy"><small>Employee-managed information</small><h3>Save this phone number?</h3><p>Only your contact number will change. Your identity and employment record remain protected and read-only.</p></div><dl><div><dt>Current</dt><dd>{currentPhone || 'Not provided'}</dd></div><span aria-hidden="true">→</span><div><dt>New</dt><dd>{nextPhone}</dd></div></dl><div className="profile-save-assurance"><ShieldCheck /><span><strong>Secure Supabase update</strong><small>This change is restricted to your signed-in employee account and recorded in the audit trail.</small></span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setConfirmingSave(false)} disabled={phoneSaving}>Keep editing</button><button type="button" className="button button-primary" onClick={confirmSave} disabled={phoneSaving}>{phoneSaving ? 'Saving securely…' : 'Confirm & save'}</button></div></div></Modal>}
     {photoEditorUrl && <Modal title="Crop your profile picture" onClose={closePhotoEditor} size="large" dismissible={!photoSaving}><ProfilePhotoEditor sourceUrl={photoEditorUrl} saving={photoSaving} onCancel={closePhotoEditor} onSave={savePhoto} /></Modal>}

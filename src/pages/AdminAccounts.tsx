@@ -1,21 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import {
-  BadgeCheck,
-  Building2,
-  Check,
-  Crown,
-  KeyRound,
-  LockKeyhole,
-  Mail,
-  MailCheck,
-  Phone,
-  Plus,
-  ShieldCheck,
-  UserCog,
-  UserRound,
-  Users,
-} from 'lucide-react'
+import { BadgeCheck, Building2, Check, Crown, KeyRound, LockKeyhole, MailCheck, Plus, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { Banner, Field, FormFooter, FormIntro, SectionTitle } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { statusTone } from '../utils/format.js'
 import type { AdminInviteInput } from '../types/hrms.js'
@@ -110,9 +96,7 @@ export default function AdminAccounts() {
     <div className="page-stack admin-accounts-page">
       <SectionHeading eyebrow="Privileged identity management" title="Admin Accounts & Roles" description="Invite accountable administrators with least-privilege access and a personal password-setup link." actions={<button className="button button-primary" onClick={() => setShowInvite(true)}><Plus size={17} />Invite administrator</button>} />
 
-      <section className="admin-access-banner">
-        <span><ShieldCheck /></span><div><strong>Privileged access is invitation-only</strong><p>Quantum HRMS creates the Supabase identity and role profile together, then Resend delivers a time-limited password-setup link. Passwords are never generated or emailed by the administrator.</p></div><Badge tone="success">Server protected</Badge>
-      </section>
+      <Banner icon={ShieldCheck} tone="success" title="Administrator access is by invitation only" badge={<Badge tone="success">Server protected</Badge>}>Quantum HRMS creates the sign-in and the role together, then emails a personal, time-limited link to set a password. Administrators never create or send passwords.</Banner>
 
       <div className="stats-grid stats-grid-3">
         <StatCard icon={UserCog} label="Administrator accounts" value={accounts.length} detail="Supabase-linked identities" tone="blue" />
@@ -132,44 +116,36 @@ export default function AdminAccounts() {
 
       {showInvite && (
         <Modal title="Invite administrator account" onClose={() => !submitting && setShowInvite(false)} size="large">
-          <div className="admin-invite-modal-shell">
-            <div className="admin-invite-modal-intro"><span><MailCheck /></span><div><strong>Secure administrator invitation</strong><p>Create a role-scoped Supabase account and deliver a personal password-setup link through the verified Quantum HRMS email domain.</p></div><Badge tone="success">No emailed password</Badge></div>
-            <form className="admin-account-form" onSubmit={submit} aria-busy={submitting}>
-              <section className="admin-identity-section">
-                <div className="employee-form-heading"><UserCog /><div><h3>Administrator identity</h3><p>Use the recipient’s verified organizational identity and work contact details.</p></div></div>
-                <div className="admin-identity-grid">
-                  <label className="admin-field-card">
-                    <span className="admin-field-icon"><UserRound /></span>
-                    <span className="admin-field-copy"><strong>First name</strong><small>Legal or preferred given name</small></span>
-                    <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input maxLength={80} autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} placeholder="Enter first name" required /></span>
-                  </label>
-                  <label className="admin-field-card">
-                    <span className="admin-field-icon"><UserRound /></span>
-                    <span className="admin-field-copy"><strong>Last name</strong><small>Official family or surname</small></span>
-                    <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input maxLength={80} autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} placeholder="Enter last name" required /></span>
-                  </label>
-                  <label className="admin-field-card">
-                    <span className="admin-field-icon email"><Mail /></span>
-                    <span className="admin-field-copy"><strong>Work email</strong><small>Invitation and sign-in address</small></span>
-                    <span className="admin-field-state">Required</span>
-                    <span className="admin-field-control"><input type="email" maxLength={254} autoComplete="off" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" required /></span>
-                  </label>
-                  <label className="admin-field-card">
-                    <span className="admin-field-icon phone"><Phone /></span>
-                    <span className="admin-field-copy"><strong>Mobile number</strong><small>Account recovery contact</small></span>
-                    <span className="admin-field-state optional">Optional</span>
-                    <span className="admin-field-control"><input type="tel" minLength={7} maxLength={30} autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+63 912 345 6789" /></span>
-                  </label>
+          <form className="rf-form rf-form--md" onSubmit={submit} aria-busy={submitting}>
+            <FormIntro aside={<Badge tone="success">No emailed password</Badge>}>Create an administrator account with only the access they need. They receive a personal, time-limited email link to set their own password.</FormIntro>
+            <div className="rf-single">
+              <section className="rf-section">
+                <SectionTitle step={1} description="Use their verified work details.">Administrator details</SectionTitle>
+                <div className="rf-grid">
+                  <Field label="First name">{(control) => <input {...control} maxLength={80} autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} placeholder="Enter first name" required />}</Field>
+                  <Field label="Last name">{(control) => <input {...control} maxLength={80} autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} placeholder="Enter last name" required />}</Field>
+                  <Field label="Work email" help="The invitation is sent here, and it becomes their sign-in.">{(control) => <input {...control} type="email" maxLength={254} autoComplete="off" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" required />}</Field>
+                  <Field label="Mobile number" optional help="Used for account recovery.">{(control) => <input {...control} type="tel" minLength={7} maxLength={30} autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+63 912 345 6789" />}</Field>
                 </div>
               </section>
-              <section><div className="employee-form-heading"><ShieldCheck /><div><h3>Access role</h3><p>Select the smallest role that supports the administrator’s actual responsibilities.</p></div></div><div className="admin-role-selector">{Object.entries(adminRoles).map(([key, role]) => { const Icon = role.icon; return <label className={form.role === key ? 'selected' : ''} key={key}><input type="radio" name="admin-role" value={key} checked={form.role === key} onChange={(event) => setForm({ ...form, role: event.target.value as AdminRoleKey })} /><span><Icon /></span><div><strong>{role.label}</strong><small>{role.description}</small><ul>{role.permissions.map((permission) => <li key={permission}><Check />{permission}</li>)}</ul></div></label> })}</div></section>
-              <label className="privileged-confirmation"><input type="checkbox" checked={form.confirmed} onChange={(event) => setForm({ ...form, confirmed: event.target.checked })} required /><span><strong>I verified this recipient and role assignment.</strong><small>The invitation grants privileged HRMS access after the recipient creates a password.</small></span></label>
-              <div className="admin-invite-delivery"><MailCheck /><div><strong>What the recipient receives</strong><p>A branded email from the verified Quantum HRMS sender with one personal, time-limited button to accept the invitation and create a private password.</p></div></div>
-              <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowInvite(false)} disabled={submitting}>Cancel</button><button className="button button-primary" disabled={submitting || !form.confirmed}>{submitting ? 'Creating account & sending email…' : 'Create account & send invitation'}</button></div>
-            </form>
-          </div>
+              <section className="rf-section">
+                <SectionTitle step={2} description="Choose the smallest role that covers their responsibilities.">Access role</SectionTitle>
+                <fieldset className="rf-field rf-choices rf-choices--2">
+                  <legend className="sr-only">Access role</legend>
+                  <div>{Object.entries(adminRoles).map(([key, role]) => <label className={`rf-choice${form.role === key ? ' is-selected' : ''}`} key={key}>
+                    <input type="radio" name="admin-role" value={key} checked={form.role === key} onChange={(event) => setForm({ ...form, role: event.target.value as AdminRoleKey })} />
+                    <span><strong>{role.label}</strong><small>{role.description}</small><span className="rf-perms">{role.permissions.map((permission) => <span key={permission}><Check aria-hidden="true" />{permission}</span>)}</span></span>
+                  </label>)}</div>
+                </fieldset>
+              </section>
+              <label className="rf-choice rf-choice--plain"><input type="checkbox" checked={form.confirmed} onChange={(event) => setForm({ ...form, confirmed: event.target.checked })} required /><span><strong>I verified this recipient and role assignment.</strong><small>The invitation gives administrator access once they create a password.</small></span></label>
+              <p className="rf-callout"><MailCheck aria-hidden="true" /><span><strong>What they receive:</strong> an email from the verified Quantum HRMS sender with one personal, time-limited button to accept the invitation and create a private password.</span></p>
+            </div>
+            <FormFooter icon={LockKeyhole} note="Only System Administrators can invite administrators.">
+              <button type="button" className="button button-secondary" onClick={() => setShowInvite(false)} disabled={submitting}>Cancel</button>
+              <button className="button button-primary" disabled={submitting || !form.confirmed}>{submitting ? 'Creating account & sending email…' : 'Create account & send invitation'}</button>
+            </FormFooter>
+          </form>
         </Modal>
       )}
     </div>

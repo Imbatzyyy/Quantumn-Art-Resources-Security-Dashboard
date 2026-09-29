@@ -1,15 +1,16 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import {
+  AlertTriangle,
   CheckCircle2,
   Circle,
   Eye,
   EyeOff,
-  KeyRound,
   LockKeyhole,
   LogOut,
   ShieldCheck,
 } from 'lucide-react'
 import { Modal } from './ui.js'
+import { Banner, Field, FormFooter } from './readable.js'
 import SignOutConfirmation from './SignOutConfirmation.js'
 import { useHrms } from '../state/useHrms.js'
 import {
@@ -19,15 +20,6 @@ import {
   passwordStrength,
   validatePermanentPassword,
 } from '../utils/passwordPolicy.js'
-
-function PasswordRule({ passed, children }: { passed: boolean; children: ReactNode }) {
-  return (
-    <li className={passed ? 'passed' : ''}>
-      {passed ? <CheckCircle2 /> : <Circle />}
-      <span>{children}</span>
-    </li>
-  )
-}
 
 export default function FirstLoginPasswordSetup() {
   const { user, completeInitialPassword, logout } = useHrms()
@@ -46,7 +38,9 @@ export default function FirstLoginPasswordSetup() {
   const checks = passwordChecks(form.newPassword, context)
   const strength = passwordStrength(form.newPassword, context)
   const matches = Boolean(form.confirmPassword) && form.newPassword === form.confirmPassword
+  const hasNewPassword = form.newPassword.length > 0
   const ready = Object.values(checks).every(Boolean) && matches && Boolean(form.currentPassword)
+  const inputType = showPasswords ? 'text' : 'password'
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -71,92 +65,57 @@ export default function FirstLoginPasswordSetup() {
 
   return <>
     <Modal title="Secure your employee account" size="wide" dismissible={false}>
-      <div className="first-login-setup">
-        <section className="first-login-intro">
-          <span><ShieldCheck /></span>
-          <div>
-            <small>Required before entering the workspace</small>
-            <h2>Create your private password</h2>
-            <p>The password in your credentials email is temporary. Replace it now so only you can access your HR information.</p>
-          </div>
-        </section>
+      <form className="rf-form rf-form--md rf-first-login" onSubmit={submit} aria-busy={saving}>
+        <div className="rf-first-login-notice">
+          <Banner icon={ShieldCheck} label="Required before you continue" title="Create your private password">
+            The password in your welcome email is temporary. Replace it now so only you can open your HR information.
+          </Banner>
+        </div>
 
-        <form className="first-login-form" onSubmit={submit} aria-busy={saving}>
-          <div className="first-login-fields">
-            <label>
-              Temporary password
-              <span className="setup-password-input">
-                <KeyRound />
-                <input
-                  type={showPasswords ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={form.currentPassword}
-                  onChange={(event) => setForm({ ...form, currentPassword: event.target.value })}
-                  placeholder="From your credentials email"
-                  required
-                />
-              </span>
-            </label>
-            <label>
-              New private password
-              <span className="setup-password-input">
-                <LockKeyhole />
-                <input
-                  type={showPasswords ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  maxLength={PASSWORD_MAX_LENGTH}
-                  value={form.newPassword}
-                  onChange={(event) => setForm({ ...form, newPassword: event.target.value })}
-                  placeholder="A long, unique passphrase"
-                  required
-                />
-              </span>
-            </label>
-            <label>
-              Confirm new password
-              <span className="setup-password-input">
-                <ShieldCheck />
-                <input
-                  type={showPasswords ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  maxLength={PASSWORD_MAX_LENGTH}
-                  value={form.confirmPassword}
-                  onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })}
-                  placeholder="Enter the same password again"
-                  required
-                />
-              </span>
-            </label>
-            <button className="setup-visibility" type="button" onClick={() => setShowPasswords((visible) => !visible)}>
-              {showPasswords ? <EyeOff /> : <Eye />}
-              {showPasswords ? 'Hide passwords' : 'Show passwords'}
-            </button>
-          </div>
-
-          <aside className="password-guidance" aria-label="Password security guidance">
-            <div className="strength-heading">
-              <div><span>Password strength</span><strong>{strength.label}</strong></div>
-              <div className={`strength-meter strength-${strength.score}`}><i /><i /><i /><i /></div>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <div className="rf-grid rf-grid--single">
+              <Field label="Temporary password" help="It’s in your welcome email, “Your Quantum HRMS employee account is ready.”">
+                {(control) => <input {...control} type={inputType} autoComplete="current-password" value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} placeholder="Enter the temporary password" required />}
+              </Field>
+              <Field label="New password" help={`At least ${PASSWORD_MIN_LENGTH} characters. A few unrelated words work well.`}>
+                {(control) => <input {...control} type={inputType} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} placeholder="Use a long, unique passphrase" required />}
+              </Field>
+              <Field label="Confirm new password">
+                {(control) => <>
+                  <input {...control} className={form.confirmPassword ? matches ? 'is-valid' : 'is-invalid' : ''} type={inputType} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={form.confirmPassword} onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} placeholder="Enter the new password again" required />
+                  {form.confirmPassword && <span className={`rf-match ${matches ? 'is-match' : 'is-mismatch'}`}>{matches ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{matches ? 'Passwords match.' : 'The passwords do not match yet.'}</span>}
+                </>}
+              </Field>
             </div>
-            <ul>
-              <PasswordRule passed={checks.length}>At least {PASSWORD_MIN_LENGTH} characters; longer passphrases are encouraged</PasswordRule>
-              <PasswordRule passed={checks.notCurrent}>Different from the emailed temporary password</PasswordRule>
-              <PasswordRule passed={checks.notCommon}>Not a commonly used or easily guessed password</PasswordRule>
-              <PasswordRule passed={checks.notPersonal}>Does not contain your name, email username, or “Quantum HRMS”</PasswordRule>
-              <PasswordRule passed={matches}>Both new-password entries match</PasswordRule>
-            </ul>
-            <div className="password-tip"><ShieldCheck /><p>Use a password manager or a unique multi-word passphrase. Spaces and symbols are allowed. Never reuse this password or send it by email or chat.</p></div>
-          </aside>
-
-          {error && <p className="form-error setup-error" role="alert">{error}</p>}
-          <div className="first-login-actions">
-            <button className="button button-secondary" type="button" onClick={() => setShowSignOutConfirm(true)} disabled={saving}><LogOut />Sign out instead</button>
-            <button className="button button-primary" disabled={!ready || saving}>{saving ? 'Securing your account…' : 'Save password & enter workspace'}</button>
+            <button className="rf-toggle" type="button" aria-pressed={showPasswords} onClick={() => setShowPasswords((visible) => !visible)}>{showPasswords ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}{showPasswords ? 'Hide passwords' : 'Show passwords'}</button>
+            {error && <p className="rf-error" role="alert">{error}</p>}
           </div>
-        </form>
-      </div>
+
+          <aside className="rf-summary" aria-label="Password security guidance">
+            <h3>Password requirements</h3>
+            <div className="rf-strength">
+              <div className="rf-strength-head"><span>Strength</span><strong>{strength.label}</strong></div>
+              <div className={`rf-meter strength-${strength.score}`} role="meter" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={strength.score} aria-valuetext={strength.label}><i /><i /><i /><i /></div>
+            </div>
+            <ul className="rf-checklist">
+              {[
+                [hasNewPassword && checks.length && checks.maximum, `${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters (longer is better)`],
+                [hasNewPassword && checks.notCurrent, 'Different from the temporary password'],
+                [hasNewPassword && checks.notCommon, 'Not a common or easy-to-guess password'],
+                [hasNewPassword && checks.notPersonal, 'Does not include your name, email username, or “Quantum HRMS”'],
+                [matches, 'Both new password entries match'],
+              ].map(([met, text]) => <li className={met ? 'is-met' : ''} key={String(text)}>{met ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<span><span className="sr-only">{met ? 'Met: ' : 'Not met yet: '}</span>{text}</span></li>)}
+            </ul>
+            <p className="rf-note"><LockKeyhole aria-hidden="true" /><span>Tip: a password manager or a multi-word passphrase works well. Never reuse this password or share it by email or chat.</span></p>
+          </aside>
+        </div>
+
+        <FormFooter icon={ShieldCheck} note="After saving, you go straight to your workspace.">
+          <button className="button button-secondary" type="button" onClick={() => setShowSignOutConfirm(true)} disabled={saving}><LogOut aria-hidden="true" />Sign out instead</button>
+          <button className="button button-primary" disabled={!ready || saving}>{saving ? 'Securing your account…' : 'Save password & enter workspace'}</button>
+        </FormFooter>
+      </form>
     </Modal>
     <SignOutConfirmation open={showSignOutConfirm} portal="employee" onCancel={() => setShowSignOutConfirm(false)} onConfirm={logout} />
   </>

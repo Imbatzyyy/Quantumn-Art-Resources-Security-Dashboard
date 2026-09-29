@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import {
-  AlertTriangle, CheckCircle2, Circle, Clock3, Eye, EyeOff, KeyRound, Laptop, LockKeyhole,
-  LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck,
-} from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Circle, Clock3, Eye, EyeOff, KeyRound, Laptop, LockKeyhole, LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck } from 'lucide-react'
 import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.js'
+import { Banner } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -71,6 +69,7 @@ export default function EmployeeAccountSecurity() {
   const passwordRules = passwordChecks(passwordForm.newPassword, passwordContext)
   const passwordRating = passwordStrength(passwordForm.newPassword, passwordContext)
   const passwordsMatch = Boolean(passwordForm.confirmPassword) && passwordForm.newPassword === passwordForm.confirmPassword
+  const hasNewPassword = passwordForm.newPassword.length > 0
   const passwordReady = Boolean(passwordForm.currentPassword)
     && Object.values(passwordRules).every(Boolean)
     && passwordsMatch
@@ -132,10 +131,7 @@ export default function EmployeeAccountSecurity() {
   return <div className="page-stack account-security-page">
     <SectionHeading eyebrow="Your private account protection" title="Account Security" description="Protect your own sign-in, review personal security activity, and remove devices you do not recognize." actions={<button className="button button-secondary" onClick={refreshData}><RefreshCw size={17} />Refresh my activity</button>} />
 
-    <section className={`account-protection-hero status-${protectionTone}`}>
-      <span><ShieldCheck /></span><div><small>Personal protection status</small><h2>{protectionStatus}</h2><p>{protectionStatus === 'Protected' ? 'Your account has MFA enabled and no activity currently needs review.' : `${openAlerts.length} alert${openAlerts.length === 1 ? '' : 's'} and ${unfamiliar.length} other session${unfamiliar.length === 1 ? '' : 's'} may need your attention.`}</p></div>
-      <Badge tone={protectionTone}>{mfaStatus.currentLevel.toUpperCase()} session</Badge>
-    </section>
+    <Banner icon={ShieldCheck} tone={protectionTone} label="Your account status" title={protectionStatus} badge={<Badge tone={protectionTone}>{mfaStatus.currentLevel.toUpperCase()} session</Badge>}>{protectionStatus === 'Protected' ? 'Your account has MFA turned on and nothing needs your review.' : `${openAlerts.length} alert${openAlerts.length === 1 ? '' : 's'} and ${unfamiliar.length} other session${unfamiliar.length === 1 ? '' : 's'} may need your attention.`}</Banner>
 
     <nav className="security-tabs" aria-label="Account security sections">{tabs.map((tab) => <button className={activeTab === tab ? 'active' : ''} key={tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
 
@@ -174,50 +170,55 @@ export default function EmployeeAccountSecurity() {
     {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button></div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
 
     {showPassword && <Modal title="Change your password" size="large" onClose={closePasswordDialog}>
-      <form className="password-change-shell" onSubmit={submitPassword} aria-busy={passwordSaving}>
-        <section className="password-change-intro">
-          <span><ShieldCheck /></span>
-          <div><small>Private account protection</small><h3>Replace your password securely</h3><p>Your current password is verified before Supabase Auth accepts the new one. Password values are never stored in your employee record.</p></div>
-          <Badge tone="success">Authenticated update</Badge>
-        </section>
+      <form className="rf-form rf-form--md" onSubmit={submitPassword} aria-busy={passwordSaving}>
+        <div className="rf-intro">
+          <p>Enter your current password, then choose a new one. We check your current password before saving the change, and your password is never stored in your employee record.</p>
+        </div>
 
-        <div className="password-change-content">
-          <section className="password-change-fields">
-            <header className="password-change-heading"><span><KeyRound /></span><div><small>Credentials</small><h4>Confirm it is you</h4><p>Enter your current password, then choose a new private passphrase.</p></div></header>
-            <div className="password-change-inputs">
-              <label>
-                <span>Current password <em>Required</em></span>
-                <span className="password-change-input-shell"><KeyRound /><input aria-label="Current password" type={showPasswordValues ? 'text' : 'password'} autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} placeholder="Enter your current password" required /></span>
+        <div className="rf-layout">
+          <div className="rf-fields">
+            <div className="rf-grid rf-grid--single">
+              <label className="rf-field">
+                <span className="rf-label">Current password</span>
+                <input aria-label="Current password" type={showPasswordValues ? 'text' : 'password'} autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })} placeholder="Enter your current password" required />
               </label>
-              <label>
-                <span>New private password <em>Required</em></span>
-                <span className="password-change-input-shell"><LockKeyhole /><input aria-label="New private password" type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} placeholder="Use a long, unique passphrase" required /></span>
+              <label className="rf-field">
+                <span className="rf-label">New password</span>
+                <input aria-label="New password" type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.newPassword} onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })} placeholder="Use a long, unique passphrase" required />
               </label>
-              <label>
-                <span>Confirm password <em>Required</em></span>
-                <span className={`password-change-input-shell ${passwordForm.confirmPassword ? passwordsMatch ? 'is-valid' : 'is-invalid' : ''}`}><ShieldCheck /><input aria-label="Confirm password" type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })} placeholder="Enter the same password again" required /></span>
-                {passwordForm.confirmPassword && <small className={passwordsMatch ? 'password-match-success' : 'password-match-error'}>{passwordsMatch ? 'Passwords match.' : 'The two new-password entries do not match yet.'}</small>}
+              <label className="rf-field">
+                <span className="rf-label">Confirm new password</span>
+                <input aria-label="Confirm new password" className={passwordForm.confirmPassword ? passwordsMatch ? 'is-valid' : 'is-invalid' : ''} type={showPasswordValues ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })} placeholder="Enter the new password again" required />
+                {passwordForm.confirmPassword && <span className={`rf-match ${passwordsMatch ? 'is-match' : 'is-mismatch'}`}>{passwordsMatch ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}{passwordsMatch ? 'Passwords match.' : 'The passwords do not match yet.'}</span>}
               </label>
             </div>
-            <button className="password-change-visibility" type="button" onClick={() => setShowPasswordValues((visible) => !visible)}>{showPasswordValues ? <EyeOff /> : <Eye />}{showPasswordValues ? 'Hide password values' : 'Show password values'}</button>
-          </section>
+            <button className="rf-toggle" type="button" aria-pressed={showPasswordValues} onClick={() => setShowPasswordValues((visible) => !visible)}>{showPasswordValues ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}{showPasswordValues ? 'Hide passwords' : 'Show passwords'}</button>
+            {passwordError && <p className="rf-error" role="alert">{passwordError}</p>}
+          </div>
 
-          <aside className="password-change-guidance" aria-label="New password security guidance">
-            <header><span><ShieldCheck /></span><div><small>Live security check</small><h4>{passwordRating.label}</h4></div></header>
-            <div className={`password-change-meter strength-${passwordRating.score}`} role="meter" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordRating.score} aria-valuetext={passwordRating.label}><i /><i /><i /><i /></div>
-            <ul>
-              <li className={passwordRules.length && passwordRules.maximum ? 'passed' : ''}>{passwordRules.length && passwordRules.maximum ? <CheckCircle2 /> : <Circle />}<span>{PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} characters; a longer passphrase is encouraged</span></li>
-              <li className={passwordRules.notCurrent ? 'passed' : ''}>{passwordRules.notCurrent ? <CheckCircle2 /> : <Circle />}<span>Different from your current password</span></li>
-              <li className={passwordRules.notCommon ? 'passed' : ''}>{passwordRules.notCommon ? <CheckCircle2 /> : <Circle />}<span>Not a common or easily guessed password</span></li>
-              <li className={passwordRules.notPersonal ? 'passed' : ''}>{passwordRules.notPersonal ? <CheckCircle2 /> : <Circle />}<span>Does not contain your name, email username, or “Quantum HRMS”</span></li>
-              <li className={passwordsMatch ? 'passed' : ''}>{passwordsMatch ? <CheckCircle2 /> : <Circle />}<span>Both new-password entries match</span></li>
+          <aside className="rf-summary" aria-label="New password security guidance">
+            <h3>Password requirements</h3>
+            <div className="rf-strength">
+              <div className="rf-strength-head"><span>Strength</span><strong>{passwordRating.label}</strong></div>
+              <div className={`rf-meter strength-${passwordRating.score}`} role="meter" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordRating.score} aria-valuetext={passwordRating.label}><i /><i /><i /><i /></div>
+            </div>
+            <ul className="rf-checklist">
+              {[
+                [hasNewPassword && passwordRules.length && passwordRules.maximum, `${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters (longer is better)`],
+                [hasNewPassword && passwordRules.notCurrent, 'Different from your current password'],
+                [hasNewPassword && passwordRules.notCommon, 'Not a common or easy-to-guess password'],
+                [hasNewPassword && passwordRules.notPersonal, 'Does not include your name, email username, or “Quantum HRMS”'],
+                [passwordsMatch, 'Both new password entries match'],
+              ].map(([met, text]) => <li className={met ? 'is-met' : ''} key={String(text)}>{met ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<span><span className="sr-only">{met ? 'Met: ' : 'Not met yet: '}</span>{text}</span></li>)}
             </ul>
-            <div className="password-change-tip"><LockKeyhole /><p>Use a password manager or a unique multi-word passphrase. Never reuse or send this password through email or chat.</p></div>
+            <p className="rf-note"><LockKeyhole aria-hidden="true" /><span>Tip: a password manager or a multi-word passphrase works well. Never reuse this password or share it by email or chat.</span></p>
           </aside>
         </div>
 
-        {passwordError && <p className="form-error password-change-error" role="alert">{passwordError}</p>}
-        <footer className="password-change-footer"><div><ShieldCheck /><p><strong>Secure Supabase Auth update.</strong> The change is recorded in your protected security activity history.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={closePasswordDialog} disabled={passwordSaving}>Cancel</button><button className="button button-primary" disabled={!passwordReady || passwordSaving}>{passwordSaving ? 'Updating securely…' : 'Update my password'}</button></div></footer>
+        <footer className="rf-footer">
+          <p><ShieldCheck aria-hidden="true" /><span>This change is recorded in your security history.</span></p>
+          <div className="rf-actions"><button type="button" className="button button-secondary" onClick={closePasswordDialog} disabled={passwordSaving}>Cancel</button><button className="button button-primary" disabled={!passwordReady || passwordSaving}>{passwordSaving ? 'Updating…' : 'Update my password'}</button></div>
+        </footer>
       </form>
     </Modal>}
   </div>

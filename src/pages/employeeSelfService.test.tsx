@@ -247,8 +247,10 @@ describe('Employee self-service provider boundaries', () => {
     await user.click(screen.getByRole('button', { name: 'My Profile' }))
     const phone = screen.getByLabelText('Phone number')
     expect(phone).toBeDisabled()
-    expect(screen.getByLabelText('Employee ID')).toBeDisabled()
-    expect(screen.getByLabelText('Work email')).toBeDisabled()
+    const record = screen.getByRole('region', { name: 'Employment information' })
+    expect(within(record).getByText('Employee ID')).toBeVisible()
+    expect(within(record).getByText(employee.email!)).toBeVisible()
+    expect(within(record).queryAllByRole('textbox')).toHaveLength(0)
 
     await user.click(screen.getByRole('button', { name: 'Edit profile' }))
     expect(phone).toBeEnabled()
