@@ -129,7 +129,7 @@ test('fictional employee can access only their synchronized self-service workspa
 
   await page.getByRole('button', { name: 'My Profile', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'My Profile' })).toBeVisible()
-  await expect(page.getByLabel('Work email')).toHaveValue(authenticatedAccounts.employee.email)
+  await expect(page.locator('dl > div').filter({ has: page.getByText('Work email', { exact: true }) }).locator('dd')).toHaveText(authenticatedAccounts.employee.email)
 
   await page.goto('/admin')
   await expect(page).toHaveURL(/\/admin\/login$/)

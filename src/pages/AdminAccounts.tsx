@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { BadgeCheck, Building2, Check, Crown, KeyRound, LockKeyhole, MailCheck, Plus, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { BadgeCheck, Building2, Check, Crown, KeyRound, LockKeyhole, Mail, MailCheck, Plus, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
-import { Banner, Field, FormFooter, FormIntro, SectionTitle } from '../components/readable.js'
+import { Banner, Field, FormFooter, FormIntro, SectionTitle, PersonCard } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { statusTone } from '../utils/format.js'
 import type { AdminInviteInput } from '../types/hrms.js'
+import type { EmployeeRecord } from '../types/hrms.js'
+import { adminPasswordReset } from '../services/adminPasswordReset.js'
 
 type AdminRoleKey = AdminInviteInput['role']
 
@@ -67,11 +69,25 @@ export default function AdminAccounts() {
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const [resetAccount, setResetAccount] = useState<EmployeeRecord | null>(null)
+  const [resetBusy, setResetBusy] = useState(false)
+  const [resetError, setResetError] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetConfirmed, setResetConfirmed] = useState(false)
   if (!data || !user) return null
 
   const accounts = data.employees.filter((employee) => employee.role !== 'employee')
   const activeAccounts = accounts.filter((account) => account.status === 'Active').length
   const representedRoles = new Set(accounts.map((account) => account.role)).size
+  const sendReset = async () => {
+    if (!resetAccount || !resetConfirmed || resetBusy) return
+    setResetBusy(true); setResetError('')
+    try {
+      await adminPasswordReset({ action: 'send', employeeCode: resetAccount.id, confirmed: true }, true)
+      setResetSent(true)
+    } catch (reason) { setResetError(reason instanceof Error ? reason.message : 'The reset email could not be sent.') }
+    finally { setResetBusy(false) }
+  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -111,8 +127,24 @@ export default function AdminAccounts() {
 
       <section className="panel">
         <div className="panel-header"><div><h2>Privileged account directory</h2><p>Profile and access-role changes synchronize from Supabase in real time.</p></div><Badge tone="success">Live</Badge></div>
-        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
+        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th><th>Recovery</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td><td><button className="button button-secondary admin-reset-trigger" disabled={account.status !== 'Active'} aria-label={`Reset password for ${account.firstName} ${account.lastName}`} onClick={() => { setResetAccount(account); setResetError(''); setResetSent(false); setResetConfirmed(false) }}><KeyRound size={16} />Reset password</button></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
       </section>
+
+      {resetAccount && <Modal title={resetSent ? 'Reset email requested' : 'Reset administrator password'} onClose={() => !resetBusy && setResetAccount(null)} size="wide">
+        <div className="rf-form rf-form--sm" aria-busy={resetBusy}>
+          <div className="admin-reset-content">
+            <Banner icon={resetSent ? MailCheck : KeyRound} title={resetSent ? 'Check the administrator’s inbox' : 'Send a private recovery link'} tone={resetSent ? 'success' : 'info'}>{resetSent ? 'The email provider accepted the message. Delivery to the inbox may take a moment; the recipient can also check Spam or Junk.' : 'Only the selected administrator receives the link. Their password and role stay unchanged until they complete the reset.'}</Banner>
+            <PersonCard name={`${resetAccount.firstName} ${resetAccount.lastName}`} meta={resetAccount.email} />
+            <ul className="admin-reset-details"><li>The link expires 30 minutes after the request and works once.</li><li>A new reset replaces any previous reset link.</li><li>An enrolled authenticator is still required.</li><li>Saving a new password revokes existing HRMS sessions.</li></ul>
+            {!resetSent && <label className="account-policy-confirm"><input type="checkbox" checked={resetConfirmed} onChange={event => setResetConfirmed(event.target.checked)} disabled={resetBusy} /><span>I verified this administrator’s identity and their request for a password reset.</span></label>}
+            {resetError && <p className="rf-error" role="alert">{resetError}</p>}
+          </div>
+          <FormFooter icon={ShieldCheck} note="This security action is recorded in the audit log.">
+            <button type="button" className="button button-secondary" disabled={resetBusy} onClick={() => setResetAccount(null)}>{resetSent ? 'Done' : 'Cancel'}</button>
+            {!resetSent && <button type="button" className="button button-primary" disabled={!resetConfirmed || resetBusy} onClick={() => void sendReset()}><Mail size={17} />{resetBusy ? 'Sending reset email…' : 'Send reset email'}</button>}
+          </FormFooter>
+        </div>
+      </Modal>}
 
       {showInvite && (
         <Modal title="Invite administrator account" onClose={() => !submitting && setShowInvite(false)} size="large">

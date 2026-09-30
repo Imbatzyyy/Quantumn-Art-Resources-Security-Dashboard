@@ -22,6 +22,48 @@
   --rf-danger: #ffb3bc;
 }
 
+/* First-use policies and role-controlled administrator recovery. */
+.account-policy-content, .admin-reset-content { display: grid; gap: 1.25rem; padding: 1.5rem; min-width: 0; }
+.account-policy-document { padding: 1.25rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.account-policy-document header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }
+.account-policy-document h3 { margin: 0; color: var(--text); font-size: 1.125rem; }
+.account-policy-document header span { color: var(--text-soft); font-size: .8125rem; }
+.account-policy-document p { margin: .65rem 0 0; color: var(--text-soft); font-size: .9375rem; line-height: 1.75; }
+.account-policy-sections { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.account-policy-sections h4 { margin: 0; color: var(--text); font-size: .9375rem; }
+.account-policy-checks { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); }
+.account-policy-checks label, .account-policy-confirm { display: flex; align-items: flex-start; gap: .75rem; color: var(--text); font-size: .9375rem; line-height: 1.6; cursor: pointer; }
+.account-policy-checks input, .account-policy-confirm input { width: 20px; height: 20px; flex: 0 0 20px; margin-top: .15rem; accent-color: var(--blue); }
+.account-policy-checks p { margin: 0; color: var(--text-soft); font-size: .875rem; line-height: 1.6; }
+.rf-first-login .rf-footer { flex-wrap: wrap; }
+.rf-first-login .rf-actions { flex-wrap: wrap; }
+.admin-reset-content .rf-person p { overflow-wrap: anywhere; }
+.admin-reset-details { margin: 0; padding-left: 1.25rem; color: var(--text-soft); font-size: .9375rem; line-height: 1.8; }
+.admin-reset-trigger { min-height: 44px; white-space: nowrap; }
+.admin-reset-form { display: grid; gap: 1.1rem; margin-top: 1.5rem; }
+.admin-reset-page .recovery-card .rf-help { margin: 0; font-size: .875rem; }
+.admin-reset-page { background: var(--bg); }
+.admin-reset-page .recovery-card { color: var(--text); border-color: var(--border); background: var(--surface); }
+.admin-reset-page .recovery-card > p, .admin-reset-page .portal-label, .admin-reset-page .recovery-brand span { color: var(--text-soft); }
+.admin-reset-page .recovery-brand img { padding: .25rem; border-radius: 12px; background: white; }
+.admin-reset-page .recovery-assurance { color: var(--text-soft); border-color: var(--border); font-size: .875rem; }
+.admin-reset-page .recovery-assurance svg { color: var(--rf-success); }
+.admin-reset-page .rf-toggle, .admin-reset-page .recovery-back { color: var(--rf-accent); }
+.admin-reset-page .recovery-back { max-width: 100%; text-align: center; font-size: .9375rem; }
+.admin-reset-page .recovery-card > .rf-error { color: var(--rf-danger); }
+/* The existing sign-in card intentionally stays light in both saved themes. */
+.login-recovery-row small { color: #52647b; font-size: .8125rem; font-weight: 500; line-height: 1.5; text-align: left; }
+@media (max-width: 600px) {
+  .login-recovery-row small { line-height: 1.25; }
+  .account-policy-review .rf-banner, .admin-reset-content .rf-banner { flex-direction: column; align-items: flex-start; }
+  .account-policy-review .rf-banner > div, .admin-reset-content .rf-banner > div { width: 100%; }
+  .account-policy-content, .admin-reset-content { padding: 1rem; }
+  .account-policy-document, .account-policy-checks { padding: 1rem; }
+  .account-policy-review .rf-footer { position: static; }
+  .rf-first-login .rf-actions { width: 100%; }
+  .rf-first-login .rf-actions .button { width: 100%; }
+}
+
 :is(.rf-form, .rf-profile, .rf-banner, .rf-hero, .rf-zap) .badge { min-height: 26px; padding: .2rem .65rem; font-size: .8125rem; font-weight: 700; }
 :is(.rf-form, .rf-profile, .rf-banner, .rf-hero, .rf-zap) .inline-badges { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
 

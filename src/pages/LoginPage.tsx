@@ -206,7 +206,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
               </button>
             </span>
             {<span className="login-recovery-row">
-              <Link to={isAdmin ? "/admin/forgot-password" : "/employee/forgot-password"}>Forgot password?</Link>
+              {isAdmin ? <small>Need help signing in? Contact your System Administrator.</small> : <Link to="/employee/forgot-password">Forgot password?</Link>}
             </span>}
           </div>}
 

@@ -8,6 +8,7 @@ const EmployeeRecoveryPage = lazy(() => import('./pages/EmployeeRecoveryPage.js'
 const AdminPortal = lazy(() => import('./pages/AdminPortal.js'))
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.js'))
 const AdminInviteSetupPage = lazy(() => import('./pages/AdminInviteSetupPage.js'))
+const AdminPasswordResetPage = lazy(() => import('./pages/AdminPasswordResetPage.js'))
 const SignOutConfirmation = lazy(() => import('./components/SignOutConfirmation.js'))
 
 function WorkspaceLoading({ verified = false }: { verified?: boolean }) {
@@ -47,8 +48,8 @@ export default function App() {
           <Route path="/admin/verify-email" element={<SignInVerificationPage key="admin-verify" portal="admin" />} />
           <Route path="/employee/verify-email" element={<SignInVerificationPage key="employee-verify" portal="employee" />} />
           <Route path="/admin/setup-password" element={<AdminInviteSetupPage />} />
-          <Route path="/admin/forgot-password" element={<EmployeeRecoveryPage portal="admin" mode="request" />} />
-          <Route path="/admin/reset-password" element={<EmployeeRecoveryPage portal="admin" mode="update" />} />
+          <Route path="/admin/forgot-password" element={<Navigate to="/admin/login" replace />} />
+          <Route path="/admin/reset-password" element={<AdminPasswordResetPage />} />
           <Route path="/employee/login" element={user?.portal === 'employee' ? <Navigate to="/employee" replace /> : <LoginPage key="employee-login" portal="employee" />} />
           <Route path="/employee/forgot-password" element={<EmployeeRecoveryPage mode="request" />} />
           <Route path="/employee/reset-password" element={<EmployeeRecoveryPage mode="update" />} />

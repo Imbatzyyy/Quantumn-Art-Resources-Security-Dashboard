@@ -35,6 +35,14 @@ describe('public authentication routes', () => {
     await user.click(screen.getByRole('button', { name: 'Show password' }))
     expect(password).toHaveAttribute('type', 'text')
     expect(screen.queryByText(/Open the employee portal/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Forgot password?' })).not.toBeInTheDocument()
+  })
+
+  it('redirects the retired public admin recovery route to sign in', async () => {
+    renderRoute('/admin/forgot-password')
+    expect(await screen.findByRole('heading', { name: 'Administrator sign in' })).toBeVisible()
+    expect(screen.getByTestId('route-location')).toHaveTextContent('/admin/login')
+    expect(screen.queryByRole('button', { name: 'Send password-reset email' })).not.toBeInTheDocument()
   })
 
   it('renders employee sign-in with a private recovery link, logical focus order, and no admin discovery link', async () => {

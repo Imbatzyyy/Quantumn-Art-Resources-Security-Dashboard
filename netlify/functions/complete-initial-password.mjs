@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Buffer } from 'node:buffer'
 import { assertSetupAccess } from './_shared/hrms-access.mjs'
 import { validatePermanentPassword } from '../../src/utils/passwordPolicy.js'
+import { validSetupAcknowledgment, TERMS_VERSION, PRIVACY_VERSION } from '../../src/utils/accountPolicies.js'
 
 const json = (body, status = 200) =>
   globalThis.Response.json(body, {
@@ -64,6 +65,9 @@ export default async (request) => {
   if (callerData.user.app_metadata?.must_change_password !== true) {
     return json({ error: 'This account has already completed its initial password setup.' }, 409)
   }
+  if (!validSetupAcknowledgment(input.acknowledgment)) {
+    return json({ error: 'Review and accept the current Terms and Conditions and acknowledge the Privacy Notice before setting your password.' }, 400)
+  }
 
   const passwordError = validatePermanentPassword(newPassword, {
     currentPassword,
@@ -91,6 +95,10 @@ export default async (request) => {
       ...callerData.user.app_metadata,
       must_change_password: false,
       password_changed_at: changedAt,
+      setup_acknowledgment: {
+        terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION,
+        terms_accepted: true, privacy_acknowledged: true, acknowledged_at: changedAt,
+      },
     },
   })
   if (updateError) {
@@ -101,7 +109,7 @@ export default async (request) => {
     actor_employee_code: profile.employee_code,
     actor_label: `${profile.first_name} ${profile.last_name}`,
     action: 'Completed required first-login password setup',
-    target: 'Own HRMS account',
+    target: `Own HRMS account · Terms ${TERMS_VERSION} agreed · Privacy ${PRIVACY_VERSION} acknowledged`,
     display_time: 'Just now',
   })
 

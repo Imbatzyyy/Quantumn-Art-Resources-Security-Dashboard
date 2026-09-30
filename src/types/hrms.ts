@@ -70,6 +70,7 @@ export interface PasswordChangeInput {
 export interface InitialPasswordInput {
   currentPassword: string
   newPassword: string
+  acknowledgment: { termsAccepted: boolean; privacyAcknowledged: boolean; termsVersion: string; privacyVersion: string }
 }
 
 export interface AdminInvitationCompletionInput {

@@ -49,7 +49,9 @@ ${action ? `<table role="presentation" width="100%" cellpadding="0" cellspacing=
 export const signinCodeEmail = ({ firstName, portal, code }) => {
   if (!/^\d{6}$/.test(code)) throw new Error('A six-digit sign-in code is required.')
   const portalLabel = portal === 'admin' ? 'Administrator portal' : 'Employee portal'
-  const notice = 'Never share this code. If you did not try to sign in, do not use the code. Open quantumnhr.com directly to reset your password and contact your administrator.'
+  const notice = portal === 'admin'
+    ? 'Never share this code. If you did not try to sign in, do not use it. Contact your System Administrator to review your account and request a password reset.'
+    : 'Never share this code. If you did not try to sign in, do not use the code. Open quantumnhr.com directly to reset your password and contact your administrator.'
   return {
     subject: 'Your Quantum HRMS sign-in verification code',
     text: `${BRAND_NAME} | Sign-in verification\n\nHello ${firstName},\n\nVerify your sign-in to the ${portalLabel}.\n\nVerification code: ${code}\n\nThis code expires in 10 minutes and works only for this sign-in. Return to the verification page in the same browser. A new code replaces the previous code for that sign-in.\n\n${notice}`,
@@ -91,6 +93,18 @@ export const invitationEmail = ({ firstName, roleLabel, setupLink, appUrl }) => 
       title: 'Your administrator invitation', category: 'Administrator access', preheader: 'Accept your role-scoped invitation and create your private password.',
       bodyHtml: paragraph(`Hello <strong>${escapeHtml(firstName)}</strong>,`) + paragraph('A System Administrator has invited you to the HR management workspace. Accept the invitation to verify your account and choose your private password.') + details([['Assigned access role', escapeHtml(roleLabel)]]) + paragraph('Your access is limited to the permissions assigned to this role. No password is included in this invitation.'),
       action: { label: 'Accept invitation & set password', url: setupLink }, notice,
+    }),
+  }
+}
+
+export const adminPasswordResetEmail = ({ firstName, resetLink }) => {
+  const notice = 'If you were not expecting this reset, do not open the link. Contact your System Administrator. Your current password is unchanged until you complete the reset. Never forward this link.'
+  return {
+    subject: 'Reset your administrator password | Quantumn Art Resources',
+    text: `${BRAND_NAME} | Administrator password reset\n\nHello ${firstName},\n\nA System Administrator requested a password reset for your account. This personal link expires 30 minutes after it was requested and works once. A newer reset replaces the previous link.\n\n${resetLink}\n\nYour enrolled authenticator is still required. After saving, sign in again with your new password.\n\n${notice}`,
+    html: layout({ title: 'Reset your administrator password', category: 'Administrator account security', preheader: 'Your personal password-reset link expires in 30 minutes.',
+      bodyHtml: paragraph(`Hello <strong>${escapeHtml(firstName)}</strong>,`) + paragraph('A System Administrator requested a password reset for your account. Use the button below to create your own private password.') + details([['Link expires', '30 minutes after the request'], ['Use', 'One time only; a newer reset replaces the previous link']]) + paragraph('Your enrolled authenticator is still required. After you save your new password, existing HRMS sessions are revoked and you will need to sign in again.'),
+      action: { label: 'Reset administrator password', url: resetLink }, notice,
     }),
   }
 }

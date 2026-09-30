@@ -1,6 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { expect, test, type Page } from '@playwright/test'
 import { capturedLocalCode, resetLocalEmailLimits, verifyLocalFixtureSession } from '../scripts/local-email-verification.mjs'
+import { createHmac } from 'node:crypto'
+import AxeBuilder from '@axe-core/playwright'
+
+function totpCode(secret: string) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  const bits = [...secret.toUpperCase().replace(/=+$/, '')].map(c => alphabet.indexOf(c).toString(2).padStart(5, '0')).join('')
+  const key = Buffer.from(bits.match(/.{8}/g)!.map(b => parseInt(b, 2)))
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)))
+  const digest = createHmac('sha1', key).update(counter).digest()
+  const offset = digest[digest.length - 1] & 15
+  return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1000000).padStart(6, '0')
+}
 
 const required = (name: string) => {
   const value = process.env[name]
@@ -126,9 +138,22 @@ test.describe.serial('isolated protected mutation workflows', () => {
     expect(profileError).toBeNull()
     expect(profile).toMatchObject({ role: 'employee', department: 'Technology', position: 'QA Security Analyst' })
 
+    const pendingClient = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const pending = await pendingClient.auth.signInWithPassword({ email: newEmployeeEmail, password: temporaryPassword })
+    for (const acknowledgment of [undefined, { termsAccepted: true, privacyAcknowledged: true, termsVersion: 'old', privacyVersion: 'old' }]) {
+      const rejected = await invoke('/api/complete-initial-password', pending.data.session!.access_token, { currentPassword: temporaryPassword, newPassword: permanentPassword, acknowledgment })
+      expect(rejected.status).toBe(400)
+      expect((await rejected.json()).error).toContain('Terms and Conditions')
+    }
+    await pendingClient.auth.signOut({ scope: 'local' })
+
     await signInPortal(page, 'employee', newEmployeeEmail, temporaryPassword)
     const setup = page.getByRole('dialog', { name: 'Secure your employee account' })
     await expect(setup).toBeVisible()
+    await expect(setup.getByLabel('New password', { exact: true })).toHaveCount(0)
+    await setup.getByLabel('I have read and agree to the Terms and Conditions.').check()
+    await setup.getByLabel('I have read and acknowledge the Privacy Notice.').check()
+    await setup.getByRole('button', { name: 'Continue to password' }).click()
     await setup.getByLabel('Temporary password').fill(temporaryPassword)
     await setup.getByLabel('New password', { exact: true }).fill(permanentPassword)
     await setup.getByLabel('Confirm new password').fill(permanentPassword)
@@ -139,6 +164,8 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const { data: authUser, error: authError } = await service.auth.admin.getUserById(profile!.auth_user_id!)
     expect(authError).toBeNull()
     expect(authUser.user?.app_metadata.must_change_password).toBe(false)
+    expect(authUser.user?.app_metadata.setup_acknowledgment).toMatchObject({ terms_version: '2026-09-30.1', privacy_version: '2026-09-30.1', terms_accepted: true, privacy_acknowledged: true })
+    expect(Date.parse(authUser.user?.app_metadata.setup_acknowledgment.acknowledged_at)).toBeGreaterThan(0)
   })
 
   test('invites a least-privilege administrator and completes the personal setup link', async ({ page }) => {
@@ -172,6 +199,70 @@ test.describe.serial('isolated protected mutation workflows', () => {
     expect(profile).toMatchObject({ role: 'security_admin', status: 'Active' })
     const { data: authUser } = await service.auth.admin.getUserById(profile!.auth_user_id!)
     expect(authUser.user?.app_metadata.must_set_password).toBe(false)
+  })
+
+  test('System Admin sends a branded reset, recipient must verify MFA, and link is single-use', async ({ page }) => {
+    test.setTimeout(60_000)
+    const { data: target } = await service.from('profiles').select('employee_code,auth_user_id').eq('email', newAdminEmail).single()
+    const targetClient = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const targetLogin = await targetClient.auth.signInWithPassword({ email: newAdminEmail, password: adminInvitePassword })
+    await verifyLocalFixtureSession({ apiUrl: supabaseUrl, serviceRoleKey }, service, targetLogin.data.session)
+    const { data: factor, error: enrollError } = await targetClient.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Reset QA authenticator' })
+    expect(enrollError).toBeNull()
+    expect((await targetClient.auth.mfa.challengeAndVerify({ factorId: factor!.id, code: totpCode(factor!.totp.secret) })).error).toBeNull()
+    const targetSession = (await targetClient.auth.getSession()).data.session!
+    const forbidden = await invoke('/api/admin-reset-password', targetSession.access_token, { action: 'send', employeeCode: target!.employee_code, confirmed: true })
+    expect(forbidden.status).toBe(403)
+    await signInPortal(page, 'admin', adminEmail, adminPassword)
+    await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name: 'Admin Accounts & Roles', exact: true }).click()
+    await page.getByRole('button', { name: 'Reset password for Sierra Reviewer' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Reset administrator password' })
+    await expect(dialog.getByRole('button', { name: 'Send reset email' })).toBeDisabled()
+    await dialog.getByRole('checkbox').check()
+    await dialog.getByRole('button', { name: 'Send reset email' }).click()
+    await expect(page.getByRole('heading', { name: 'Check the administrator’s inbox' })).toBeVisible()
+    const emails = await capturedEmails()
+    const reset = emails.findLast(email => email.to.includes(newAdminEmail) && email.subject.includes('Reset your administrator'))!
+    expect(reset.html).toContain('https://quantumnhr.com/email-assets/quantumn-art-resources-blue.png')
+    expect(reset.text).toContain('30 minutes')
+    const resetLink = reset.text.match(/https?:\/\/\S+\/admin\/reset-password#reset_token=[A-Za-z0-9_-]+/)![0]
+    const cooldown = await invoke('/api/admin-reset-password', adminAccessToken, { action: 'send', employeeCode: target!.employee_code, confirmed: true })
+    expect(cooldown.status).toBe(429)
+    await page.setViewportSize({ width: 320, height: 850 })
+    await page.goto(resetLink)
+    await expect(page.getByRole('button', { name: 'Continue securely' })).toBeEnabled()
+    expect(new URL(page.url()).hash).toBe('')
+    await page.getByRole('button', { name: 'Continue securely' }).click()
+    await expect(page.getByLabel('Authenticator code')).toBeVisible()
+    const state = await page.evaluate(() => ({ grant: JSON.parse(sessionStorage.getItem('quantum-admin-password-reset')!), session: JSON.parse(Object.entries(sessionStorage).find(([key]) => /^sb-.*-auth-token$/.test(key))![1]) }))
+    const denied = await invoke('/api/admin-reset-password', state.session.access_token, { action: 'complete', requestId: state.grant.requestId, newPassword: 'Protected local reset passphrase 2026!' })
+    expect(denied.status).toBe(403)
+    await page.reload()
+    await expect(page.getByLabel('Authenticator code')).toBeVisible()
+    for (const theme of ['light', 'dark']) {
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 900 })
+        await page.evaluate(mode => { document.documentElement.dataset.theme = mode; localStorage.setItem('quantum-hrms-theme', mode) }, theme)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+        expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([])
+        await page.screenshot({ path: `test-results/admin-password-reset-${theme}-${width}.png`, fullPage: true })
+      }
+    }
+    await page.getByLabel('Authenticator code').fill(totpCode(factor!.totp.secret))
+    await page.getByLabel('New password', { exact: true }).fill('Protected local reset passphrase 2026!')
+    await page.getByLabel('Confirm new password').fill('Protected local reset passphrase 2026!')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.getByRole('heading', { name: 'Your password is updated' })).toBeVisible({ timeout: 20_000 })
+    const replay = await invoke('/api/admin-reset-password', '', { action: 'exchange', resetToken: new URLSearchParams(new URL(resetLink).hash.slice(1)).get('reset_token') })
+    expect(replay.status).toBe(400)
+    expect((await targetClient.rpc('assert_hrms_access')).error).not.toBeNull()
+    const { data: after } = await service.auth.admin.getUserById(target!.auth_user_id)
+    expect(after.user?.app_metadata.role).toBe('security_admin')
+    await service.auth.admin.mfa.deleteFactor({ userId: target!.auth_user_id, id: factor!.id })
+    await targetClient.auth.signOut({ scope: 'local' })
+    const relogin = await targetClient.auth.signInWithPassword({ email: newAdminEmail, password: 'Protected local reset passphrase 2026!' })
+    expect(relogin.error).toBeNull()
+    await targetClient.auth.signOut({ scope: 'local' })
   })
 
   test('synchronizes an employee request and an HR decision in real time', async ({ page }) => {
@@ -212,8 +303,10 @@ test.describe.serial('isolated protected mutation workflows', () => {
       .getByRole('button', { name: 'My Profile' }).click()
     await expect(page.getByRole('heading', { name: 'My Profile' })).toBeVisible()
     await expect(page.getByLabel('Phone number')).toBeDisabled()
-    await expect(page.getByLabel('Department')).toBeDisabled()
-    await expect(page.getByLabel('Position')).toBeDisabled()
+    await expect(page.locator('dl > div').filter({ has: page.getByText('Department', { exact: true }) }).locator('dd')).toHaveText(before!.department)
+    await expect(page.locator('dl > div').filter({ has: page.getByText('Position', { exact: true }) }).locator('dd')).toHaveText(before!.position)
+    await expect(page.getByLabel('Department')).toHaveCount(0)
+    await expect(page.getByLabel('Position')).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Edit profile' }).click()
     await page.getByLabel('Phone number').fill(nextPhone)
@@ -272,7 +365,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
 
     await expect(editor).toBeHidden({ timeout: 20_000 })
     await expect(page.getByText('Profile photo updated securely.')).toBeVisible()
-    const portrait = page.getByRole('button', { name: 'Change profile picture' }).locator('img')
+    const portrait = page.getByRole('button', { name: 'Update photo', exact: true }).locator('img')
     await expect(portrait).toBeVisible()
     await expect(portrait).toHaveAttribute('src', /profile-avatars\/.*token=/)
     await expect.poll(() => portrait.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(512)

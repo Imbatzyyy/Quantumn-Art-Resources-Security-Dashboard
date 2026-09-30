@@ -12,6 +12,8 @@ import {
 import { Modal } from './ui.js'
 import { Banner, Field, FormFooter } from './readable.js'
 import SignOutConfirmation from './SignOutConfirmation.js'
+import AccountPolicyReview from './AccountPolicyReview.js'
+import { TERMS_VERSION, PRIVACY_VERSION } from '../utils/accountPolicies.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -28,6 +30,9 @@ export default function FirstLoginPasswordSetup() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+  const [step, setStep] = useState<'policies' | 'password'>('policies')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false)
   const context = useMemo(() => ({
     currentPassword: form.currentPassword,
     email: user?.email,
@@ -44,6 +49,7 @@ export default function FirstLoginPasswordSetup() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (saving || step !== 'password' || !termsAccepted || !privacyAcknowledged) return
     setError('')
     const policyError = validatePermanentPassword(form.newPassword, context)
     if (policyError) return setError(policyError)
@@ -54,6 +60,7 @@ export default function FirstLoginPasswordSetup() {
       await completeInitialPassword({
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
+        acknowledgment: { termsAccepted, privacyAcknowledged, termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION },
       })
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (reason) {
@@ -64,10 +71,11 @@ export default function FirstLoginPasswordSetup() {
   }
 
   return <>
-    <Modal title="Secure your employee account" size="wide" dismissible={false}>
+    <Modal key={step} title="Secure your employee account" size="wide" dismissible={false}>
+      {step === 'policies' ? <AccountPolicyReview termsAccepted={termsAccepted} privacyAcknowledged={privacyAcknowledged} onTermsChange={setTermsAccepted} onPrivacyChange={setPrivacyAcknowledged} onSignOut={() => setShowSignOutConfirm(true)} onContinue={() => setStep('password')} /> :
       <form className="rf-form rf-form--md rf-first-login" onSubmit={submit} aria-busy={saving}>
         <div className="rf-first-login-notice">
-          <Banner icon={ShieldCheck} label="Required before you continue" title="Create your private password">
+          <Banner icon={ShieldCheck} label="Account setup · Step 2 of 2" title="Create your private password">
             The password in your welcome email is temporary. Replace it now so only you can open your HR information.
           </Banner>
         </div>
@@ -112,10 +120,11 @@ export default function FirstLoginPasswordSetup() {
         </div>
 
         <FormFooter icon={ShieldCheck} note="After saving, you go straight to your workspace.">
-          <button className="button button-secondary" type="button" onClick={() => setShowSignOutConfirm(true)} disabled={saving}><LogOut aria-hidden="true" />Sign out instead</button>
+          <button className="button button-secondary" type="button" onClick={() => setStep('policies')} disabled={saving}>Review terms & privacy</button>
+          <button className="button button-secondary" type="button" onClick={() => setShowSignOutConfirm(true)} disabled={saving}><LogOut aria-hidden="true" />Sign out</button>
           <button className="button button-primary" disabled={!ready || saving}>{saving ? 'Securing your account…' : 'Save password & enter workspace'}</button>
         </FormFooter>
-      </form>
+      </form>}
     </Modal>
     <SignOutConfirmation open={showSignOutConfirm} portal="employee" onCancel={() => setShowSignOutConfirm(false)} onConfirm={logout} />
   </>

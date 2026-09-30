@@ -135,7 +135,7 @@ export const supabaseProvider: HrmsDataProvider = {
     return result
   },
 
-  async completeInitialPassword({ currentPassword, newPassword }) {
+  async completeInitialPassword({ currentPassword, newPassword, acknowledgment }) {
     const client = requireSupabase()
     const session = await currentSession()
     if (!session) throw new Error('Your employee session has expired. Sign in again.')
@@ -146,7 +146,7 @@ export const supabaseProvider: HrmsDataProvider = {
         authorization: `Bearer ${session.access_token}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword, acknowledgment }),
     })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.error || 'The new password could not be saved.')

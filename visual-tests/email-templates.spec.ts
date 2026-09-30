@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail, signinCodeEmail } from '../netlify/functions/_shared/email-templates.mjs'
+import { authEmailTemplates, credentialsEmail, EMAIL_LOGO_URL, invitationEmail, signinCodeEmail, adminPasswordResetEmail } from '../netlify/functions/_shared/email-templates.mjs'
 
 // Fictional values only. No provider API, authentication, or outgoing email.
 const values: Record<string, string> = {
@@ -10,6 +10,7 @@ const values: Record<string, string> = {
   ConfirmationURL: 'https://project.supabase.co/auth/v1/verify?token=fictional&type=recovery&redirect_to=https%3A%2F%2Fquantumnhr.com%2Femployee%2Freset-password',
 }
 const templates = [
+  { id: 'admin-reset', ...adminPasswordResetEmail({ firstName: 'Sierra', resetLink: 'https://quantumnhr.com/admin/reset-password#reset_token=fictional-only' }) },
   ...['admin', 'employee'].map(portal => ({ id: `signin-${portal}`, ...signinCodeEmail({ firstName: 'Avery', portal, code: '012345' }) })),
   { id: 'employee', ...credentialsEmail({ employee: { firstName: 'Avery', preferredName: 'Avery', email: values.Email, password: 'Fictional-Test-Password42!' }, employeeCode: 'EMP-TEST', loginUrl: 'https://quantumnhr.com/employee/login' }) },
   { id: 'administrator', ...invitationEmail({ firstName: 'Sierra', roleLabel: 'Security Administrator', setupLink: values.ConfirmationURL.replace('type=recovery', 'type=invite').replace('employee%2Freset-password', 'admin%2Fsetup-password'), appUrl: 'https://quantumnhr.com' }) },
@@ -32,7 +33,7 @@ for (const width of [320, 800]) {
       expect(await page.locator('body').textContent()).not.toContain('{{')
       const audit = await new AxeBuilder({ page }).withRules(['color-contrast', 'image-alt', 'link-name', 'document-title', 'html-has-lang']).analyze()
       expect(audit.violations).toEqual([])
-      if (['employee', 'administrator', 'recovery'].includes(template.id)) {
+      if (['employee', 'administrator', 'recovery', 'admin-reset'].includes(template.id)) {
         await expect(page).toHaveScreenshot(`email-${template.id}-${width}.png`, { fullPage: true })
       }
     })
