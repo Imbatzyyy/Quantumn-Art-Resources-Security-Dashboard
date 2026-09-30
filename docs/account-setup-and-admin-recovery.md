@@ -70,3 +70,16 @@ Do not run the local mutation suite concurrently with other local database suite
 - Staged changes passed the Gitleaks secret scan.
 
 The initial local checkpoint was commit `77959be` on `codex/account-setup-admin-reset`, based on fetched `origin/main` commit `10f256a`. The user subsequently authorized deployment and push, including the revised academic-policy edition above. The linked database dry run identified only the new additive migration as pending. See the release record below for the actual publication result; local email tests do not establish real-inbox delivery.
+
+## Production release — September 30, 2026, 8:00 PM Asia/Manila
+
+- Application source: `54014b7`, including `77959be`; the fetched main branch `10f256a` remains an ancestor. No previous pushed changes were removed.
+- Netlify deployment: `6abcf916b3d7afaeca1fefc8`, published at `2026-09-30T12:00:31.664Z` to [quantumnhr.com](https://quantumnhr.com). The candidate was verified before promotion, and the published deployment ID was checked afterward.
+- Applied only `20260930090000_admin_password_reset.sql` to linked Supabase project `ndzgmrmpsqqpcmoxvyfu`. The subsequent dry run reported the remote database up to date, with no pending migrations, seeds, or roles.
+- Final checks: TypeScript, ESLint, 283 unit tests, 191 visual/responsive tests, 93 database tests, 16 authenticated browser tests, 8 protected mutation workflows, 17 real-local security checks, 13 generated-email template checks, and the production-context Netlify build passed.
+- The mutation suite initially caught an outdated expected policy version in its assertion. The expectation was updated to `2026-09-30.2`, and all eight workflows passed on rerun.
+- Live-domain verification matched the HTML and all 34 built JavaScript/CSS assets to the release build. Health confirmed the intended Supabase project. Both sign-in pages, root-to-employee redirect, and legacy Admin recovery redirect passed.
+- Public [Terms](https://quantumnhr.com/terms) and [Privacy Notice](https://quantumnhr.com/privacy) passed live light/dark checks at 320px and 1440px, with no horizontal overflow, browser runtime errors, or WCAG 2 A/AA Axe violations in the checked pages. These public reads made zero database/API requests.
+- Live reset guards returned the expected 405 for GET, 401 for unauthenticated send/complete, and 400 for an unknown capability through the deployed database RPC. Production configuration includes the required Supabase and email-provider settings; no secret values were logged.
+- The branded reset email, 30-minute deadline, enrolled MFA, one-use grant, and session revocation were tested with real local Supabase and locally captured email. No real administrator password was changed or production reset email sent for QA; real-inbox delivery remains unverified.
+- `quantumnhr@gmail.com` remains the user-supplied, unverified academic contact. No mailbox, legal entity, postal address, or DPO appointment was created or verified by this release.
