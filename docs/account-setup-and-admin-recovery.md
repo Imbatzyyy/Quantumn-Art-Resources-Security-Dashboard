@@ -10,7 +10,18 @@ This change builds on `10f256a` (readable portal UI) and preserves the earlier s
 - `/api/complete-initial-password` rejects missing, false, or outdated acknowledgment values. It verifies the temporary password and saves the server timestamp, document versions, and flags in protected Supabase Auth `app_metadata.setup_acknowledgment` in the same Auth update as the new password. Browser-editable `user_metadata` is not used.
 - The audit event also identifies the accepted versions. Existing setup-complete employees are not forced through onboarding again.
 
-The included copy describes the implemented portal, not a legal compliance certification or blanket consent. The organization should review it before publication and supply its approved privacy contact, lawful-basis information, retention policy, and any jurisdiction-specific language. No unverified contact address or retention deadline has been invented.
+The included copy describes the implemented academic portal, not a legal-compliance certification or blanket consent. On September 30 the user authorized publication and requested Philippine-law-informed wording for a school project. The user supplied `quantumnhr@gmail.com` as the demonstration contact; mailbox ownership and monitoring are unverified. The illustrative Metro Manila location and Project Privacy Coordinator role are labeled as academic details, not a verified postal address or appointed/registered DPO. Genuine employment use still requires verified controller/contact details, a record-specific retention schedule, appropriate provider arrangements, and operational privacy governance.
+
+### Philippine-law-informed policy edition
+
+Both document versions are now `2026-09-30.2`. Public `/terms` and `/privacy` pages use the same source as employee setup; links are available from both sign-in pages and Employee HR Help Center. Acceptance remains server-validated and versioned. Existing setup-complete employees are not silently treated as having accepted a new version.
+
+- Ordinary personal-information bases are distinguished from the stricter requirements for sensitive or privileged information: [DPA Sections 12 and 13](https://privacy.gov.ph/data-privacy-act/).
+- Acknowledgment is distinct from specific, freely given consent; optional unrelated processing is not bundled into required account setup: [NPC Circular 2023-04](https://privacy.gov.ph/wp-content/uploads/2023/11/NPC-Circular-No.-2023-04_Guidelines-on-Consent_07Nov2023.pdf).
+- Sources, purposes, methods, recipients, security, retention limitations, and controller-contact limitations are explained: [NPC right-to-be-informed guidance](https://privacy.gov.ph/the-right-to-be-informed/).
+- Access, correction, objection, erasure/blocking, conditional portability, damages, and complaint rights are described without pretending they are absolute: [NPC data subject rights](https://privacy.gov.ph/data-subject-rights/), [DPA IRR](https://privacy.gov.ph/implementing-rules-regulations-data-privacy-act-2012/).
+- The public notice links directly to [NPC complaint instructions](https://privacy.gov.ph/file-a-complaint-2/). No invented filing deadline, universal data-deletion schedule, or compliance certification is presented.
+- The terms preserve mandatory Philippine employment/privacy remedies, use fictional HR records for demonstrations, and do not impose forced arbitration or a blanket waiver of rights.
 
 ## Administrator recovery
 
@@ -58,4 +69,4 @@ Do not run the local mutation suite concurrently with other local database suite
 - Branded Supabase email template checks: 13 passed; the new application reset email is also covered by unit, visual, and captured-email integration tests.
 - Staged changes passed the Gitleaks secret scan.
 
-At this checkpoint the work is local on `codex/account-setup-admin-reset`, based on the fetched `origin/main` commit `10f256a`. No production migration, deployment, GitHub push, or live-inbox delivery test has been performed. The linked database dry run identified only the new additive migration above as pending. Release still requires approval and organizational review of the policy copy.
+The initial local checkpoint was commit `77959be` on `codex/account-setup-admin-reset`, based on fetched `origin/main` commit `10f256a`. The user subsequently authorized deployment and push, including the revised academic-policy edition above. The linked database dry run identified only the new additive migration as pending. See the release record below for the actual publication result; local email tests do not establish real-inbox delivery.

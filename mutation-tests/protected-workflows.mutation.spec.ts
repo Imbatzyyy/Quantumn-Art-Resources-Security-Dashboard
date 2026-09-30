@@ -164,7 +164,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const { data: authUser, error: authError } = await service.auth.admin.getUserById(profile!.auth_user_id!)
     expect(authError).toBeNull()
     expect(authUser.user?.app_metadata.must_change_password).toBe(false)
-    expect(authUser.user?.app_metadata.setup_acknowledgment).toMatchObject({ terms_version: '2026-09-30.1', privacy_version: '2026-09-30.1', terms_accepted: true, privacy_acknowledged: true })
+    expect(authUser.user?.app_metadata.setup_acknowledgment).toMatchObject({ terms_version: '2026-09-30.2', privacy_version: '2026-09-30.2', terms_accepted: true, privacy_acknowledged: true })
     expect(Date.parse(authUser.user?.app_metadata.setup_acknowledgment.acknowledged_at)).toBeGreaterThan(0)
   })
 

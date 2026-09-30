@@ -9,6 +9,7 @@ const AdminPortal = lazy(() => import('./pages/AdminPortal.js'))
 const EmployeePortal = lazy(() => import('./pages/EmployeePortal.js'))
 const AdminInviteSetupPage = lazy(() => import('./pages/AdminInviteSetupPage.js'))
 const AdminPasswordResetPage = lazy(() => import('./pages/AdminPasswordResetPage.js'))
+const AccountPolicyPage = lazy(() => import('./pages/AccountPolicyPage.js'))
 const SignOutConfirmation = lazy(() => import('./components/SignOutConfirmation.js'))
 
 function WorkspaceLoading({ verified = false }: { verified?: boolean }) {
@@ -44,6 +45,8 @@ export default function App() {
       <Suspense fallback={<WorkspaceLoading />}>
         <Routes>
           <Route path="/" element={<Navigate to="/employee/login" replace />} />
+          <Route path="/terms" element={<AccountPolicyPage key="terms" kind="terms" />} />
+          <Route path="/privacy" element={<AccountPolicyPage key="privacy" kind="privacy" />} />
           <Route path="/admin/login" element={user?.portal === 'admin' ? <Navigate to="/admin" replace /> : <LoginPage key="admin-login" portal="admin" />} />
           <Route path="/admin/verify-email" element={<SignInVerificationPage key="admin-verify" portal="admin" />} />
           <Route path="/employee/verify-email" element={<SignInVerificationPage key="employee-verify" portal="employee" />} />

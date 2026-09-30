@@ -25,6 +25,7 @@ export default function AccountPolicyReview(props: Props) {
         <div className="account-policy-sections">{policy.sections.map(([title, body]) => <section key={title}><h4>{title}</h4><p>{body}</p></section>)}</div>
       </section>)}
       <div className="account-policy-checks">
+        <p><a href="/terms" target="_blank" rel="noreferrer">Open Terms in a new tab</a> · <a href="/privacy" target="_blank" rel="noreferrer">Open Privacy Notice in a new tab</a></p>
         <label><input type="checkbox" checked={props.termsAccepted} onChange={event => props.onTermsChange(event.target.checked)} /><span>I have read and agree to the Terms and Conditions.</span></label>
         <label><input type="checkbox" checked={props.privacyAcknowledged} onChange={event => props.onPrivacyChange(event.target.checked)} /><span>I have read and acknowledge the Privacy Notice.</span></label>
         <p>These selections are recorded when you finish password setup. If you have questions, sign out and contact your HR team before continuing.</p>

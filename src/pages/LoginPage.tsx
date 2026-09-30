@@ -244,7 +244,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
           <div className="login-assurance">
             <LockKeyhole size={18} aria-hidden="true" />
             <div>
-              <strong>Protected account access</strong>
+              <strong className="login-policy-links"><Link to="/terms">Terms</Link><span aria-hidden="true"> · </span><Link to="/privacy">Privacy Notice</Link></strong>
               <span>Your role and permissions are verified before the workspace opens.</span>
             </div>
           </div>

@@ -23,6 +23,35 @@
 }
 
 /* First-use policies and role-controlled administrator recovery. */
+.account-policy-page { min-height: 100dvh; padding: 2rem max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left)); background: var(--bg); color: var(--text); }
+.account-policy-shell { width: min(100%, 880px); margin: auto; }
+.account-policy-page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.account-policy-page-header img { width: 140px; padding: .5rem; border-radius: 12px; background: #fff; }
+.account-policy-page nav a, .account-policy-page footer a, .account-policy-sources a, .account-policy-contact a, .account-policy-checks a { color: var(--rf-accent); text-underline-offset: .2em; overflow-wrap: anywhere; }
+.account-policy-contact { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid var(--border); border-left: 3px solid var(--rf-accent); border-radius: 12px; background: var(--surface-soft); }
+.account-policy-page-header nav { display: flex; gap: .5rem; }
+.account-policy-page-header nav a { min-height: 44px; display: inline-flex; align-items: center; padding: .5rem .75rem; border-radius: 8px; }
+.account-policy-page-header nav a[aria-current='page'] { color: var(--text); background: var(--surface-soft); text-decoration: none; font-weight: 700; }
+.account-policy-page .account-policy-document { padding: clamp(1.25rem, 4vw, 3rem); }
+.account-policy-page h1 { margin: 0; font-size: clamp(1.75rem, 5vw, 2.3rem); line-height: 1.2; letter-spacing: -.03em; }
+.account-policy-page h2 { color: var(--text); margin: 0; font-size: 1.125rem; line-height: 1.45; }
+.account-policy-page .account-policy-sections { gap: 1.75rem; margin-top: 2rem; }
+.account-policy-page .account-policy-sections section { scroll-margin-top: 1.5rem; }
+.account-policy-index { display: grid; gap: .6rem; padding: 1.25rem; margin-top: 1.5rem; border-radius: 12px; background: var(--surface-soft); font-size: .9375rem; line-height: 1.6; }
+.account-policy-sources { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.account-policy-sources ul { padding-left: 1.25rem; line-height: 1.7; font-size: .9375rem; }
+.account-policy-sources li + li { margin-top: .75rem; }
+.account-policy-page footer { padding-block: 1.5rem; font-size: .875rem; line-height: 1.6; color: var(--text-soft); }
+.account-policy-page footer p, .account-policy-page footer a { display: flex; align-items: center; gap: .5rem; }
+.account-policy-page footer svg { flex: none; }
+.account-policy-page footer div { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+.account-policy-page footer a { min-height: 44px; }
+.login-policy-links a { color: #1e63c7; text-underline-offset: .2em; }
+.login-page .login-policy-links span { display: inline; }
+.account-policy-help { padding: 1.25rem; }
+.account-policy-help h2 { margin: 0; color: var(--text); }
+.account-policy-help p { color: var(--text-soft); line-height: 1.6; }
+.account-policy-help > div { display: flex; flex-wrap: wrap; gap: .75rem; }
 .account-policy-content, .admin-reset-content { display: grid; gap: 1.25rem; padding: 1.5rem; min-width: 0; }
 .account-policy-document { padding: 1.25rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .account-policy-document header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }

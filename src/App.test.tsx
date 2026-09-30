@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -24,6 +24,14 @@ function renderRoute(path: string, context: HrmsContextValue = createTestContext
 }
 
 describe('public authentication routes', () => {
+  it.each([['/terms', 'Terms and Conditions'], ['/privacy', 'Privacy Notice']])('makes %s available without signing in or accepting a policy', async (path, title) => {
+    renderRoute(path)
+    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'quantumnhr@gmail.com' })).toHaveAttribute('href', 'mailto:quantumnhr@gmail.com')
+    expect(within(screen.getByRole('complementary', { name: 'Academic project contact' })).getByText(/illustrative project location, not a verified postal address/)).toBeVisible()
+    expect(screen.getByRole('link', { name: /How to file a complaint with the NPC/ })).toHaveAttribute('href', 'https://privacy.gov.ph/file-a-complaint-2/')
+    expect(screen.getByTestId('route-location')).toHaveTextContent(path)
+  })
   it('renders a distinct administrator sign-in experience with accessible fields', async () => {
     const user = userEvent.setup()
     renderRoute('/admin/login')
