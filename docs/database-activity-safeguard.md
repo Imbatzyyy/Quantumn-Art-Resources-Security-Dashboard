@@ -36,4 +36,11 @@ Automated tests cover scheduling, bounded reads, timeouts, sanitized errors, ret
 
 ## Release evidence
 
-Pending production verification.
+- Deployed October 2, 2026, from source commit `06517e2` to [quantumnhr.com](https://quantumnhr.com), Netlify deployment `6abf29936028d55d5d2dd8f0` (published and ready).
+- Netlify production UI showed **Scheduled**, the six-hour expression, and the next automatic execution at **October 2, 2026, 2:17 PM GMT+8**.
+- **Run now** invoked the actual production function at **11:49:50 AM Asia/Manila**. Request `1579daad` logged `Database health check succeeded (read-only, no response body, attempt 1).` Invocation duration: **1201.77 ms**. This verifies one hosted execution, not seven days of future uptime or an already-paused project's restoration.
+- Direct public requests to both `/.netlify/functions/database-health` and `/api/database-health` returned **403**, as expected for a protected scheduled function.
+- Both sign-in pages and the Privacy Notice returned HTTP 200 with the expected release HTML. The frontend HTML and asset references were unchanged from the prior production release. `/api/health` identified the correct HRMS Supabase project.
+- TypeScript, ESLint, **306 tests** (including 23 new scheduled-function tests), 13 branded-email template checks, production-context build, and staged Gitleaks secret scan passed. A pre-existing performance-review test was made independent of the calendar quarter by explicitly entering its review period; no production performance behavior changed.
+- A preliminary local probe failed because the CLI returned a masked secret. No production credential was changed or copied into source; the hosted invocation above verified the real runtime credential.
+- No subscription, database schema, employee record, RLS policy, or existing UI was changed. GitHub was not pushed by this deployment-only request.
