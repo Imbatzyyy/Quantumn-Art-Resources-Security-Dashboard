@@ -209,6 +209,9 @@ describe('core administrator operation boundaries', () => {
     renderOperation(<AdminPerformanceOperations />, { savePerformance })
     await user.click(screen.getByRole('button', { name: 'New review' }))
     const dialog = screen.getByRole('dialog', { name: 'Save performance review draft' })
+    // Set the evidence period explicitly; the default advances with the calendar.
+    await user.clear(within(dialog).getByLabelText('Review period'))
+    await user.type(within(dialog).getByLabelText('Review period'), 'Q3 2026')
     const scores = [
       ['Overall score', '92'],
       ['Goal progress', '88'],
