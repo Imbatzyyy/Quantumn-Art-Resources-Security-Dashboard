@@ -53,9 +53,7 @@ const signInPortal = async (page: Page, portal: 'admin' | 'employee', email: str
   await page.goto(`/${portal}/login`)
   await page.getByLabel('Work email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByRole('button', {
-    name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal',
-  }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.waitForURL(url => !url.pathname.endsWith('/login'))
   if (page.url().endsWith('/verify-email')) {
     await expect(page.getByLabel('Email verification code')).toBeEnabled()
@@ -159,7 +157,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     await setup.getByLabel('Confirm new password').fill(permanentPassword)
     await setup.getByRole('button', { name: 'Save password & enter workspace' }).click()
     await expect(setup).toBeHidden({ timeout: 20_000 })
-    await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening),/ })).toBeVisible()
 
     const { data: authUser, error: authError } = await service.auth.admin.getUserById(profile!.auth_user_id!)
     expect(authError).toBeNull()
@@ -214,7 +212,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
     const forbidden = await invoke('/api/admin-reset-password', targetSession.access_token, { action: 'send', employeeCode: target!.employee_code, confirmed: true })
     expect(forbidden.status).toBe(403)
     await signInPortal(page, 'admin', adminEmail, adminPassword)
-    await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name: 'Admin Accounts & Roles', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name: 'Admin Accounts', exact: true }).click()
     await page.getByRole('button', { name: 'Reset password for Sierra Reviewer' }).click()
     const dialog = page.getByRole('dialog', { name: 'Reset administrator password' })
     await expect(dialog.getByRole('button', { name: 'Send reset email' })).toBeDisabled()
@@ -302,13 +300,14 @@ test.describe.serial('isolated protected mutation workflows', () => {
     await page.getByRole('navigation', { name: 'Portal navigation' })
       .getByRole('button', { name: 'My Profile' }).click()
     await expect(page.getByRole('heading', { name: 'My Profile' })).toBeVisible()
-    await expect(page.getByLabel('Phone number')).toBeDisabled()
-    await expect(page.locator('dl > div').filter({ has: page.getByText('Department', { exact: true }) }).locator('dd')).toHaveText(before!.department)
-    await expect(page.locator('dl > div').filter({ has: page.getByText('Position', { exact: true }) }).locator('dd')).toHaveText(before!.position)
+    // Contact details are read-only until the employee chooses Edit.
+    await expect(page.getByLabel('Phone number')).toHaveCount(0)
+    await expect(page.locator('dl > div').filter({ has: page.getByText('Department', { exact: true }) }).locator('dd').first()).toHaveText(before!.department)
+    await expect(page.locator('dl > div').filter({ has: page.getByText('Position', { exact: true }) }).locator('dd').first()).toHaveText(before!.position)
     await expect(page.getByLabel('Department')).toHaveCount(0)
     await expect(page.getByLabel('Position')).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Edit profile' }).click()
+    await page.getByRole('button', { name: 'Edit', exact: true }).click()
     await page.getByLabel('Phone number').fill(nextPhone)
     await page.getByRole('button', { name: 'Save changes' }).click()
     const confirmation = page.getByRole('dialog', { name: 'Confirm profile changes' })
@@ -321,7 +320,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
 
     await expect(confirmation).toBeHidden({ timeout: 20_000 })
     await expect(page.getByText('Employee profile updated.')).toBeVisible()
-    await expect(page.getByLabel('Phone number')).toBeDisabled()
+    await expect(page.getByLabel('Phone number')).toHaveCount(0)
     await expect.poll(async () => {
       const { data } = await service.from('profiles').select('phone').eq('email', employeeEmail).single()
       return data?.phone
@@ -365,7 +364,7 @@ test.describe.serial('isolated protected mutation workflows', () => {
 
     await expect(editor).toBeHidden({ timeout: 20_000 })
     await expect(page.getByText('Profile photo updated securely.')).toBeVisible()
-    const portrait = page.getByRole('button', { name: 'Update photo', exact: true }).locator('img')
+    const portrait = page.getByRole('button', { name: 'Change photo' }).locator('img')
     await expect(portrait).toBeVisible()
     await expect(portrait).toHaveAttribute('src', /profile-avatars\/.*token=/)
     await expect.poll(() => portrait.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(512)

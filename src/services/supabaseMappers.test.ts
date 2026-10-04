@@ -12,7 +12,7 @@ import {
 describe('Supabase row boundary', () => {
   it('creates an empty snapshot containing every expected collection', () => {
     const snapshot = emptySnapshot()
-    expect(Object.keys(snapshot)).toHaveLength(24)
+    expect(Object.keys(snapshot)).toHaveLength(25)
     expect(Object.values(snapshot).every((value) => Array.isArray(value) && value.length === 0)).toBe(true)
   })
 
@@ -49,12 +49,12 @@ describe('Supabase row boundary', () => {
       .toMatchObject({ shiftStart: '00:00', shiftEnd: '00:00' })
     expect(payrollRunFromRow({
       id: 3, period: 'August 2026', status: 'Draft', employee_count: 2,
-      gross_total: 90000, net_total: 82000, deduction_rate: 8.25,
+      gross_total: 90000, net_total: 82000, deduction_rate: 0, calculation_method: 'Philippine statutory',
       approved_at: null, approved_by: null, created_at: '2026-08-30T00:00:00Z',
       created_by: null, locked_at: null, paid_at: null, released_at: null,
       updated_at: '2026-08-30T00:00:00Z',
     }))
-      .toMatchObject({ id: 3, employeeCount: 2, grossTotal: 90000, netTotal: 82000 })
+      .toMatchObject({ id: 3, employeeCount: 2, grossTotal: 90000, netTotal: 82000, calculationMethod: 'Philippine statutory' })
   })
 
   it('preserves notification privacy state without inventing a read timestamp', () => {

@@ -109,12 +109,12 @@ describe('Employee Account Security', () => {
       refreshData,
     }))
 
-    const setup = await screen.findByRole('button', { name: 'Set up MFA' })
+    const setup = await screen.findByRole('button', { name: 'Set up two-step sign-in' })
     await user.click(setup)
     await waitFor(() => expect(beginMfaEnrollment).toHaveBeenCalledTimes(1))
-    const dialog = screen.getByRole('dialog', { name: 'Set up authenticator MFA' })
+    const dialog = screen.getByRole('dialog', { name: 'Set up two-step sign-in' })
     expect(within(dialog).getByText('TEST-ONLY-SECRET')).toBeVisible()
-    const enable = within(dialog).getByRole('button', { name: 'Enable my MFA' })
+    const enable = within(dialog).getByRole('button', { name: 'Turn on two-step sign-in' })
     expect(enable).toBeDisabled()
     await user.type(within(dialog).getByLabelText('Authenticator code'), '12a34b56')
     expect(within(dialog).getByLabelText('Authenticator code')).toHaveValue('123456')
@@ -162,16 +162,16 @@ describe('Employee Account Security', () => {
       getMfaStatus: async () => ({ enabled: true, factorId: 'factor-1', currentLevel: 'aal2' }),
     }))
 
-    await user.click(screen.getByRole('button', { name: 'My alerts' }))
+    await user.click(screen.getByRole('tab', { name: /Alerts/ }))
     await user.click(screen.getByRole('button', { name: 'Review' }))
-    const alertDialog = screen.getByRole('dialog', { name: `Review ${alert.id}` })
+    const alertDialog = screen.getByRole('dialog', { name: 'Review security alert' })
     await user.click(within(alertDialog).getByRole('button', { name: 'This was not me' }))
     await waitFor(() => expect(respondToAlert).toHaveBeenCalledWith(alert.id, 'This was not me'))
 
-    await user.click(screen.getByRole('button', { name: 'My sessions' }))
-    await user.click(screen.getByRole('button', { name: 'End other sessions' }))
-    const sessionDialog = screen.getByRole('dialog', { name: 'End other sessions' })
-    await user.click(within(sessionDialog).getByRole('button', { name: 'End other sessions' }))
+    await user.click(screen.getByRole('tab', { name: 'Signed-in browsers' }))
+    await user.click(screen.getByRole('button', { name: 'Sign out other browsers' }))
+    const sessionDialog = screen.getByRole('dialog', { name: 'Sign out other browsers' })
+    await user.click(within(sessionDialog).getByRole('button', { name: 'Sign out other browsers' }))
     await waitFor(() => expect(endSession).toHaveBeenCalledWith('all-other-sessions'))
   })
 })

@@ -73,6 +73,7 @@ export type Database = {
           priority: string
           published_on: string
           title: string
+          updated_at: string | null
         }
         Insert: {
           author_employee_code?: string | null
@@ -82,6 +83,7 @@ export type Database = {
           priority?: string
           published_on?: string
           title: string
+          updated_at?: string | null
         }
         Update: {
           author_employee_code?: string | null
@@ -91,6 +93,7 @@ export type Database = {
           priority?: string
           published_on?: string
           title?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -274,8 +277,11 @@ export type Database = {
           document_type: string
           employee_code: string | null
           expires_on: string | null
+          file_path: string | null
+          file_size: number | null
           filename: string
           id: number
+          mime_type: string | null
           period: string | null
           requires_ack: boolean
           sensitive: boolean
@@ -290,8 +296,11 @@ export type Database = {
           document_type: string
           employee_code?: string | null
           expires_on?: string | null
+          file_path?: string | null
+          file_size?: number | null
           filename: string
           id?: number
+          mime_type?: string | null
           period?: string | null
           requires_ack?: boolean
           sensitive?: boolean
@@ -306,8 +315,11 @@ export type Database = {
           document_type?: string
           employee_code?: string | null
           expires_on?: string | null
+          file_path?: string | null
+          file_size?: number | null
           filename?: string
           id?: number
+          mime_type?: string | null
           period?: string | null
           requires_ack?: boolean
           sensitive?: boolean
@@ -466,10 +478,44 @@ export type Database = {
           },
         ]
       }
+      leave_policies: {
+        Row: {
+          annual_days: number | null
+          description: string
+          leave_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          annual_days?: number | null
+          description?: string
+          leave_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          annual_days?: number | null
+          description?: string
+          leave_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["employee_code"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
+          cancelled_at: string | null
           created_at: string
           days: number
+          decision_note: string | null
           employee_code: string
           end_date: string
           id: number
@@ -481,8 +527,10 @@ export type Database = {
           status: string
         }
         Insert: {
+          cancelled_at?: string | null
           created_at?: string
           days: number
+          decision_note?: string | null
           employee_code: string
           end_date: string
           id?: number
@@ -494,8 +542,10 @@ export type Database = {
           status?: string
         }
         Update: {
+          cancelled_at?: string | null
           created_at?: string
           days?: number
+          decision_note?: string | null
           employee_code?: string
           end_date?: string
           id?: number
@@ -679,10 +729,14 @@ export type Database = {
           gross: number
           id: number
           net: number | null
+          pagibig_contribution: number
           payment_date: string | null
           payroll_run_id: number | null
           period: string
+          philhealth_contribution: number
+          sss_contribution: number
           status: string
+          withholding_tax: number
         }
         Insert: {
           allowances?: number
@@ -693,10 +747,14 @@ export type Database = {
           gross: number
           id?: number
           net?: number | null
+          pagibig_contribution?: number
           payment_date?: string | null
           payroll_run_id?: number | null
           period: string
+          philhealth_contribution?: number
+          sss_contribution?: number
           status?: string
+          withholding_tax?: number
         }
         Update: {
           allowances?: number
@@ -707,10 +765,14 @@ export type Database = {
           gross?: number
           id?: number
           net?: number | null
+          pagibig_contribution?: number
           payment_date?: string | null
           payroll_run_id?: number | null
           period?: string
+          philhealth_contribution?: number
+          sss_contribution?: number
           status?: string
+          withholding_tax?: number
         }
         Relationships: [
           {
@@ -733,6 +795,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          calculation_method: string
           created_at: string
           created_by: string | null
           deduction_rate: number
@@ -750,6 +813,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          calculation_method?: string
           created_at?: string
           created_by?: string | null
           deduction_rate?: number
@@ -767,6 +831,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          calculation_method?: string
           created_at?: string
           created_by?: string | null
           deduction_rate?: number
@@ -1382,6 +1447,10 @@ export type Database = {
         Args: { selected_request_id: number }
         Returns: undefined
       }
+      cancel_leave_request: {
+        Args: { request_id: number }
+        Returns: undefined
+      }
       clock_attendance: { Args: { clock_action: string }; Returns: undefined }
       create_lifecycle_case: {
         Args: {
@@ -1394,7 +1463,7 @@ export type Database = {
       current_employee_code: { Args: never; Returns: string }
       current_hrms_role: { Args: never; Returns: string }
       generate_payroll: {
-        Args: { deduction_rate: number; payroll_period: string }
+        Args: { calculation_method?: string; deduction_rate?: number; payroll_period: string }
         Returns: number
       }
       has_hrms_role: { Args: { allowed_roles: string[] }; Returns: boolean }
@@ -1445,8 +1514,16 @@ export type Database = {
         Returns: undefined
       }
       review_leave_request: {
-        Args: { decision: string; request_id: number }
+        Args: { decision: string; decision_note?: string; request_id: number }
         Returns: undefined
+      }
+      save_leave_policy: {
+        Args: { allowance: number | null; policy_description?: string; selected_type: string }
+        Returns: undefined
+      }
+      manage_admin_account: {
+        Args: { new_role?: string; operation: string; target_code: string }
+        Returns: Json
       }
       save_performance_review: {
         Args: {

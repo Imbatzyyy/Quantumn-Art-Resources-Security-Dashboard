@@ -4,7 +4,7 @@ import { Info } from 'lucide-react'
 
 /*
  * Small building blocks for the light, readable form and banner design
- * (styles in readable-ui.css). Labels are real <label> elements, so a
+ * (styles in styles.css, "Readable forms" section). Labels are real <label> elements, so a
  * control's accessible name is exactly its visible label; help text is
  * linked with aria-describedby instead of being folded into the name.
  */

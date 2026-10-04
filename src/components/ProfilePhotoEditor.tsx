@@ -149,6 +149,6 @@ export default function ProfilePhotoEditor({ sourceUrl, saving, onCancel, onSave
         {error && <p className="form-error" role="alert">{error}</p>}
       </section>
     </div>
-    <footer className="photo-editor-footer"><div><ShieldCheck /><p><strong>Employee-owned storage.</strong> Supabase policies restrict this object path to your signed-in account.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel} disabled={busy}>Choose another photo</button><button className="button button-primary" disabled={busy || !image}>{saving ? 'Uploading securely…' : preparing ? 'Preparing your crop…' : 'Save profile picture'}</button></div></footer>
+    <footer className="photo-editor-footer"><div><ShieldCheck /><p><strong>Private storage.</strong> Only you and authorized HR staff can see your photo.</p></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel} disabled={busy}>Choose another photo</button><button className="button button-primary" disabled={busy || !image}>{saving ? 'Uploading securely…' : preparing ? 'Preparing your crop…' : 'Save profile picture'}</button></div></footer>
   </form>
 }

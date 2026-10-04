@@ -119,6 +119,11 @@ export interface PayrollRecord {
   net: number
   status: string
   runId?: number
+  /** Itemized employee shares when the run used Philippine statutory deductions. */
+  sss?: number
+  philhealth?: number
+  pagibig?: number
+  withholdingTax?: number
 }
 
 export type PayrollStage = 'Draft' | 'Validation' | 'Approved' | 'Released' | 'Paid' | 'Locked'
@@ -131,13 +136,17 @@ export interface PayrollRunRecord {
   grossTotal: number
   netTotal: number
   deductionRate: number
+  calculationMethod?: PayrollCalculationMethod
   approvedBy?: string
   releasedAt?: string
 }
 
+export type PayrollCalculationMethod = 'Flat rate' | 'Philippine statutory'
+
 export interface PayrollGenerationInput {
   period: string
   deductionRate: number
+  method?: PayrollCalculationMethod
 }
 
 export interface BenefitRecord {
@@ -225,6 +234,10 @@ export interface DocumentRecord {
   sensitive: boolean
   period?: string
   createdAt: string
+  /** Private Storage path of an attached file, when one was uploaded. */
+  filePath?: string
+  fileSize?: number
+  mimeType?: string
 }
 
 export interface DocumentInput {
@@ -238,6 +251,7 @@ export interface DocumentInput {
   requiresAck: boolean
   sensitive: boolean
   expiresOn: string
+  file?: File | null
 }
 
 export interface AnnouncementInput {
@@ -277,6 +291,33 @@ export interface LeaveRequestRecord {
   endDate: string
   days: number
   reason: string
+  /** HR's note to the employee about the decision. */
+  decisionNote?: string
+  reviewedAt?: string
+  cancelledAt?: string
+  createdAt?: string
+}
+
+export interface LeavePolicyRecord {
+  type: string
+  /** Days per calendar year; null when the type is decided case by case. */
+  annualDays: number | null
+  description: string
+  updatedAt?: string
+}
+
+export interface LeavePolicyInput {
+  type: string
+  annualDays: number | null
+  description?: string
+}
+
+export type AdminAccountOperation = 'change-role' | 'deactivate' | 'reactivate'
+
+export interface AdminAccountChange {
+  operation: AdminAccountOperation
+  employeeId: string
+  role?: string
 }
 
 export interface ScheduleRecord {
@@ -298,6 +339,7 @@ export interface AnnouncementRecord {
   date: string
   title: string
   content: string
+  updatedAt?: string
 }
 
 export interface RequestCommentRecord {
@@ -557,6 +599,8 @@ export interface HrmsSnapshot {
   lifecycleTasks: LifecycleTaskRecord[]
   payrollRuns: PayrollRunRecord[]
   performanceCycles: PerformanceCycleRecord[]
+  /** Yearly leave allowances; defaults apply when absent. */
+  leavePolicies?: LeavePolicyRecord[]
 }
 
 export interface ToastMessage {
@@ -595,7 +639,9 @@ export interface HrmsDataProvider {
   updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<HrmsSnapshot>
   updateProfilePhoto: (photo: Blob) => Promise<HrmsSnapshot>
   submitLeave: (input: LeaveRequestInput) => Promise<HrmsSnapshot>
-  reviewLeave: (id: string, status: string) => Promise<HrmsSnapshot>
+  reviewLeave: (id: string, status: string, note?: string) => Promise<HrmsSnapshot>
+  cancelLeave?: (id: string) => Promise<HrmsSnapshot>
+  saveLeavePolicy?: (input: LeavePolicyInput) => Promise<HrmsSnapshot>
   submitRequest: (input: EmployeeRequestInput) => Promise<HrmsSnapshot>
   reviewRequest: (id: string, status: string, reason: string) => Promise<HrmsSnapshot>
   addRequestComment: (id: string, body: string, internal?: boolean) => Promise<HrmsSnapshot>
@@ -613,8 +659,15 @@ export interface HrmsDataProvider {
   endSession: (id: string) => Promise<HrmsSnapshot>
   changePassword: (input: PasswordChangeInput) => Promise<HrmsSnapshot>
   addAnnouncement: (input: AnnouncementInput) => Promise<HrmsSnapshot>
+  updateAnnouncement?: (id: string, input: AnnouncementInput) => Promise<HrmsSnapshot>
+  deleteAnnouncement?: (id: string) => Promise<HrmsSnapshot>
+  manageAdminAccount?: (input: AdminAccountChange) => Promise<HrmsSnapshot>
+  /** A short-lived link to download a document's attached file. */
+  getDocumentFileUrl?: (document: DocumentRecord) => Promise<string>
   createDocument: (input: DocumentInput) => Promise<HrmsSnapshot>
   saveSchedule: (input: ScheduleInput) => Promise<HrmsSnapshot>
+  /** Saves several shifts with one write and one refresh. */
+  saveSchedules?: (inputs: ScheduleInput[]) => Promise<HrmsSnapshot>
   saveBenefit: (input: BenefitInput) => Promise<HrmsSnapshot>
   saveGoal: (input: GoalInput) => Promise<HrmsSnapshot>
   createLifecycleCase: (input: LifecycleCaseInput) => Promise<HrmsSnapshot>
@@ -632,10 +685,13 @@ export interface HrmsContextValue {
   syncError?: boolean
   getSecurityOverview?: (days: number) => Promise<import('../pages/AdminSecurityOverview.js').SecurityOverviewData>
   getSecurityAccountOptions?: () => Promise<Array<{ employee_code: string; first_name: string; last_name: string }>>
+  /** Reads a document's text; defaults to the authorized document RPC. */
+  readDocument?: (documentId: string) => Promise<string>
   user: PortalIdentity | null
   data: HrmsSnapshot | null
   loading: boolean
   toast: ToastMessage | null
+  dismissToast?: () => void
   notify: (message: string, tone?: ToastTone) => void
   login: (credentials: LoginCredentials) => Promise<AuthenticationResult>
   completeEmailSignIn?: (portal: PortalKind) => Promise<AuthenticationResult>
@@ -672,7 +728,10 @@ export interface HrmsContextValue {
   updateGoalProgress: (id: string, progress: number) => Promise<unknown>
   acknowledgeDocument: (id: string) => Promise<unknown>
   saveSchedule: (input: ScheduleInput) => Promise<unknown>
-  reviewLeave: (id: string, status: string) => Promise<unknown>
+  saveSchedules?: (inputs: ScheduleInput[]) => Promise<unknown>
+  reviewLeave: (id: string, status: string, note?: string) => Promise<unknown>
+  cancelLeave?: (id: string) => Promise<unknown>
+  saveLeavePolicy?: (input: LeavePolicyInput) => Promise<unknown>
   reviewRequest: (id: string, status: string, reason: string) => Promise<unknown>
   createLifecycleCase: (input: LifecycleCaseInput) => Promise<unknown>
   updateLifecycleTask: (id: string, status: string) => Promise<unknown>
@@ -684,7 +743,11 @@ export interface HrmsContextValue {
   createPerformanceCycle: (input: PerformanceCycleInput) => Promise<unknown>
   saveGoal: (input: GoalInput) => Promise<unknown>
   createDocument: (input: DocumentInput) => Promise<unknown>
+  getDocumentFileUrl?: (document: DocumentRecord) => Promise<string>
   addAnnouncement: (input: AnnouncementInput) => Promise<unknown>
+  updateAnnouncement?: (id: string, input: AnnouncementInput) => Promise<unknown>
+  deleteAnnouncement?: (id: string) => Promise<unknown>
+  manageAdminAccount?: (input: AdminAccountChange) => Promise<unknown>
 }
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'

@@ -26,7 +26,7 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.goto(`/${portal}/login`)
     await page.getByLabel('Work email').fill(account.email)
     await page.getByLabel('Password', { exact: true }).fill(account.password)
-    await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByLabel('Email verification code')).toBeEnabled()
     const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
     await page.getByLabel('Email verification code').fill(code!)
@@ -40,7 +40,7 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await page.unroute('**/rest/v1/profiles?*')
     await page.getByRole('button', { name: 'Try loading again' }).click()
-    await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening),/ })).toBeVisible()
     expect(emailRequests).toBe(2) // One send and one verification, not a resend.
   })
   test(`${portal} still requires its enrolled authenticator after email verification`, async ({ page }) => {
@@ -62,7 +62,7 @@ for (const portal of ['admin', 'employee'] as const) {
       await page.goto(`/${portal}/login`)
       await page.getByLabel('Work email').fill(account.email)
       await page.getByLabel('Password', { exact: true }).fill(account.password)
-      await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       await expect(page.getByLabel('Email verification code')).toBeEnabled()
       const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
       await page.getByLabel('Email verification code').fill(code!)
@@ -87,7 +87,7 @@ for (const portal of ['admin', 'employee'] as const) {
       await page.goto(`/${portal}/login`)
       await page.getByLabel('Work email').fill(account.email)
       await page.getByLabel('Password', { exact: true }).fill(account.password)
-      await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`/${portal}/verify-email$`))
       const input = page.getByLabel('Email verification code')
       await expect(input).toBeEnabled()
@@ -114,7 +114,7 @@ for (const portal of ['admin', 'employee'] as const) {
       await input.fill(code!)
       await page.getByRole('button', { name: 'Verify & continue' }).click()
       await expect(page).toHaveURL(new RegExp(`/${portal}/?$`), { timeout: 20_000 })
-      await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
+      await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening),/ })).toBeVisible()
     })
   }
 }

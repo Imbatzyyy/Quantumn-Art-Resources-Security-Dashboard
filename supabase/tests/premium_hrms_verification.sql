@@ -49,7 +49,7 @@ select is(
     from pg_policies
     where schemaname = 'public'
   ),
-  24,
+  25,
   'every HRMS table has at least one RLS policy'
 );
 
@@ -166,7 +166,7 @@ select is(
     from pg_publication_tables
     where pubname = 'supabase_realtime' and schemaname = 'public'
   ),
-  24,
+  25,
   'all HRMS tables are registered for controlled Realtime updates'
 );
 

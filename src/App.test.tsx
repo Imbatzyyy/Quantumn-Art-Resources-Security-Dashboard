@@ -56,7 +56,7 @@ describe('public authentication routes', () => {
   it('renders employee sign-in with a private recovery link, logical focus order, and no admin discovery link', async () => {
     const user = userEvent.setup()
     renderRoute('/employee/login')
-    expect(await screen.findByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible()
     const email = screen.getByLabelText('Work email')
     const recovery = screen.getByRole('link', { name: 'Forgot password?' })
     const password = screen.getByLabelText('Password', { selector: 'input' })
@@ -88,14 +88,14 @@ describe('public authentication routes', () => {
 describe('protected route decisions', () => {
   it('keeps route decisions pending while authentication restores', () => {
     renderRoute('/admin', createTestContext({ loading: true }))
-    expect(screen.getByText('Preparing your secure workspace…')).toBeVisible()
+    expect(screen.getByText('Loading your workspace…')).toBeVisible()
     expect(screen.getByTestId('route-location')).toHaveTextContent('/admin')
   })
 
   it('redirects signed-out users to the matching portal login', async () => {
     renderRoute('/employee')
     expect(await screen.findByTestId('route-location')).toHaveTextContent('/employee/login')
-    expect(await screen.findByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible()
   })
 
   it('keeps an employee account away from the administrator workspace', async () => {

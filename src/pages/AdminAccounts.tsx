@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { BadgeCheck, Building2, Check, Crown, KeyRound, LockKeyhole, Mail, MailCheck, Plus, ShieldCheck, UserCog, Users } from 'lucide-react'
-import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
+import { BadgeCheck, Building2, Check, Crown, Info, KeyRound, LockKeyhole, Mail, MailCheck, Plus, ShieldCheck, UserCheck, UserCog, UserX, Users } from 'lucide-react'
+import { Badge, ConfirmDialog, EmptyState, Modal, SectionHeading, StatCard } from '../components/ui.js'
+import { DataTable, type DataColumn } from '../components/DataTable.js'
 import { Banner, Field, FormFooter, FormIntro, SectionTitle, PersonCard } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
-import { statusTone } from '../utils/format.js'
+import { formatDateTime, statusTone } from '../utils/format.js'
 import type { AdminInviteInput } from '../types/hrms.js'
 import type { EmployeeRecord } from '../types/hrms.js'
 import { adminPasswordReset } from '../services/adminPasswordReset.js'
@@ -65,7 +66,11 @@ const adminRoles: Record<AdminRoleKey, AdminRoleDefinition> = {
 const emptyForm: AdminInviteInput = { firstName: '', lastName: '', email: '', phone: '', role: 'hr_admin', confirmed: false }
 
 export default function AdminAccounts() {
-  const { data, user, inviteAdminAccount } = useHrms()
+  const { data, user, inviteAdminAccount, manageAdminAccount } = useHrms()
+  const [managing, setManaging] = useState<EmployeeRecord | null>(null)
+  const [nextRole, setNextRole] = useState<AdminRoleKey>('hr_admin')
+  const [roleSaving, setRoleSaving] = useState(false)
+  const [accessChange, setAccessChange] = useState<{ account: EmployeeRecord; operation: 'deactivate' | 'reactivate' } | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
@@ -79,6 +84,29 @@ export default function AdminAccounts() {
   const accounts = data.employees.filter((employee) => employee.role !== 'employee')
   const activeAccounts = accounts.filter((account) => account.status === 'Active').length
   const representedRoles = new Set(accounts.map((account) => account.role)).size
+  const lastActive = (accountId: string) => data.sessions.filter((session) => session.employeeId === accountId).map((session) => session.lastSeenAt ?? session.createdAt ?? '').sort().at(-1)
+  const accountColumns: DataColumn<EmployeeRecord>[] = [
+    { id: 'name', header: 'Administrator', primary: true, cell: (account) => <span className="table-person"><span className="table-initials" aria-hidden="true">{account.firstName[0]}{account.lastName[0]}</span><span className="cell-stack"><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></span></span>, sortValue: (account) => `${account.lastName} ${account.firstName}`, csv: (account) => `${account.firstName} ${account.lastName}` },
+    { id: 'email', header: 'Email', exportOnly: true, cell: (account) => account.email, csv: (account) => account.email },
+    { id: 'role', header: 'Role', cell: (account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <span className="cell-stack"><Badge tone={role.tone}>{role.label}</Badge><small>{role.short}</small></span> }, sortValue: (account) => (adminRoles[account.role as AdminRoleKey] || adminRoles.auditor).label },
+    { id: 'department', header: 'Department', hideOnMobile: true, cell: (account) => account.department, sortValue: (account) => account.department },
+    { id: 'active', header: 'Last active', hideOnMobile: true, cell: (account) => { const at = lastActive(account.id); return at ? formatDateTime(at) : <span className="text-muted">No recent sign-in</span> }, sortValue: (account) => lastActive(account.id) ?? '' },
+    { id: 'status', header: 'Status', cell: (account) => <Badge tone={statusTone(account.status)}>{account.status}</Badge>, sortValue: (account) => account.status },
+    { id: 'actions', header: '', align: 'end', cell: (account) => <div className="table-actions">
+      {manageAdminAccount && account.id !== user?.id && <button type="button" className="button button-secondary button-small" aria-label={`Manage access for ${account.firstName} ${account.lastName}`} onClick={() => { setManaging(account); setNextRole((adminRoles[account.role as AdminRoleKey] ? account.role : 'auditor') as AdminRoleKey) }}><UserCog size={16} aria-hidden="true" />Manage</button>}
+      <button className="button button-secondary button-small admin-reset-trigger" disabled={account.status !== 'Active'} aria-label={`Reset password for ${account.firstName} ${account.lastName}`} onClick={() => { setResetAccount(account); setResetError(''); setResetSent(false); setResetConfirmed(false) }}><KeyRound size={16} aria-hidden="true" />Reset password</button>
+    </div> },
+  ]
+  const saveRole = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!managing || !manageAdminAccount || nextRole === managing.role) return
+    setRoleSaving(true)
+    try {
+      await manageAdminAccount({ operation: 'change-role', employeeId: managing.id, role: nextRole })
+      setManaging(null)
+    } catch { /* The shared toast explains the error. */ }
+    finally { setRoleSaving(false) }
+  }
   const sendReset = async () => {
     if (!resetAccount || !resetConfirmed || resetBusy) return
     setResetBusy(true); setResetError('')
@@ -110,25 +138,73 @@ export default function AdminAccounts() {
 
   return (
     <div className="page-stack admin-accounts-page">
-      <SectionHeading eyebrow="Privileged identity management" title="Admin Accounts & Roles" description="Invite accountable administrators with least-privilege access and a personal password-setup link." actions={<button className="button button-primary" onClick={() => setShowInvite(true)}><Plus size={17} />Invite administrator</button>} />
-
-      <Banner icon={ShieldCheck} tone="success" title="Administrator access is by invitation only" badge={<Badge tone="success">Server protected</Badge>}>Quantum HRMS creates the sign-in and the role together, then emails a personal, time-limited link to set a password. Administrators never create or send passwords.</Banner>
+      <SectionHeading title="Admin Accounts" description="Invite administrators and give each one only the access they need. Invitations include a personal link to set a password." actions={<button className="button button-primary" onClick={() => setShowInvite(true)}><Plus size={17} aria-hidden="true" />Invite administrator</button>} />
 
       <div className="stats-grid stats-grid-3">
-        <StatCard icon={UserCog} label="Administrator accounts" value={accounts.length} detail="Supabase-linked identities" tone="blue" />
-        <StatCard icon={BadgeCheck} label="Active privileged access" value={activeAccounts} detail="Active role profiles" tone="green" />
-        <StatCard icon={Building2} label="Roles represented" value={representedRoles} detail={`Of ${Object.keys(adminRoles).length} available roles`} tone="purple" />
+        <StatCard icon={UserCog} label="Administrator accounts" value={accounts.length} detail={`${activeAccounts} active`} tone="blue" />
+        <StatCard icon={BadgeCheck} label="System Administrators" value={accounts.filter((account) => account.role === 'admin').length} detail="Full access, keep this small" tone="amber" />
+        <StatCard icon={Building2} label="Roles in use" value={representedRoles} detail={`Of ${Object.keys(adminRoles).length} available roles`} tone="purple" />
       </div>
 
       <section className="panel">
-        <div className="panel-header"><div><h2>Role catalog</h2><p>Clear responsibilities help prevent unnecessary access.</p></div><Badge tone="info">Least privilege</Badge></div>
-        <div className="admin-role-catalog">{Object.entries(adminRoles).map(([key, role]) => { const Icon = role.icon; return <article key={key}><span><Icon /></span><div><strong>{role.label}</strong><small>{role.short}</small><p>{role.description}</p></div></article> })}</div>
+        <div className="panel-header"><div><h2>Administrators</h2><p>Everyone with access to the admin console</p></div></div>
+        <DataTable
+          rows={accounts}
+          columns={accountColumns}
+          getRowId={(account) => account.id}
+          caption="Administrator accounts"
+          count={{ singular: 'administrator', plural: 'administrators' }}
+          search={{ placeholder: 'Search administrators', text: (account) => `${account.firstName} ${account.lastName} ${account.email} ${account.id}` }}
+          filters={[{ id: 'role', label: 'Roles', value: (account) => (adminRoles[account.role as AdminRoleKey] || adminRoles.auditor).label }, { id: 'status', label: 'Statuses', value: (account) => account.status }]}
+          initialSort={{ column: 'name', direction: 'asc' }}
+          exportName="administrator-accounts"
+          empty={{ icon: UserCog, title: 'No administrators yet', text: 'Invite the first administrator.' }}
+        />
       </section>
 
       <section className="panel">
-        <div className="panel-header"><div><h2>Privileged account directory</h2><p>Profile and access-role changes synchronize from Supabase in real time.</p></div><Badge tone="success">Live</Badge></div>
-        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th><th>Recovery</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td><td><button className="button button-secondary admin-reset-trigger" disabled={account.status !== 'Active'} aria-label={`Reset password for ${account.firstName} ${account.lastName}`} onClick={() => { setResetAccount(account); setResetError(''); setResetSent(false); setResetConfirmed(false) }}><KeyRound size={16} />Reset password</button></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
+        <details className="role-guide">
+          <summary><span><strong>What can each role do?</strong><small>Choose the smallest role that covers someone’s job.</small></span></summary>
+          <div className="admin-role-catalog">{Object.entries(adminRoles).map(([key, role]) => { const Icon = role.icon; return <article key={key}><span aria-hidden="true"><Icon /></span><div><strong>{role.label}</strong><small>{role.short}</small><p>{role.description}</p><ul>{role.permissions.map((permission) => <li key={permission}><Check aria-hidden="true" />{permission}</li>)}</ul></div></article> })}</div>
+        </details>
       </section>
+
+      {managing && <Modal title={`Manage ${managing.firstName} ${managing.lastName}`} onClose={() => !roleSaving && setManaging(null)} dismissible={!roleSaving}>
+        <form className="rf-form rf-form-compact" onSubmit={saveRole} aria-busy={roleSaving}>
+          <PersonCard name={`${managing.firstName} ${managing.lastName}`} meta={`${managing.email} · ${managing.status}`} />
+          <fieldset className="rf-field rf-choices rf-choices--list">
+            <legend className="rf-label">Role</legend>
+            <div>{Object.entries(adminRoles).map(([key, role]) => <label key={key} className={`rf-choice${nextRole === key ? ' is-selected' : ''}`}>
+              <input type="radio" name="manage-admin-role" value={key} checked={nextRole === key} onChange={(event) => setNextRole(event.target.value as AdminRoleKey)} />
+              <span><strong>{role.label}{key === managing.role ? ' (current)' : ''}</strong><small>{role.short}</small></span>
+            </label>)}</div>
+          </fieldset>
+          <p className="rf-help rf-tip"><Info aria-hidden="true" />Changing the role signs {managing.firstName} out of every browser. The new access applies when they sign in again.</p>
+          <div className="modal-actions modal-actions-split">
+            {managing.status === 'Inactive'
+              ? <button type="button" className="button button-secondary" disabled={roleSaving} onClick={() => { setAccessChange({ account: managing, operation: 'reactivate' }); setManaging(null) }}><UserCheck size={17} aria-hidden="true" />Reactivate account</button>
+              : <button type="button" className="button button-secondary danger-text" disabled={roleSaving} onClick={() => { setAccessChange({ account: managing, operation: 'deactivate' }); setManaging(null) }}><UserX size={17} aria-hidden="true" />Deactivate account</button>}
+            <span className="modal-actions-group">
+              <button type="button" className="button button-secondary" onClick={() => setManaging(null)} disabled={roleSaving}>Cancel</button>
+              <button className="button button-primary" disabled={roleSaving || nextRole === managing.role}>{roleSaving ? 'Saving…' : 'Save role'}</button>
+            </span>
+          </div>
+        </form>
+      </Modal>}
+
+      {accessChange && <ConfirmDialog
+        title={accessChange.operation === 'deactivate' ? 'Deactivate administrator' : 'Reactivate administrator'}
+        icon={accessChange.operation === 'deactivate' ? UserX : UserCheck}
+        tone={accessChange.operation === 'deactivate' ? 'danger' : 'primary'}
+        heading={`${accessChange.operation === 'deactivate' ? 'Deactivate' : 'Reactivate'} ${accessChange.account.firstName} ${accessChange.account.lastName}?`}
+        message={<p>{accessChange.operation === 'deactivate'
+          ? 'They are signed out of every browser and can’t sign in until a System Administrator reactivates the account. Their records and audit history are kept.'
+          : 'They can sign in again with their existing password and authenticator, with the same role as before.'}</p>}
+        confirmLabel={accessChange.operation === 'deactivate' ? 'Deactivate account' : 'Reactivate account'}
+        busyLabel="Saving…"
+        onCancel={() => setAccessChange(null)}
+        onConfirm={async () => { await manageAdminAccount?.({ operation: accessChange.operation, employeeId: accessChange.account.id }); setAccessChange(null) }}
+      />}
 
       {resetAccount && <Modal title={resetSent ? 'Reset email requested' : 'Reset administrator password'} onClose={() => !resetBusy && setResetAccount(null)} size="wide">
         <div className="rf-form rf-form--sm" aria-busy={resetBusy}>

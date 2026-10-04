@@ -21,7 +21,8 @@ import {
   verifyMfaEnrollment,
   verifyMfaLogin,
 } from './supabaseAuth.js'
-import type { HrmsDataProvider } from '../types/hrms.js'
+import type { HrmsDataProvider, ScheduleInput } from '../types/hrms.js'
+import { documentFileError, documentStoragePath } from '../utils/documentFiles.js'
 import type { Database, TablesUpdate } from '../types/database.js'
 import { databaseId } from './supabaseIdentifiers.js'
 
@@ -34,7 +35,7 @@ const realtimeTables = [
   'zap_scan_runs', 'zap_findings', 'employee_requests',
   'request_comments', 'notifications', 'employee_documents',
   'document_acknowledgements', 'work_schedules', 'employee_benefits',
-  'employee_goals', 'lifecycle_cases', 'lifecycle_tasks',
+  'employee_goals', 'lifecycle_cases', 'lifecycle_tasks', 'leave_policies',
 ] as const satisfies readonly PublicTable[]
 
 const requireCurrentUser = async () => {
@@ -42,6 +43,18 @@ const requireCurrentUser = async () => {
   if (!profile) throw new Error('Your session has expired. Sign in again.')
   return profile
 }
+
+const DOCUMENT_BUCKET = 'hr-documents'
+
+const scheduleRow = (input: ScheduleInput) => ({
+  employee_code: input.employeeId,
+  work_date: input.date,
+  shift_start: input.workMode === 'Rest Day' ? '00:00' : input.shiftStart,
+  shift_end: input.workMode === 'Rest Day' ? '00:00' : input.shiftEnd,
+  location: input.workMode === 'Rest Day' ? 'Not scheduled' : input.location,
+  work_mode: input.workMode,
+  notes: input.notes || null,
+})
 
 export const supabaseProvider: HrmsDataProvider = {
   getSnapshot: fetchSnapshot,
@@ -245,10 +258,29 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
-  async reviewLeave(id, status) {
+  async reviewLeave(id, status, note) {
     const { error } = await requireSupabase().rpc('review_leave_request', {
       request_id: databaseId(id, 'Leave request'),
       decision: status,
+      decision_note: note?.trim() || undefined,
+    })
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async cancelLeave(id) {
+    const { error } = await requireSupabase().rpc('cancel_leave_request', {
+      request_id: databaseId(id, 'Leave request'),
+    })
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async saveLeavePolicy(input) {
+    const { error } = await requireSupabase().rpc('save_leave_policy', {
+      selected_type: input.type,
+      allowance: input.annualDays,
+      policy_description: input.description?.trim() || undefined,
     })
     if (error) throw error
     return fetchSnapshot()
@@ -438,9 +470,55 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
+  async updateAnnouncement(id, input) {
+    const { error } = await requireSupabase().from('announcements').update({
+      title: input.title,
+      content: input.content,
+      priority: input.priority,
+    }).eq('id', databaseId(id, 'Announcement'))
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async deleteAnnouncement(id) {
+    const { error } = await requireSupabase().from('announcements').delete().eq('id', databaseId(id, 'Announcement'))
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async manageAdminAccount(input) {
+    const { error } = await requireSupabase().rpc('manage_admin_account', {
+      operation: input.operation,
+      target_code: input.employeeId,
+      new_role: input.role || undefined,
+    })
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async getDocumentFileUrl(document) {
+    if (!document.filePath) throw new Error('This document has no attached file.')
+    const { data, error } = await requireSupabase().storage.from(DOCUMENT_BUCKET)
+      .createSignedUrl(document.filePath, 60, { download: document.filename || true })
+    if (error || !data?.signedUrl) throw error || new Error('The file could not be opened.')
+    return data.signedUrl
+  },
+
   async createDocument(input) {
     const profile = await requireCurrentUser()
-    const { error } = await requireSupabase().from('employee_documents').insert({
+    const client = requireSupabase()
+    let filePath: string | null = null
+    if (input.file) {
+      const problem = documentFileError(input.file)
+      if (problem) throw new Error(problem)
+      filePath = documentStoragePath(input.file.name)
+      const { error: uploadError } = await client.storage.from(DOCUMENT_BUCKET).upload(filePath, input.file, {
+        contentType: input.file.type,
+        upsert: false,
+      })
+      if (uploadError) throw new Error('The file could not be uploaded. Check the file and try again.')
+    }
+    const { error } = await client.from('employee_documents').insert({
       employee_code: input.employeeId || null,
       title: input.title.trim(),
       document_type: input.type,
@@ -452,24 +530,25 @@ export const supabaseProvider: HrmsDataProvider = {
       sensitive: Boolean(input.sensitive),
       expires_on: input.expiresOn || null,
       uploaded_by: profile.id,
+      file_path: filePath,
     })
-    if (error) throw error
+    if (error) {
+      // Remove the unattached upload so it does not linger in storage.
+      if (filePath) await client.storage.from(DOCUMENT_BUCKET).remove([filePath]).catch(() => undefined)
+      throw error
+    }
     return fetchSnapshot()
   },
 
   async saveSchedule(input) {
-    const { error } = await requireSupabase().from('work_schedules').upsert(
-      {
-        employee_code: input.employeeId,
-        work_date: input.date,
-        shift_start: input.workMode === 'Rest Day' ? '00:00' : input.shiftStart,
-        shift_end: input.workMode === 'Rest Day' ? '00:00' : input.shiftEnd,
-        location: input.workMode === 'Rest Day' ? 'Not scheduled' : input.location,
-        work_mode: input.workMode,
-        notes: input.notes || null,
-      },
-      { onConflict: 'employee_code,work_date' },
-    )
+    const { error } = await requireSupabase().from('work_schedules').upsert(scheduleRow(input), { onConflict: 'employee_code,work_date' })
+    if (error) throw error
+    return fetchSnapshot()
+  },
+
+  async saveSchedules(inputs) {
+    if (!inputs.length) return fetchSnapshot()
+    const { error } = await requireSupabase().from('work_schedules').upsert(inputs.map(scheduleRow), { onConflict: 'employee_code,work_date' })
     if (error) throw error
     return fetchSnapshot()
   },
@@ -531,10 +610,11 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
-  async generatePayroll({ period, deductionRate }) {
+  async generatePayroll({ period, deductionRate, method = 'Flat rate' }) {
     const { error } = await requireSupabase().rpc('generate_payroll', {
       payroll_period: period.trim(),
-      deduction_rate: Number(deductionRate),
+      deduction_rate: method === 'Flat rate' ? Number(deductionRate) : 0,
+      calculation_method: method,
     })
     if (error) throw error
     return fetchSnapshot()

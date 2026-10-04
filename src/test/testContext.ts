@@ -33,6 +33,8 @@ export function createTestContext(overrides: Partial<HrmsContextValue> = {}): Hr
     generatePayroll: resolved, transitionPayrollRun: resolved, savePerformance: resolved,
     publishPerformance: resolved, createPerformanceCycle: resolved, saveGoal: resolved,
     createDocument: resolved, addAnnouncement: resolved,
+    cancelLeave: resolved, saveLeavePolicy: resolved, updateAnnouncement: resolved,
+    deleteAnnouncement: resolved, manageAdminAccount: resolved,
     ...overrides,
   }
 }

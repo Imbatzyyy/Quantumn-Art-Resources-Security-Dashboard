@@ -251,6 +251,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       getSecurityOverview,
       getSecurityAccountOptions,
       toast,
+      dismissToast: () => setToast(null),
       notify,
       async login(credentials) {
         // Never retain another portal's identity/data while a new sign-in is
@@ -341,7 +342,15 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         return snapshot
       },
       submitLeave: (input) => run(() => dataProvider.submitLeave(input), 'Leave request submitted.'),
-      reviewLeave: (id, status) => run(() => dataProvider.reviewLeave(id, status), `Leave request ${status.toLowerCase()}.`),
+      reviewLeave: (id, status, note) => run(() => dataProvider.reviewLeave(id, status, note), `Leave request ${status.toLowerCase()}.`),
+      cancelLeave: (id) => run(() => {
+        if (!dataProvider.cancelLeave) throw new Error('Leave cancellation is unavailable.')
+        return dataProvider.cancelLeave(id)
+      }, 'Leave request cancelled.'),
+      saveLeavePolicy: (input) => run(() => {
+        if (!dataProvider.saveLeavePolicy) throw new Error('Leave allowances cannot be changed here.')
+        return dataProvider.saveLeavePolicy(input)
+      }, `${input.type} leave allowance saved.`),
       submitRequest: (input) => run(() => dataProvider.submitRequest(input), 'Request submitted to HR.'),
       reviewRequest: (id, status, reason) => run(() => dataProvider.reviewRequest(id, status, reason), `Request marked ${status.toLowerCase()}.`),
       addRequestComment: (id, body, internal) => run(() => dataProvider.addRequestComment(id, body, internal), 'Response added.'),
@@ -373,8 +382,27 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       verifyMfaEnrollment: (input) => dataProvider.verifyMfaEnrollment(input),
       disableMfa: (factorId) => dataProvider.disableMfa(factorId),
       addAnnouncement: (input) => run(() => dataProvider.addAnnouncement(input), 'Announcement published.'),
+      updateAnnouncement: (id, input) => run(() => {
+        if (!dataProvider.updateAnnouncement) throw new Error('Announcements cannot be edited here.')
+        return dataProvider.updateAnnouncement(id, input)
+      }, 'Announcement updated.'),
+      deleteAnnouncement: (id) => run(() => {
+        if (!dataProvider.deleteAnnouncement) throw new Error('Announcements cannot be deleted here.')
+        return dataProvider.deleteAnnouncement(id)
+      }, 'Announcement deleted.'),
+      manageAdminAccount: (input) => run(() => {
+        if (!dataProvider.manageAdminAccount) throw new Error('Administrator accounts cannot be changed here.')
+        return dataProvider.manageAdminAccount(input)
+      }, input.operation === 'change-role' ? 'Role changed. The account must sign in again.' : input.operation === 'deactivate' ? 'Account deactivated and signed out everywhere.' : 'Account reactivated.'),
+      getDocumentFileUrl: dataProvider.getDocumentFileUrl,
       createDocument: (input) => run(() => dataProvider.createDocument(input), 'Document published securely.'),
       saveSchedule: (input) => run(() => dataProvider.saveSchedule(input), 'Work schedule saved.'),
+      saveSchedules: (inputs) => run(async () => {
+        if (dataProvider.saveSchedules) return dataProvider.saveSchedules(inputs)
+        let snapshot: HrmsSnapshot | null = null
+        for (const input of inputs) snapshot = await dataProvider.saveSchedule(input)
+        return snapshot ?? dataProvider.getSnapshot()
+      }, `${inputs.length} shift${inputs.length === 1 ? '' : 's'} saved.`),
       saveBenefit: (input) => run(() => dataProvider.saveBenefit(input), 'Benefit record saved.'),
       saveGoal: (input) => run(() => dataProvider.saveGoal(input), 'Employee goal saved.'),
       createLifecycleCase: (input) => run(() => dataProvider.createLifecycleCase(input), `${input.type} checklist created.`),

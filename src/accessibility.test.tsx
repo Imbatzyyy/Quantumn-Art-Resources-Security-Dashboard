@@ -30,7 +30,7 @@ function renderWithContext(node: React.ReactNode, context: HrmsContextValue) {
 describe('public portal accessibility', () => {
   it.each([
     ['/admin/login', 'Administrator sign in'],
-    ['/employee/login', 'Welcome to your workspace'],
+    ['/employee/login', 'Sign in to your workspace'],
   ])('has no detectable structural violations on %s', async (path, heading) => {
     const view = render(
       <MemoryRouter initialEntries={[path]}>
@@ -47,8 +47,30 @@ describe('public portal accessibility', () => {
 
 describe('authenticated portal shell accessibility', () => {
   it.each([
-    ['/admin', adminIdentity, 'Good day, Admin.'],
-    ['/employee', employeeIdentity, 'Good day, Employee.'],
+    ['/admin', adminIdentity, /^Good (morning|afternoon|evening), Admin$/],
+    ['/employee', employeeIdentity, /^Good (morning|afternoon|evening), Employee$/],
+    ['/admin/people', adminIdentity, 'People Directory'],
+    ['/admin/time', adminIdentity, 'Time & Attendance'],
+    ['/admin/approvals', adminIdentity, 'Approvals'],
+    ['/admin/onboarding', adminIdentity, 'Onboarding & Offboarding'],
+    ['/admin/payroll', adminIdentity, 'Payroll'],
+    ['/admin/performance', adminIdentity, 'Performance'],
+    ['/admin/documents', adminIdentity, 'Documents & Policies'],
+    ['/admin/announcements', adminIdentity, 'Announcements'],
+    ['/admin/reports', adminIdentity, 'Reports & Analytics'],
+    ['/admin/security', adminIdentity, 'Security Center'],
+    ['/admin/admin-accounts', adminIdentity, 'Admin Accounts'],
+    ['/employee/time', employeeIdentity, 'Time & Schedule'],
+    ['/employee/leave', employeeIdentity, 'Leave'],
+    ['/employee/requests', employeeIdentity, 'Request Center'],
+    ['/employee/inbox', employeeIdentity, 'Inbox'],
+    ['/employee/pay', employeeIdentity, 'Pay & Benefits'],
+    ['/employee/growth', employeeIdentity, 'Goals & Growth'],
+    ['/employee/documents', employeeIdentity, 'Documents'],
+    ['/employee/help', employeeIdentity, 'HR Help Center'],
+    ['/employee/journey', employeeIdentity, 'My Journey'],
+    ['/employee/security', employeeIdentity, 'Account Security'],
+    ['/employee/profile', employeeIdentity, 'My Profile'],
   ])('has no detectable structural violations on %s', async (path, identity, heading) => {
     const view = render(
       <MemoryRouter initialEntries={[path]}>
@@ -58,7 +80,7 @@ describe('authenticated portal shell accessibility', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByRole('heading', { name: heading })
+    await screen.findByRole('heading', { level: 1, name: heading })
     await expectNoAccessibilityViolations(view.container)
   })
 })
@@ -70,8 +92,8 @@ describe('protected workflow dialog accessibility', () => {
       <PeopleDirectory onNavigate={() => undefined} />,
       createTestContext({ user: adminIdentity, data: { ...emptySnapshot, employees: [employee] } }),
     )
-    await user.click(screen.getByRole('button', { name: 'Create employee & login' }))
-    await expectNoAccessibilityViolations(screen.getByRole('dialog', { name: 'Create employee account' }))
+    await user.click(screen.getByRole('button', { name: 'Add employee' }))
+    await expectNoAccessibilityViolations(screen.getByRole('dialog', { name: 'Add employee' }))
   })
 
   it('keeps the administrator invitation dialog structurally accessible', async () => {

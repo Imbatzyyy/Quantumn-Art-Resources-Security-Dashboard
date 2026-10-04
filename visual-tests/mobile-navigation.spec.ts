@@ -18,8 +18,8 @@ for (const portal of ['admin', 'employee'] as const) {
         await page.goto(`/visual.html?screen=${portal}&theme=${theme}`)
         const bottom = page.getByRole('navigation', { name: `${portal === 'admin' ? 'Administrator' : 'Employee'} mobile navigation` })
         await expect(bottom).toBeVisible()
-        await expect(page.locator('.portal-sidebar')).toBeHidden()
-        const labels = portal === 'admin' ? ['Center', 'People', 'Approvals', 'Security'] : ['My Day', 'Time', 'Requests', 'Inbox']
+        await expect(page.locator('.shell-sidebar')).toBeHidden()
+        const labels = portal === 'admin' ? ['Home', 'People', 'Approvals', 'Security'] : ['Home', 'Time', 'Requests', 'Inbox']
         await expect(bottom.getByRole('button')).toHaveCount(5)
         for (const label of labels) {
           const button = bottom.getByRole('button', { name: label, exact: true })
@@ -30,16 +30,16 @@ for (const portal of ['admin', 'employee'] as const) {
         }
         const destination = portal === 'admin' ? { label: 'People', title: 'People Directory' } : { label: 'Requests', title: 'Request Center' }
         await bottom.getByRole('button', { name: destination.label, exact: true }).click()
-        await expect(page.locator('.topbar-title strong')).toHaveText(destination.title)
+        await expect(page.locator('.shell-mobile-title')).toHaveText(destination.title)
         await expect(bottom.getByRole('button', { name: destination.label, exact: true })).toHaveAttribute('aria-current', 'page')
 
         await bottom.getByRole('button', { name: 'Open more navigation' }).click()
-        const sheet = page.getByRole('dialog', { name: 'Explore your portal' })
+        const sheet = page.getByRole('dialog', { name: 'All pages' })
         const close = sheet.getByRole('button', { name: 'Close more navigation' })
         await expect(close).toBeFocused()
         await expect(sheet.getByRole('searchbox')).not.toBeFocused()
         // The background is inert and primary destinations are not duplicated.
-        await expect(page.locator('.portal-main')).toHaveAttribute('inert', '')
+        await expect(page.locator('.shell-main')).toHaveAttribute('inert', '')
         await expect(sheet.getByRole('button', { name: destination.title, exact: true })).toHaveCount(0)
         await close.press('Shift+Tab')
         await expect(sheet.getByRole('button', { name: 'Sign out', exact: true })).toBeFocused()
@@ -53,16 +53,16 @@ for (const portal of ['admin', 'employee'] as const) {
         expect(sheetBox!.y).toBeGreaterThanOrEqual(0)
         expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(size.height + 1)
 
-        const secondary = portal === 'admin' ? 'Admin Accounts & Roles' : 'My Profile'
+        const secondary = portal === 'admin' ? 'Admin Accounts' : 'My Profile'
         await sheet.getByRole('searchbox', { name: 'Search portal pages' }).fill(secondary)
         await sheet.getByRole('button', { name: secondary, exact: true }).click()
         await expect(sheet).toHaveCount(0)
-        await expect(page.locator('.topbar-title strong')).toHaveText(secondary)
+        await expect(page.locator('.shell-mobile-title')).toHaveText(secondary)
         await expect(bottom.getByRole('button', { name: 'Open more navigation' })).toHaveAttribute('aria-current', 'page')
 
         // Scroll the final content above the fixed bar, including the safe area.
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-        const contentBottom = await page.locator('.portal-content > *').last().boundingBox()
+        const contentBottom = await page.locator('.shell-content > *').last().boundingBox()
         const navBox = await bottom.boundingBox()
         expect(contentBottom!.y + contentBottom!.height).toBeLessThanOrEqual(navBox!.y)
       })
@@ -76,12 +76,12 @@ for (const portal of ['admin', 'employee'] as const) {
     await more.click()
     await page.getByRole('searchbox', { name: 'Search portal pages' }).fill('documents')
     await page.setViewportSize({ width: 1440, height: 900 })
-    await expect(page.getByRole('dialog', { name: 'Explore your portal' })).toHaveCount(0)
-    await expect(page.locator('.portal-sidebar')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'All pages' })).toHaveCount(0)
+    await expect(page.locator('.shell-sidebar')).toBeVisible()
     await expect(more).toBeHidden()
     expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden')
     await page.getByRole('button', { name: 'Collapse sidebar' }).click()
-    await expect(page.locator('.portal-sidebar')).toHaveCSS('width', '84px')
+    await expect(page.locator('.shell-sidebar')).toHaveCSS('width', '68px')
     await page.setViewportSize({ width: 390, height: 844 })
     await more.click()
     await expect(page.getByRole('searchbox', { name: 'Search portal pages' })).toHaveValue('')

@@ -29,9 +29,9 @@ for (const theme of ['light', 'dark']) {
       await page.goto(`/visual.html?screen=admin&theme=${theme}`)
       if (width === 320) {
         await page.getByRole('button', { name: 'Open more navigation' }).click()
-        await page.getByRole('dialog', { name: 'Explore your portal' }).getByRole('button', { name: 'Admin Accounts & Roles', exact: true }).click()
+        await page.getByRole('dialog', { name: 'All pages' }).getByRole('button', { name: 'Admin Accounts', exact: true }).click()
       } else {
-        await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name: 'Admin Accounts & Roles', exact: true }).click()
+        await page.getByRole('navigation', { name: 'Portal navigation' }).getByRole('button', { name: 'Admin Accounts', exact: true }).click()
       }
       await page.getByRole('button', { name: 'Reset password for Alex Reyes' }).click()
       const dialog = page.getByRole('dialog', { name: 'Reset administrator password' })

@@ -10,7 +10,7 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
         const page = await context.newPage()
         try {
           await page.goto(`http://127.0.0.1:4174/visual.html?screen=admin&theme=${theme}`)
-          const overview=page.getByRole('region',{name:'Security at a glance'})
+          const overview=page.getByRole('region',{name:'Security overview'})
           await expect(overview.getByText('Open security alerts',{exact:true})).toBeVisible()
           await overview.getByLabel('Trend period').selectOption('7')
           await expect(overview.getByText(/alerts created in this 7-day window/)).toBeVisible()
@@ -25,15 +25,15 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           const accessibility=await new AxeBuilder({page}).include('.security-overview').withRules(['color-contrast']).analyze()
           expect(accessibility.violations).toEqual([])
           await overview.getByRole('button',{name:/View High alerts/}).click()
-          await expect(page.getByRole('heading',{name:'Unified Security Center',exact:true})).toBeVisible()
+          await expect(page.getByRole('heading',{level:1,name:'Security Center',exact:true})).toBeVisible()
           if(name==='chromium') {
             // New personal security controls are available to administrators too.
             if(width<768) {
               await page.getByRole('button',{name:'Open more navigation'}).click()
               await page.getByRole('dialog').getByRole('button',{name:'My Account Security',exact:true}).click()
-            } else await page.locator('.portal-nav').getByRole('button',{name:'My Account Security',exact:true}).click()
-            await expect(page.getByRole('heading',{name:'Account Security',exact:true})).toBeVisible()
-            await expect(page.getByText('Inactive administrator sessions close after 15 minutes.')).toBeVisible()
+            } else await page.getByRole('navigation',{name:'Portal navigation'}).getByRole('button',{name:'My Account Security',exact:true}).click()
+            await expect(page.getByRole('heading',{level:1,name:'My Account Security',exact:true})).toBeVisible()
+            await expect(page.getByText('You are signed out after 15 minutes without activity.')).toBeVisible()
           }
         } finally { await browser.close() }
       })

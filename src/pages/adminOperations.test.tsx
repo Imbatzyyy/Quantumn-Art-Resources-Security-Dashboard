@@ -45,7 +45,51 @@ describe('core administrator operation boundaries', () => {
     })
 
     await user.click(screen.getByRole('button', { name: 'Approve' }))
-    await waitFor(() => expect(reviewLeave).toHaveBeenCalledWith('LEV-1', 'Approved'))
+    const confirmation = screen.getByRole('dialog', { name: 'Approve leave' })
+    expect(within(confirmation).getByRole('heading', { name: 'Approve Alex Rivera’s vacation leave?' })).toBeVisible()
+    expect(reviewLeave).not.toHaveBeenCalled()
+    await user.click(within(confirmation).getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(reviewLeave).toHaveBeenCalledWith('LEV-1', 'Approved', undefined))
+  })
+
+  it('requires a reason before rejecting leave and sends it to the employee', async () => {
+    const user = userEvent.setup()
+    const reviewLeave = vi.fn(async () => emptySnapshot)
+    renderOperation(<AdminApprovals />, {
+      reviewLeave,
+      data: {
+        ...emptySnapshot,
+        employees: [employee],
+        leaveRequests: [{
+          id: 'LEV-2', employeeId: employee.id, status: 'Pending', type: 'Vacation',
+          startDate: '2026-09-01', endDate: '2026-09-02', days: 2, reason: 'Family event',
+        }],
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }))
+    const confirmation = screen.getByRole('dialog', { name: 'Reject leave' })
+    const reject = within(confirmation).getByRole('button', { name: 'Reject' })
+    expect(reject).toBeDisabled()
+    await user.type(within(confirmation).getByLabelText('Reason for the employee'), 'Team coverage is too thin that week.')
+    expect(reject).toBeEnabled()
+    await user.click(reject)
+    await waitFor(() => expect(reviewLeave).toHaveBeenCalledWith('LEV-2', 'Rejected', 'Team coverage is too thin that week.'))
+  })
+
+  it('lets HR change a leave allowance', async () => {
+    const user = userEvent.setup()
+    const saveLeavePolicy = vi.fn(async () => emptySnapshot)
+    renderOperation(<AdminApprovals />, { saveLeavePolicy, data: { ...emptySnapshot, employees: [employee] } })
+
+    await user.click(screen.getByRole('button', { name: 'Leave allowances' }))
+    const dialog = screen.getByRole('dialog', { name: 'Leave allowances' })
+    const vacation = within(dialog).getByLabelText('Vacation leave days per year')
+    await user.clear(vacation)
+    await user.type(vacation, '15')
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(saveLeavePolicy).toHaveBeenCalledWith({ type: 'Vacation', annualDays: 15, description: 'Planned time off. File at least a few days ahead.' }))
+    expect(saveLeavePolicy).toHaveBeenCalledTimes(1)
   })
 
   it('keeps private request handoffs separate from employee-notified decisions', async () => {
@@ -67,10 +111,10 @@ describe('core administrator operation boundaries', () => {
       },
     })
 
-    await user.click(screen.getByRole('button', { name: 'Review' }))
+    await user.click(screen.getByRole('button', { name: 'Review Delayed update on salary' }))
     const dialog = screen.getByRole('dialog', { name: 'Review request #REQ-1' })
-    await user.click(within(dialog).getByRole('button', { name: /Private handoff/ }))
-    const privateNote = within(dialog).getByLabelText('Private HR handoff note')
+    await user.click(within(dialog).getByRole('button', { name: /Private HR note/ }))
+    const privateNote = within(dialog).getByLabelText('Private HR note')
     await user.type(privateNote, 'Validate the adjustment with the payroll register.')
     fireEvent.submit(privateNote.closest('form')!)
 
@@ -95,8 +139,8 @@ describe('core administrator operation boundaries', () => {
     const user = userEvent.setup()
     const saveSchedule = vi.fn(async () => emptySnapshot)
     renderOperation(<AdminTimeOperations />, { saveSchedule })
-    await user.click(screen.getByRole('button', { name: 'Assign schedule' }))
-    const dialog = screen.getByRole('dialog', { name: 'Assign or update schedule' })
+    await user.click(screen.getByRole('button', { name: 'Assign shifts' }))
+    const dialog = screen.getByRole('dialog', { name: 'Assign shifts' })
     await user.click(within(dialog).getByRole('radio', { name: /Remote/ }))
     await user.clear(within(dialog).getByLabelText('Location'))
     await user.type(within(dialog).getByLabelText('Location'), 'Approved remote workspace')
@@ -117,7 +161,7 @@ describe('core administrator operation boundaries', () => {
     const user = userEvent.setup()
     const createLifecycleCase = vi.fn(async () => emptySnapshot)
     renderOperation(<AdminLifecycleOperations />, { createLifecycleCase })
-    await user.click(screen.getByRole('button', { name: 'Start checklist' }))
+    await user.click(screen.getAllByRole('button', { name: 'Start checklist' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Start lifecycle checklist' })
     await user.click(within(dialog).getByRole('radio', { name: /Offboarding/ }))
     expect(within(dialog).getByText(/Access is not removed when the case starts/)).toBeVisible()
@@ -150,16 +194,19 @@ describe('core administrator operation boundaries', () => {
     const generation = screen.getByRole('dialog', { name: 'Generate payroll draft' })
     await user.clear(within(generation).getByLabelText('Pay period'))
     await user.type(within(generation).getByLabelText('Pay period'), 'September 2026')
+    expect(within(generation).getByRole('button', { name: /Philippine statutory/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(generation).queryByLabelText('Deduction rate (%)')).not.toBeInTheDocument()
+    await user.click(within(generation).getByRole('button', { name: /Flat rate/ }))
     await user.clear(within(generation).getByLabelText('Deduction rate (%)'))
     await user.type(within(generation).getByLabelText('Deduction rate (%)'), '9.5')
     fireEvent.submit(generation.querySelector('form')!)
-    await waitFor(() => expect(generatePayroll).toHaveBeenCalledWith({ period: 'September 2026', deductionRate: 9.5 }))
+    await waitFor(() => expect(generatePayroll).toHaveBeenCalledWith({ period: 'September 2026', deductionRate: 9.5, method: 'Flat rate' }))
 
-    await user.click(screen.getByRole('button', { name: /Advance to Validation/ }))
-    const transition = screen.getByRole('dialog', { name: 'Advance August 2026' })
+    await user.click(screen.getByRole('button', { name: /Move to Validation/ }))
+    const transition = screen.getByRole('dialog', { name: 'Move August 2026 to Validation' })
     expect(within(transition).getByText('Draft → Validation')).toBeVisible()
     expect(transitionPayrollRun).not.toHaveBeenCalled()
-    await user.click(within(transition).getByRole('button', { name: 'Confirm transition' }))
+    await user.click(within(transition).getByRole('button', { name: 'Move to Validation' }))
     await waitFor(() => expect(transitionPayrollRun).toHaveBeenCalledWith(41, 'Validation'))
   })
 
@@ -167,7 +214,7 @@ describe('core administrator operation boundaries', () => {
     const user = userEvent.setup()
     const createDocument = vi.fn(async () => emptySnapshot)
     renderOperation(<AdminDocumentOperations />, { createDocument })
-    await user.click(screen.getByRole('button', { name: 'Publish document' }))
+    await user.click(screen.getAllByRole('button', { name: 'Publish document' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Publish HR document' })
     await user.selectOptions(within(dialog).getByLabelText('Audience'), employee.id)
     await user.type(within(dialog).getByLabelText('Document title'), 'Remote Work Security Policy')
@@ -207,13 +254,12 @@ describe('core administrator operation boundaries', () => {
     const user = userEvent.setup()
     const savePerformance = vi.fn(async () => emptySnapshot)
     renderOperation(<AdminPerformanceOperations />, { savePerformance })
-    await user.click(screen.getByRole('button', { name: 'New review' }))
+    await user.click(screen.getAllByRole('button', { name: 'New review' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Save performance review draft' })
     // Set the evidence period explicitly; the default advances with the calendar.
     await user.clear(within(dialog).getByLabelText('Review period'))
     await user.type(within(dialog).getByLabelText('Review period'), 'Q3 2026')
     const scores = [
-      ['Overall score', '92'],
       ['Goal progress', '88'],
       ['Quality', '91'],
       ['Productivity', '89'],
@@ -223,6 +269,12 @@ describe('core administrator operation boundaries', () => {
       await user.clear(within(dialog).getByLabelText(label))
       await user.type(within(dialog).getByLabelText(label), value)
     }
+    // The overall score starts as the average of the four ratings; HR can adjust it deliberately.
+    expect(within(dialog).getByLabelText('Overall score')).toHaveValue(91)
+    expect(within(dialog).getByLabelText('Overall score')).toHaveAttribute('readonly')
+    await user.click(within(dialog).getByLabelText('Adjust the overall score manually'))
+    await user.clear(within(dialog).getByLabelText('Overall score'))
+    await user.type(within(dialog).getByLabelText('Overall score'), '92')
     await user.type(within(dialog).getByLabelText('Comments'), 'Delivered measurable results and supported team execution.')
     fireEvent.submit(dialog.querySelector('form')!)
 

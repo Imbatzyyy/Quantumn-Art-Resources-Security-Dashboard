@@ -5,7 +5,7 @@ import { withEmployeeAvatarUrls } from './supabaseAvatars.js'
 import {
   acknowledgementFromRow, alertFromRow, alertResponseFromRow, announcementFromRow,
   attendanceFromRow, auditFromRow, benefitFromRow, documentFromRow, employeeFromRow,
-  emptySnapshot, goalFromRow, leaveFromRow, lifecycleCaseFromRow, lifecycleTaskFromRow,
+  emptySnapshot, goalFromRow, leaveFromRow, leavePolicyFromRow, lifecycleCaseFromRow, lifecycleTaskFromRow,
   notificationFromRow, payrollFromRow, payrollRunFromRow, performanceCycleFromRow,
   performanceFromRow, requestCommentFromRow, requestFromRow, scheduleFromRow,
   sessionFromRow, zapFindingFromRow, zapScanFromRow,
@@ -83,7 +83,7 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     performanceCycles, announcements, securityAlerts, alertResponses, sessions,
     auditLog, zapScanRuns, zapFindings, employeeRequests, requestComments,
     notifications, documents, documentAcknowledgements, schedules, benefits,
-    goals, lifecycleCases, lifecycleTasks,
+    goals, lifecycleCases, lifecycleTasks, leavePolicies,
   ] = await Promise.all([
     paged(client.from('profiles').select('*').order('employee_code')),
     paged(client.from('attendance').select('*').order('work_date', { ascending: false }).order('id', { ascending: true })),
@@ -102,13 +102,14 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     paged(client.from('employee_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
     paged(client.from('request_comments').select('*').order('created_at', { ascending: true }).order('id', { ascending: true })),
     paged(client.from('notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('employee_documents').select('id,employee_code,document_type,title,filename,version,period,requires_ack,sensitive,expires_on,created_at,updated_at,uploaded_by').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    paged(client.from('employee_documents').select('id,employee_code,document_type,title,filename,version,period,requires_ack,sensitive,expires_on,created_at,updated_at,uploaded_by,file_path,file_size,mime_type').order('created_at', { ascending: false }).order('id', { ascending: true })),
     paged(client.from('document_acknowledgements').select('*').order('acknowledged_at', { ascending: false }).order('id', { ascending: true })),
     paged(client.from('work_schedules').select('*').order('work_date', { ascending: true }).order('id', { ascending: true })),
     paged(client.from('employee_benefits').select('*').order('benefit_type', { ascending: true }).order('id', { ascending: true })),
     paged(client.from('employee_goals').select('*').order('due_date', { ascending: true }).order('id', { ascending: true })),
     paged(client.from('lifecycle_cases').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
     paged(client.from('lifecycle_tasks').select('*').order('id', { ascending: true })),
+    paged(client.from('leave_policies').select('*').order('leave_type', { ascending: true })),
   ])
 
   const currentCode = currentBrowserSessionCode(session.user.id)
@@ -137,6 +138,7 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     goals: queryRows(goals, 'employee goals').map(goalFromRow),
     lifecycleCases: queryRows(lifecycleCases, 'lifecycle cases').map(lifecycleCaseFromRow),
     lifecycleTasks: queryRows(lifecycleTasks, 'lifecycle tasks').map(lifecycleTaskFromRow),
+    leavePolicies: queryRows(leavePolicies, 'leave policies').map(leavePolicyFromRow),
   }
 }
 

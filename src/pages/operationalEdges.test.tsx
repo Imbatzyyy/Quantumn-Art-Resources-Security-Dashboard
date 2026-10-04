@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { HrmsState } from '../state/HrmsState.js'
 import { adminIdentity, createTestContext, employeeIdentity, emptySnapshot } from '../test/testContext.js'
 import type { HrmsContextValue, PortalIdentity } from '../types/hrms.js'
@@ -18,9 +19,11 @@ vi.mock('../utils/downloads.js', async (importOriginal) => {
 
 function renderWithContext(node: React.ReactNode, overrides: Partial<HrmsContextValue> = {}) {
   return render(
-    <HrmsState.Provider value={createTestContext({ user: adminIdentity, ...overrides })}>
-      {node}
-    </HrmsState.Provider>,
+    <MemoryRouter initialEntries={['/']}>
+      <HrmsState.Provider value={createTestContext({ user: adminIdentity, ...overrides })}>
+        {node}
+      </HrmsState.Provider>
+    </MemoryRouter>,
   )
 }
 
@@ -43,11 +46,11 @@ describe('communications, report, and employee-download boundaries', () => {
     const addAnnouncement = vi.fn(async () => emptySnapshot)
     renderWithContext(<AdminCommunications />, { addAnnouncement })
 
-    await user.click(screen.getByRole('button', { name: 'New announcement' }))
+    await user.click(screen.getAllByRole('button', { name: 'New announcement' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Publish announcement' })
     await user.type(within(dialog).getByLabelText('Title'), 'Quarterly security workshop')
     await user.type(within(dialog).getByLabelText('Message'), 'Complete the secure-work workshop before Friday.')
-    await user.click(within(dialog).getByRole('radio', { name: /High priority/ }))
+    await user.click(within(dialog).getByRole('radio', { name: /Important/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Publish & notify' }))
 
     await waitFor(() => expect(addAnnouncement).toHaveBeenCalledWith({
@@ -63,7 +66,7 @@ describe('communications, report, and employee-download boundaries', () => {
     const addAnnouncement = vi.fn(async () => { throw new Error('Rejected by provider') })
     renderWithContext(<AdminCommunications />, { addAnnouncement })
 
-    await user.click(screen.getByRole('button', { name: 'New announcement' }))
+    await user.click(screen.getAllByRole('button', { name: 'New announcement' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Publish announcement' })
     const title = within(dialog).getByLabelText('Title')
     const message = within(dialog).getByLabelText('Message')
@@ -88,18 +91,18 @@ describe('communications, report, and employee-download boundaries', () => {
       recordActivity,
       data: { ...emptySnapshot, employees: workforce },
     })
-    const card = screen.getByRole('heading', { name: 'Workforce directory' }).closest('article')
+    const card = screen.getByRole('heading', { name: 'Employee directory' }).closest('article')
     expect(card).not.toBeNull()
     await user.click(within(card!).getByRole('button', { name: 'Download CSV' }))
 
     expect(downloadCsv).toHaveBeenCalledWith(
-      'workforce-directory',
+      'employee-directory',
       expect.arrayContaining([expect.objectContaining({ label: 'Employee ID', key: 'id' })]),
       workforce,
     )
     await waitFor(() => expect(recordActivity).toHaveBeenCalledWith({
       action: 'Exported authorized HR report',
-      target: 'Workforce directory',
+      target: 'Employee directory',
     }))
   })
 
@@ -117,8 +120,11 @@ describe('communications, report, and employee-download boundaries', () => {
         }],
       },
     })
-    await user.click(screen.getByRole('button', { name: 'Pay & Benefits' }))
-    await user.click(screen.getByRole('button', { name: 'Download payslip CSV' }))
+    await user.click(within(screen.getByRole('navigation', { name: 'Portal navigation' })).getByRole('button', { name: 'Pay & Benefits' }))
+    await user.click(screen.getByRole('button', { name: 'Open payslip for August 2026' }))
+    const payslip = screen.getByRole('dialog', { name: 'Payslip · August 2026' })
+    expect(within(payslip).getByText('₱35,300.00')).toBeVisible()
+    await user.click(within(payslip).getByRole('button', { name: 'Download CSV' }))
 
     expect(downloadCsv).toHaveBeenCalledWith(
       `payslip-${employee.id}-August 2026`,
@@ -147,8 +153,11 @@ describe('communications, report, and employee-download boundaries', () => {
         }],
       },
     })
-    await user.click(screen.getByRole('button', { name: 'Documents' }))
-    await user.click(screen.getByRole('button', { name: 'Download' }))
+    await user.click(within(screen.getByRole('navigation', { name: 'Portal navigation' })).getByRole('button', { name: 'Documents' }))
+    await user.click(screen.getByRole('button', { name: 'Open Employment Certificate' }))
+    const preview = screen.getByRole('dialog', { name: 'Employment Certificate' })
+    expect(await within(preview).findByText('Authorized fictional classroom document.')).toBeVisible()
+    await user.click(within(preview).getByRole('button', { name: 'Download' }))
 
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1)

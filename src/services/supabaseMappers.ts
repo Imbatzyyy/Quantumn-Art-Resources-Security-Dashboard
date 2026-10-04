@@ -10,6 +10,7 @@ import type {
   EmployeeRequestRecord,
   GoalRecord,
   HrmsSnapshot,
+  LeavePolicyRecord,
   LeaveRequestRecord,
   LifecycleCaseRecord,
   LifecycleTaskRecord,
@@ -42,7 +43,7 @@ export const emptySnapshot = (): HrmsSnapshot => ({
   alertResponses: [], sessions: [], auditLog: [], zapScanRuns: [], zapFindings: [],
   employeeRequests: [], requestComments: [], notifications: [], documents: [],
   documentAcknowledgements: [], schedules: [], benefits: [], goals: [],
-  lifecycleCases: [], lifecycleTasks: [],
+  lifecycleCases: [], lifecycleTasks: [], leavePolicies: [],
 })
 
 export const employeeFromRow = (row: Tables<'profiles'>): EmployeeRecord & { authUserId?: string } => ({
@@ -70,6 +71,13 @@ export const leaveFromRow = (row: Tables<'leave_requests'>): LeaveRequestRecord 
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.leave_type),
   startDate: text(row.start_date), endDate: text(row.end_date), days: numeric(row.days),
   reason: text(row.reason), status: text(row.status),
+  decisionNote: optionalText(row.decision_note), reviewedAt: optionalText(row.reviewed_at),
+  cancelledAt: optionalText(row.cancelled_at), createdAt: optionalText(row.created_at),
+})
+
+export const leavePolicyFromRow = (row: Tables<'leave_policies'>): LeavePolicyRecord => ({
+  type: text(row.leave_type), annualDays: row.annual_days == null ? null : numeric(row.annual_days),
+  description: text(row.description), updatedAt: optionalText(row.updated_at),
 })
 
 export const payrollFromRow = (row: Tables<'payroll'>): PayrollRecord & { paymentDate?: string } => ({
@@ -78,10 +86,13 @@ export const payrollFromRow = (row: Tables<'payroll'>): PayrollRecord & { paymen
   deductions: numeric(row.deductions), net: numeric(row.net), status: text(row.status),
   runId: row.payroll_run_id == null ? undefined : numeric(row.payroll_run_id),
   paymentDate: optionalText(row.payment_date),
+  sss: numeric(row.sss_contribution), philhealth: numeric(row.philhealth_contribution),
+  pagibig: numeric(row.pagibig_contribution), withholdingTax: numeric(row.withholding_tax),
 })
 
 export const payrollRunFromRow = (row: Tables<'payroll_runs'>): PayrollRunRecord & Record<string, unknown> => ({
   id: numeric(row.id), period: text(row.period), deductionRate: numeric(row.deduction_rate),
+  calculationMethod: row.calculation_method === 'Philippine statutory' ? 'Philippine statutory' : 'Flat rate',
   status: text(row.status) as PayrollRunRecord['status'], employeeCount: numeric(row.employee_count),
   grossTotal: numeric(row.gross_total), netTotal: numeric(row.net_total),
   createdBy: optionalText(row.created_by), approvedBy: optionalText(row.approved_by),
@@ -105,6 +116,7 @@ export const performanceCycleFromRow = (row: Tables<'performance_cycles'>): Perf
 
 export const announcementFromRow = (row: Tables<'announcements'>): AnnouncementRecord => ({
   id: text(row.id), title: text(row.title), content: text(row.content), priority: text(row.priority), date: text(row.published_on),
+  updatedAt: optionalText(row.updated_at),
 })
 
 export const alertFromRow = (row: Tables<'security_alerts'>): SecurityAlertSummary & Record<string, unknown> => ({
@@ -176,6 +188,8 @@ export const documentFromRow = (row: Omit<Tables<'employee_documents'>, 'content
   filename: text(row.filename), version: text(row.version), requiresAck: truthy(row.requires_ack),
   sensitive: truthy(row.sensitive), createdAt: text(row.created_at), expiresOn: optionalText(row.expires_on),
   uploadedBy: optionalText(row.uploaded_by),
+  filePath: optionalText(row.file_path), fileSize: row.file_size == null ? undefined : numeric(row.file_size),
+  mimeType: optionalText(row.mime_type),
 })
 
 export const acknowledgementFromRow = (row: Tables<'document_acknowledgements'>): DocumentAcknowledgementRecord => ({
