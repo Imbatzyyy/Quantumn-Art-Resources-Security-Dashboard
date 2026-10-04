@@ -10,25 +10,14 @@ import {
   LockKeyhole,
   Mail,
   ShieldCheck,
+  UserRound,
   UsersRound,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoWhite from '../../assets/images/mainlogo.png'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
 import { useHrms } from '../state/useHrms.js'
 import type { AuthenticationResult, MfaChallenge, PortalKind } from '../types/hrms.js'
-
-const adminFeatures: Array<{ icon: LucideIcon; title: string; text: string }> = [
-  { icon: UsersRound, title: 'People and approvals', text: 'Employee records, leave, and HR requests' },
-  { icon: CalendarCheck2, title: 'Time and payroll', text: 'Rosters, attendance, and pay periods' },
-  { icon: Activity, title: 'Audit trail', text: 'Every sensitive change is recorded' },
-]
-const employeeFeatures: Array<{ icon: LucideIcon; title: string; text: string }> = [
-  { icon: CalendarCheck2, title: 'Time and leave', text: 'Clock in and request time off' },
-  { icon: FileCheck2, title: 'HR requests', text: 'Ask HR and follow every reply' },
-  { icon: LockKeyhole, title: 'Private records', text: 'Payslips and documents only you can see' },
-]
 
 const errorMessage = (reason: unknown) => reason instanceof Error
   ? reason.message
@@ -105,39 +94,73 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
     <main className={`login-page ${isAdmin ? 'admin-auth' : 'employee-auth'}`}>
       <section className="login-story" aria-label={`${isAdmin ? 'Administrator' : 'Employee'} portal overview`}>
         <div className="login-brand">
-          <img className="logo-on-light" src={logoBlue} alt="Quantumn Art Resources" />
-          <img className="logo-on-dark" src={logoWhite} alt="Quantumn Art Resources" />
-          <span>Quantum HRMS</span>
+          <img src={isAdmin ? logoWhite : logoBlue} alt="Quantumn Art Resources" />
+          <span>Human Resource Management System</span>
         </div>
 
         <div className="login-story-content">
-          <span className="story-kicker">{isAdmin ? 'HR Admin console' : 'Employee portal'}</span>
-          <h2>{isAdmin ? 'Run HR operations in one place.' : 'Your workday, all in one place.'}</h2>
+          <span className="story-kicker">
+            {isAdmin ? <ShieldCheck size={16} /> : <UserRound size={16} />}
+            {isAdmin ? 'Administrative control' : 'Employee workspace'}
+          </span>
+          <h2>{isAdmin ? 'Lead HR operations with clarity.' : 'Your workday, all in one place.'}</h2>
           <p>
             {isAdmin
-              ? 'People records, approvals, attendance, payroll, and security for your whole organization.'
-              : 'Clock in, request leave, read your payslips, and get help from HR without the paperwork.'}
+              ? 'Manage people, approvals, access, and security activity from one accountable workspace.'
+              : 'Access attendance, leave, payroll, and personal records through a workspace designed around you.'}
           </p>
-          <ul className="login-features">
-            {(isAdmin ? adminFeatures : employeeFeatures).map(({ icon: Icon, title, text }) => <li key={title}><span aria-hidden="true"><Icon size={18} /></span><div><strong>{title}</strong><small>{text}</small></div></li>)}
-          </ul>
+
+          {isAdmin ? (
+            <div className="admin-login-summary" aria-label="Administrative workspace protections">
+              <article>
+                <span><UsersRound size={19} /> People and access</span>
+                <strong>Role protected</strong>
+                <small>Administrative actions require verified access.</small>
+              </article>
+              <article>
+                <span><Activity size={19} /> Security activity</span>
+                <strong>Accountable</strong>
+                <small>Sensitive changes remain visible in the audit trail.</small>
+              </article>
+            </div>
+          ) : (
+            <div className="employee-login-summary" aria-label="Employee workspace features">
+              <div className="employee-summary-feature">
+                <span><CalendarCheck2 size={21} /></span>
+                <div>
+                  <strong>A simpler workday</strong>
+                  <small>Complete everyday HR tasks without unnecessary steps.</small>
+                </div>
+              </div>
+              <div className="employee-summary-pills">
+                <span><CalendarCheck2 size={16} /> Attendance</span>
+                <span><FileCheck2 size={16} /> Requests</span>
+                <span><LockKeyhole size={16} /> Private records</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        <p className="login-story-footer"><ShieldCheck size={16} aria-hidden="true" />{isAdmin ? 'Administrator access is monitored and recorded.' : 'Your records are visible only to you and authorized HR staff.'}</p>
+        <div className="login-story-footer">
+          <ShieldCheck size={17} />
+          <span>{isAdmin ? 'Monitored administrative access' : 'Private access to your employment records'}</span>
+        </div>
       </section>
 
       <section className="login-panel">
         <form className="login-form" onSubmit={mfaChallenge ? submitMfa : submit} aria-busy={submitting}>
           <div className="login-heading">
-            <span className="login-form-logo"><img className="logo-on-light" src={logoBlue} alt="Quantumn Art Resources" /><img className="logo-on-dark" src={logoWhite} alt="Quantumn Art Resources" /></span>
-            <span className="portal-label">{isAdmin ? 'HR Admin console' : 'Employee portal'}</span>
-            <h1>{mfaChallenge ? 'Enter your verification code' : isAdmin ? 'Administrator sign in' : 'Sign in to your workspace'}</h1>
+            <span className="portal-mark" aria-hidden="true">
+              {isAdmin ? <ShieldCheck size={23} /> : <UserRound size={23} />}
+            </span>
+            <span className="portal-label">{isAdmin ? 'Admin portal' : 'Employee portal'}</span>
+            <h1>{mfaChallenge ? 'Verify your authenticator' : isAdmin ? 'Administrator sign in' : 'Welcome to your workspace'}</h1>
             <p>
               {mfaChallenge
-                ? 'Open your authenticator app and enter the current 6-digit code.'
+                ? 'Enter the current 6-digit code from the authenticator app connected to your account.'
                 : isAdmin
-                ? 'Use your administrator work account.'
-                : 'Use the work email and password from HR.'}
+                ? 'Use your authorized administrator account to continue.'
+                : 'Sign in with the work account issued by your organization.'}
             </p>
           </div>
 
@@ -189,7 +212,7 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
 
           {mfaChallenge && (
             <label className="field-label" htmlFor={`${portal}-authenticator-code`}>
-              Verification code
+              Authenticator code
               <span className="login-input">
                 <ShieldCheck size={18} aria-hidden="true" />
                 <input
@@ -212,18 +235,21 @@ export default function LoginPage({ portal }: { portal: PortalKind }) {
           {error && <div className="form-error" role="alert" aria-live="polite">{error}</div>}
 
           <button className="login-submit" type="submit" disabled={submitting}>
-            <span>{submitting ? 'Signing in…' : mfaChallenge ? 'Verify and continue' : 'Sign in'}</span>
+            <span>{submitting ? 'Verifying account…' : mfaChallenge ? 'Verify & continue' : `Sign in to ${isAdmin ? 'Admin Console' : 'Employee Portal'}`}</span>
             {!submitting && <ArrowRight size={18} />}
           </button>
 
           {mfaChallenge && <button className="text-button login-back-button" type="button" onClick={cancelMfa}>Use a different account</button>}
 
+          <div className="login-assurance">
+            <LockKeyhole size={18} aria-hidden="true" />
+            <div>
+              <strong className="login-policy-links"><Link to="/terms">Terms</Link><span aria-hidden="true"> · </span><Link to="/privacy">Privacy Notice</Link></strong>
+              <span>Your role and permissions are verified before the workspace opens.</span>
+            </div>
+          </div>
 
         </form>
-        <footer className="login-footer">
-          <nav aria-label="Legal"><Link to="/terms">Terms</Link><Link to="/privacy">Privacy Notice</Link></nav>
-          <small>© {new Date().getFullYear()} Quantumn Art Resources</small>
-        </footer>
       </section>
     </main>
   )

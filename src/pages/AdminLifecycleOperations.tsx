@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { CheckCircle2, Circle, LockKeyhole, Plus, Search, ShieldCheck, UserRoundCheck, Workflow } from 'lucide-react'
+import { CheckCircle2, Clock3, LockKeyhole, Plus, ShieldCheck, UserRoundCheck, Workflow } from 'lucide-react'
 import { Badge, EmptyState, Modal, ProgressBar, SectionHeading, StatCard } from '../components/ui.js'
 import { Field, FormFooter, FormIntro, Note, PersonCard } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
@@ -23,9 +23,6 @@ const offboardingTemplate = [
 export default function AdminLifecycleOperations() {
   const { data, createLifecycleCase, updateLifecycleTask } = useHrms()
   const [showCreate, setShowCreate] = useState(false)
-  const [query, setQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
   const defaultEmployee = data?.employees.find((item) => item.role === 'employee' && item.status === 'Active')?.id ?? ''
   const [form, setForm] = useState<LifecycleCaseInput>(() => ({ employeeId: defaultEmployee, type: 'Onboarding', targetDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) }))
   if (!data) return null
@@ -39,39 +36,17 @@ export default function AdminLifecycleOperations() {
     try { await createLifecycleCase(form); setShowCreate(false) } catch { /* Keep protected input for correction. */ }
   }
 
-  const personName = (id: string) => { const employee = data.employees.find((person) => person.id === id); return employee ? `${employee.firstName} ${employee.lastName}` : id }
-  const visibleCases = data.lifecycleCases.filter((item) => (!typeFilter || item.type === typeFilter) && (!statusFilter || item.status === statusFilter) && `${personName(item.employeeId)} ${item.employeeId}`.toLowerCase().includes(query.trim().toLowerCase()))
-    .sort((left, right) => Number(right.status === 'Active') - Number(left.status === 'Active') || left.targetDate.localeCompare(right.targetDate))
-  const statuses = [...new Set(data.lifecycleCases.map((item) => item.status))].sort()
-
   return <div className="page-stack">
-    <SectionHeading title="Onboarding & Offboarding" description="Checklists for people joining or leaving: profile, policies, equipment, payroll, and access." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus aria-hidden="true" />Start checklist</button>} />
-    <div className="stats-grid stats-grid-3"><StatCard icon={UserRoundCheck} label="Onboarding in progress" value={activeCases.filter((item) => item.type === 'Onboarding').length} tone="blue" onClick={() => { setTypeFilter('Onboarding'); setStatusFilter('Active') }} /><StatCard icon={Workflow} label="Offboarding in progress" value={activeCases.filter((item) => item.type === 'Offboarding').length} tone="amber" onClick={() => { setTypeFilter('Offboarding'); setStatusFilter('Active') }} /><StatCard icon={CheckCircle2} label="Completed" value={data.lifecycleCases.filter((item) => item.status === 'Completed').length} tone="green" onClick={() => { setTypeFilter(''); setStatusFilter('Completed') }} /></div>
-    {data.lifecycleCases.length > 0 && <div className="panel data-table-toolbar lifecycle-toolbar">
-      <div className="data-table-filters">
-        <label className="data-table-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Search by employee</span><input type="search" value={query} placeholder="Search by employee" onChange={(event) => setQuery(event.target.value)} /></label>
-        <label className="data-table-filter"><span className="sr-only">Checklist type</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="">All checklist types</option><option>Onboarding</option><option>Offboarding</option></select></label>
-        <label className="data-table-filter"><span className="sr-only">Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
-      </div>
-      <p className="data-table-count">{visibleCases.length} of {data.lifecycleCases.length} checklist{data.lifecycleCases.length === 1 ? '' : 's'}</p>
-    </div>}
-    <div className="lifecycle-grid">{visibleCases.map((item) => {
+    <SectionHeading eyebrow="Secure employee lifecycle" title="Onboarding & Offboarding" description="Coordinate people, assets, payroll, compliance, and access deactivation in one accountable checklist." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus />Start checklist</button>} />
+    <div className="stats-grid stats-grid-3"><StatCard icon={UserRoundCheck} label="Active onboarding" value={activeCases.filter((item) => item.type === 'Onboarding').length} tone="blue" /><StatCard icon={Workflow} label="Active offboarding" value={activeCases.filter((item) => item.type === 'Offboarding').length} tone="amber" /><StatCard icon={CheckCircle2} label="Completed cases" value={data.lifecycleCases.filter((item) => item.status === 'Completed').length} tone="green" /></div>
+    <div className="lifecycle-grid">{data.lifecycleCases.map((item) => {
       const employee = data.employees.find((person) => person.id === item.employeeId)
       const tasks = data.lifecycleTasks.filter((task) => task.caseId === item.id)
       const done = tasks.filter((task) => task.status !== 'Pending').length
       const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0
-      const overdue = item.status === 'Active' && item.targetDate < new Date().toISOString().slice(0, 10)
-      return <section className="panel lifecycle-card" key={item.id} aria-labelledby={`case-${item.id}`}>
-        <div className="panel-header"><div><div className="inline-badges"><Badge tone={item.type === 'Offboarding' ? 'warning' : 'info'}>{item.type}</Badge><Badge tone={statusTone(item.status)}>{item.status}</Badge>{overdue && <Badge tone="danger">Past target date</Badge>}</div><h2 id={`case-${item.id}`}>{employee ? `${employee.firstName} ${employee.lastName}` : item.employeeId}</h2><p>{employee?.position ? `${employee.position} · ` : ''}Target {formatDate(item.targetDate)}</p></div></div>
-        <div className="lifecycle-body">
-          <ProgressBar value={progress} label={`${done} of ${tasks.length} tasks done`} />
-          {item.type === 'Offboarding' && item.status === 'Active' && <div className="notice-bar notice-bar-warning"><ShieldCheck aria-hidden="true" /><p>Completing the last task marks the employee Inactive and blocks portal access.</p></div>}
-          <ul className="checklist admin-checklist">{tasks.map((task) => <li key={task.id} className={task.status !== 'Pending' ? 'complete' : ''}><button type="button" className="task-toggle" aria-label={`Mark ${task.title} ${task.status === 'Pending' ? 'complete' : 'not done'}`} aria-pressed={task.status !== 'Pending'} disabled={item.status !== 'Active'} onClick={() => void updateLifecycleTask(task.id, task.status === 'Pending' ? 'Complete' : 'Pending')}>{task.status === 'Pending' ? <Circle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}</button><div><strong>{task.title}</strong><p>{task.category} · {task.employeeVisible ? 'Employee sees this' : 'HR only'}</p></div><Badge tone={statusTone(task.status)}>{task.status === 'Pending' ? 'To do' : task.status}</Badge></li>)}</ul>
-        </div>
-      </section>
+      return <section className="panel lifecycle-card" key={item.id}><div className="lifecycle-card-head"><div><div className="inline-badges"><Badge tone={item.type === 'Offboarding' ? 'warning' : 'info'}>{item.type}</Badge><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><h2>{employee ? `${employee.firstName} ${employee.lastName}` : item.employeeId}</h2><p>{item.employeeId} · Target {formatDate(item.targetDate)}</p></div><strong>{progress}%</strong></div><ProgressBar value={progress} label={`${done} of ${tasks.length} tasks resolved`} />{item.type === 'Offboarding' && item.status === 'Active' && <div className="impact-banner"><ShieldCheck /><p>Completing the final checklist task automatically changes the employee profile to Inactive, blocking HRMS access.</p></div>}<div className="checklist admin-checklist">{tasks.map((task) => <article key={task.id} className={task.status !== 'Pending' ? 'complete' : ''}><button className="task-toggle" aria-label={`Mark ${task.title} ${task.status === 'Pending' ? 'complete' : 'pending'}`} disabled={item.status !== 'Active'} onClick={() => void updateLifecycleTask(task.id, task.status === 'Pending' ? 'Complete' : 'Pending')}>{task.status === 'Pending' ? <Clock3 /> : <CheckCircle2 />}</button><div><strong>{task.title}</strong><p>{task.category} · {task.employeeVisible ? 'Employee visible' : 'Internal'}</p></div><Badge tone={statusTone(task.status)}>{task.status}</Badge></article>)}</div></section>
     })}</div>
-    {!data.lifecycleCases.length && <section className="panel"><EmptyState icon={Workflow} title="No checklists yet" text="Start an onboarding or offboarding checklist for an employee." action={<button type="button" className="button button-primary button-small" onClick={() => setShowCreate(true)}><Plus aria-hidden="true" />Start checklist</button>} /></section>}
-    {data.lifecycleCases.length > 0 && !visibleCases.length && <section className="panel"><EmptyState compact icon={Search} title="No matching checklists" text="Try another search or filter." action={<button type="button" className="button button-secondary button-small" onClick={() => { setQuery(''); setTypeFilter(''); setStatusFilter('') }}>Clear filters</button>} /></section>}
+    {!data.lifecycleCases.length && <EmptyState icon={Workflow} title="No lifecycle cases" text="Start an onboarding or offboarding checklist for an employee." />}
     {showCreate && <Modal title="Start lifecycle checklist" size="large" onClose={() => setShowCreate(false)}>
       <form className="rf-form" onSubmit={submit}>
         <FormIntro>Choose the employee and whether they are joining or leaving. A checklist is created from the template on the right, and the employee is notified.</FormIntro>

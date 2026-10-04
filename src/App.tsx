@@ -1,8 +1,6 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useHrms } from './state/useHrms.js'
-import { rememberReturnPath } from './components/portalRouting.js'
 
 const LoginPage = lazy(() => import('./pages/LoginPage.js'))
 const SignInVerificationPage = lazy(() => import('./pages/SignInVerificationPage.js'))
@@ -15,25 +13,7 @@ const AccountPolicyPage = lazy(() => import('./pages/AccountPolicyPage.js'))
 const SignOutConfirmation = lazy(() => import('./components/SignOutConfirmation.js'))
 
 function WorkspaceLoading({ verified = false }: { verified?: boolean }) {
-  const message = verified ? 'Sign-in verified. Loading your workspace…' : 'Loading your workspace…'
-  return <div className="app-skeleton" role="status">
-    <div className="app-skeleton-sidebar" aria-hidden="true"><i className="sk sk-logo" />{Array.from({ length: 8 }, (_, index) => <i className="sk sk-nav" key={index} />)}</div>
-    <div className="app-skeleton-main">
-      <div className="app-skeleton-topbar" aria-hidden="true"><i className="sk sk-crumb" /><i className="sk sk-search" /></div>
-      <div className="app-skeleton-content" aria-hidden="true">
-        <i className="sk sk-title" /><i className="sk sk-line" />
-        <div className="app-skeleton-cards">{Array.from({ length: 4 }, (_, index) => <i className="sk sk-card" key={index} />)}</div>
-        <i className="sk sk-panel" />
-      </div>
-      <p className="app-skeleton-message">{message}</p>
-    </div>
-  </div>
-}
-
-function RouteLoading() {
-  const { pathname } = useLocation()
-  const portalPage = /^\/(admin|employee)(\/|$)/.test(pathname) && !/\/(login|verify-email|forgot-password|reset-password|setup-password)\b/.test(pathname)
-  return portalPage ? <WorkspaceLoading /> : <div className="app-loading" role="status"><span aria-hidden="true" /><p>Loading…</p></div>
+  return <div className="app-loading" role="status"><span aria-hidden="true" /><p>{verified ? 'Sign-in verified. Loading your workspace…' : 'Preparing your secure workspace…'}</p></div>
 }
 
 function WorkspaceLoadFailure({ portal }: { portal: 'admin' | 'employee' }) {
@@ -50,10 +30,6 @@ function WorkspaceLoadFailure({ portal }: { portal: 'admin' | 'employee' }) {
 
 function Protected({ portal, children }: { portal: 'admin' | 'employee'; children: ReactNode }) {
   const { user, data, loading } = useHrms()
-  const location = useLocation()
-  const signedOut = !loading && (!user || user.portal !== portal)
-  // Reopen the requested page (for example a shared employee link) after signing in.
-  useEffect(() => { if (signedOut) rememberReturnPath(portal, `${location.pathname}${location.search}`) }, [signedOut, portal, location.pathname, location.search])
   if (loading) return <WorkspaceLoading verified={Boolean(user)} />
   if (!user || user.portal !== portal) return <Navigate to={`/${portal}/login`} replace />
   if (portal === 'admin' && user.mustSetPassword) return <Navigate to="/admin/setup-password" replace />
@@ -62,11 +38,11 @@ function Protected({ portal, children }: { portal: 'admin' | 'employee'; childre
 }
 
 export default function App() {
-  const { user, toast, dismissToast } = useHrms()
+  const { user, toast } = useHrms()
 
   return (
     <>
-      <Suspense fallback={<RouteLoading />}>
+      <Suspense fallback={<WorkspaceLoading />}>
         <Routes>
           <Route path="/" element={<Navigate to="/employee/login" replace />} />
           <Route path="/terms" element={<AccountPolicyPage key="terms" kind="terms" />} />
@@ -85,7 +61,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      {toast && <div className={`toast toast-${toast.tone}${toast.exiting ? ' toast-exiting' : ''}`} role={toast.tone === 'error' ? 'alert' : 'status'} aria-live="polite"><span>{toast.message}</span>{dismissToast && <button type="button" className="toast-close" aria-label="Dismiss message" onClick={dismissToast}><X size={16} aria-hidden="true" /></button>}</div>}
+      {toast && <div className={`toast toast-${toast.tone}${toast.exiting ? ' toast-exiting' : ''}`} role={toast.tone === 'error' ? 'alert' : 'status'} aria-live="polite">{toast.message}</div>}
     </>
   )
 }

@@ -38,7 +38,7 @@ async function expectReadable(page: Page) {
 }
 
 for (const portal of ['admin', 'employee']) {
-  const submitName = 'Sign in'
+  const submitName = portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal'
   for (const size of sizes) {
     test(`${portal} compact mobile login ${size.width}x${size.height}`, async ({ page }) => {
       await page.setViewportSize(size)
@@ -105,9 +105,9 @@ for (const portal of ['admin', 'employee']) {
     await page.getByLabel('Work email').fill('visual@example.test')
     await page.getByLabel('Password', { exact: true }).fill('fictional-layout-value')
     await page.getByRole('button', { name: submitName }).click()
-    await expect(page.getByLabel('Verification code')).toBeVisible()
-    await page.getByLabel('Verification code').fill('123456')
-    await page.getByRole('button', { name: 'Verify and continue' }).click()
+    await expect(page.getByLabel('Authenticator code')).toBeVisible()
+    await page.getByLabel('Authenticator code').fill('123456')
+    await page.getByRole('button', { name: 'Verify & continue' }).click()
     await expect(page.getByRole('alert')).toContainText('fictional verification code')
     await expectFitsWidth(page)
     await expectReadable(page)

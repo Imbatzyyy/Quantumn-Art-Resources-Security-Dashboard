@@ -31,7 +31,7 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.getByLabel('Password', { exact: true }).fill(account.password)
     phase = 'send'
     const sendStart = Date.now()
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await page.getByRole('button', { name: portal === 'admin' ? 'Sign in to Admin Console' : 'Sign in to Employee Portal' }).click()
     await expect(page.getByLabel('Email verification code')).toBeEnabled()
     const readyMs = Date.now() - sendStart
     const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
@@ -41,13 +41,12 @@ for (const portal of ['admin', 'employee'] as const) {
     await page.getByRole('button', { name: 'Verify & continue' }).click()
     await expect(page).toHaveURL(new RegExp(`/${portal}/?$`), { timeout: 20_000 })
     const verifiedMs = Date.now() - verifyStart
-    await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening),/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
     const readyWorkspaceMs = Date.now() - verifyStart
     await Promise.all(bodies)
     const measurements = { portal, fixedBrowserRequestDelayMs: 120, readyMs, verifiedMs, readyWorkspaceMs, decodedSupabaseRestBytes: bytes, requestsBeforeEmail: requests.filter(r => r.phase === 'send').length, requestsAfterCode: requests.filter(r => r.phase === 'verify').length, paths: requests }
     expect(measurements.requestsBeforeEmail).toBe(2) // Password + one email request.
-    // One snapshot read per HRMS table (25, including leave allowances) plus the sign-in handoff.
-    expect(measurements.requestsAfterCode).toBeLessThanOrEqual(30)
+    expect(measurements.requestsAfterCode).toBeLessThanOrEqual(29)
     const afterCode = requests.filter(r => r.phase === 'verify').map(r => r.path)
     expect(afterCode.filter(path => path.endsWith('/finish_hrms_signin'))).toHaveLength(1)
     expect(afterCode.filter(path => /\/(signin_email_context|get_hrms_identity|record_hrms_session)$/.test(path))).toHaveLength(0)

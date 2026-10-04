@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
 import { HrmsState } from '../state/HrmsState.js'
 import { createTestContext, employeeIdentity, emptySnapshot } from '../test/testContext.js'
 import type { HrmsContextValue, PortalIdentity } from '../types/hrms.js'
@@ -19,18 +18,13 @@ const employee: PortalIdentity = {
   hireDate: '2026-01-15',
 }
 
-function renderEmployee(overrides: Partial<HrmsContextValue> = {}, path = '/employee') {
+function renderEmployee(overrides: Partial<HrmsContextValue> = {}) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <HrmsState.Provider value={createTestContext({ user: employee, ...overrides })}>
-        <EmployeePortal />
-      </HrmsState.Provider>
-    </MemoryRouter>,
+    <HrmsState.Provider value={createTestContext({ user: employee, ...overrides })}>
+      <EmployeePortal />
+    </HrmsState.Provider>,
   )
 }
-
-// Pages are opened from the sidebar, as a person would.
-const sidebarPage = (name: string | RegExp) => within(screen.getByRole('navigation', { name: 'Portal navigation' })).getByRole('button', { name })
 
 const futureDate = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
 
@@ -40,7 +34,7 @@ describe('Employee self-service provider boundaries', () => {
     const clock = vi.fn(async () => emptySnapshot)
     renderEmployee({ clock })
 
-    await user.click(screen.getByRole('button', { name: 'Clock in' }))
+    await user.click(screen.getByRole('button', { name: 'Clock in securely' }))
     await waitFor(() => expect(clock).toHaveBeenCalledWith(employee.id))
   })
 
@@ -48,8 +42,8 @@ describe('Employee self-service provider boundaries', () => {
     const user = userEvent.setup()
     const submitLeave = vi.fn(async () => emptySnapshot)
     renderEmployee({ submitLeave })
-    await user.click(sidebarPage('Leave'))
-    await user.click(screen.getAllByRole('button', { name: 'New leave request' })[0])
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
+    await user.click(screen.getByRole('button', { name: 'New leave request' }))
     const dialog = screen.getByRole('dialog', { name: 'Request leave' })
     const startDate = futureDate(2)
     const endDate = futureDate(4)
@@ -73,8 +67,8 @@ describe('Employee self-service provider boundaries', () => {
     const user = userEvent.setup()
     const submitLeave = vi.fn(async () => emptySnapshot)
     renderEmployee({ submitLeave })
-    await user.click(sidebarPage('Leave'))
-    await user.click(screen.getAllByRole('button', { name: 'New leave request' })[0])
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
+    await user.click(screen.getByRole('button', { name: 'New leave request' }))
     let dialog = screen.getByRole('dialog', { name: 'Request leave' })
     const submit = within(dialog).getByRole('button', { name: 'Submit leave request' })
     expect(submit).toBeDisabled()
@@ -87,7 +81,7 @@ describe('Employee self-service provider boundaries', () => {
     expect(submitLeave).not.toHaveBeenCalled()
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    await user.click(screen.getAllByRole('button', { name: 'New leave request' })[0])
+    await user.click(screen.getByRole('button', { name: 'New leave request' }))
     dialog = screen.getByRole('dialog', { name: 'Request leave' })
     expect(within(dialog).getByLabelText('Start date')).toHaveValue('')
     expect(within(dialog).getByLabelText('End date')).toHaveValue('')
@@ -99,8 +93,8 @@ describe('Employee self-service provider boundaries', () => {
     const user = userEvent.setup()
     const submitRequest = vi.fn(async () => emptySnapshot)
     renderEmployee({ submitRequest })
-    await user.click(sidebarPage('Request Center'))
-    await user.click(screen.getAllByRole('button', { name: 'New request' })[0])
+    await user.click(screen.getByRole('button', { name: 'Request Center' }))
+    await user.click(screen.getByRole('button', { name: 'New request' }))
     const dialog = screen.getByRole('dialog', { name: 'Create an HR request' })
     await user.selectOptions(within(dialog).getByLabelText('Request type'), 'Attendance Correction')
     await user.click(within(dialog).getByRole('radio', { name: /High/ }))
@@ -126,8 +120,8 @@ describe('Employee self-service provider boundaries', () => {
     const user = userEvent.setup()
     const submitRequest = vi.fn(async () => { throw new Error('Rejected by provider') })
     renderEmployee({ submitRequest })
-    await user.click(sidebarPage('Request Center'))
-    await user.click(screen.getAllByRole('button', { name: 'New request' })[0])
+    await user.click(screen.getByRole('button', { name: 'Request Center' }))
+    await user.click(screen.getByRole('button', { name: 'New request' }))
     const dialog = screen.getByRole('dialog', { name: 'Create an HR request' })
     const subject = within(dialog).getByLabelText('Subject')
     const details = within(dialog).getByLabelText('Details')
@@ -156,11 +150,11 @@ describe('Employee self-service provider boundaries', () => {
       cancelRequest,
       data: { ...emptySnapshot, employeeRequests: [request] },
     })
-    await user.click(sidebarPage('Request Center'))
-    await user.click(screen.getByRole('button', { name: 'Open request Certificate of employment' }))
+    await user.click(screen.getByRole('button', { name: 'Request Center' }))
+    await user.click(screen.getByRole('button', { name: 'View' }))
     const dialog = screen.getByRole('dialog', { name: `Request #${request.id}` })
-    await user.type(within(dialog).getByLabelText('Reply to HR'), 'Please address the certificate to Quantum Art Resources.')
-    fireEvent.submit(within(dialog).getByLabelText('Reply to HR').closest('form')!)
+    await user.type(within(dialog).getByLabelText('Add a response'), 'Please address the certificate to Quantum Art Resources.')
+    fireEvent.submit(within(dialog).getByLabelText('Add a response').closest('form')!)
     await waitFor(() => expect(addRequestComment).toHaveBeenCalledWith(
       request.id,
       'Please address the certificate to Quantum Art Resources.',
@@ -168,9 +162,6 @@ describe('Employee self-service provider boundaries', () => {
     ))
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel request' }))
-    const confirmation = screen.getByRole('dialog', { name: 'Cancel request' })
-    expect(cancelRequest).not.toHaveBeenCalled()
-    await user.click(within(confirmation).getByRole('button', { name: 'Cancel request' }))
     await waitFor(() => expect(cancelRequest).toHaveBeenCalledWith(request.id))
   })
 
@@ -186,11 +177,11 @@ describe('Employee self-service provider boundaries', () => {
       markNotificationRead,
       data: { ...emptySnapshot, notifications: [notification] },
     })
-    await user.click(sidebarPage(/^Inbox/))
+    await user.click(screen.getByRole('button', { name: /Action Inbox/ }))
     await user.click(screen.getByRole('button', { name: /Security policy acknowledgement required/ }))
 
     await waitFor(() => expect(markNotificationRead).toHaveBeenCalledWith(notification.id))
-    expect(await screen.findByRole('heading', { level: 1, name: 'Documents' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Document Vault' })).toBeVisible()
   })
 
   it('marks the signed-in employee notification inbox as read in one operation', async () => {
@@ -206,8 +197,8 @@ describe('Employee self-service provider boundaries', () => {
         }],
       },
     })
-    await user.click(sidebarPage(/^Inbox/))
-    await user.click(screen.getByRole('button', { name: 'Mark all as read' }))
+    await user.click(screen.getByRole('button', { name: /Action Inbox/ }))
+    await user.click(screen.getByRole('button', { name: 'Mark all read' }))
     await waitFor(() => expect(markAllNotificationsRead).toHaveBeenCalledTimes(1))
   })
 
@@ -223,7 +214,7 @@ describe('Employee self-service provider boundaries', () => {
       updateGoalProgress,
       data: { ...emptySnapshot, goals: [goal] },
     })
-    await user.click(sidebarPage('Goals & Growth'))
+    await user.click(screen.getByRole('button', { name: 'Goals & Growth' }))
     const slider = screen.getByRole('slider', { name: `${goal.title} progress` })
     fireEvent.change(slider, { target: { value: '75' } })
     expect(slider).toHaveValue('75')
@@ -241,18 +232,11 @@ describe('Employee self-service provider boundaries', () => {
     }
     renderEmployee({
       acknowledgeDocument,
-      readDocument: async () => 'Use approved devices.',
       data: { ...emptySnapshot, documents: [document] },
     })
-    await user.click(sidebarPage('Documents'))
+    await user.click(screen.getByRole('button', { name: 'Documents' }))
     expect(screen.getByText('Remote Work Security Policy')).toBeVisible()
-    await user.click(screen.getByRole('button', { name: 'Open Remote Work Security Policy' }))
-    const preview = screen.getByRole('dialog', { name: 'Remote Work Security Policy' })
-    expect(await within(preview).findByText('Use approved devices.')).toBeVisible()
-    // Acknowledging requires opening the document and confirming it was read.
-    expect(within(preview).getByRole('button', { name: 'Acknowledge' })).toBeDisabled()
-    await user.click(within(preview).getByRole('checkbox', { name: /I have read and understood this document/ }))
-    await user.click(within(preview).getByRole('button', { name: 'Acknowledge' }))
+    await user.click(screen.getByRole('button', { name: 'Acknowledge' }))
     await waitFor(() => expect(acknowledgeDocument).toHaveBeenCalledWith(document.id))
   })
 
@@ -260,26 +244,25 @@ describe('Employee self-service provider boundaries', () => {
     const user = userEvent.setup()
     const updateEmployee = vi.fn(async () => emptySnapshot)
     renderEmployee({ updateEmployee })
-    await user.click(sidebarPage('My Profile'))
-    expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
-    expect(screen.getByText(employee.phone!)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'My Profile' }))
+    const phone = screen.getByLabelText('Phone number')
+    expect(phone).toBeDisabled()
     const record = screen.getByRole('region', { name: 'Employment information' })
     expect(within(record).getByText('Employee ID')).toBeVisible()
     expect(within(record).getByText(employee.email!)).toBeVisible()
     expect(within(record).queryAllByRole('textbox')).toHaveLength(0)
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
-    let phone = screen.getByLabelText('Phone number')
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }))
+    expect(phone).toBeEnabled()
     expect(phone).toHaveFocus()
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
     await user.clear(phone)
     await user.type(phone, '+63 917 555 0100')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
-    phone = screen.getByLabelText('Phone number')
+    expect(phone).toBeDisabled()
     expect(phone).toHaveValue(employee.phone)
+
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }))
     await user.clear(phone)
     await user.type(phone, '+63 917 555 0101')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -290,13 +273,14 @@ describe('Employee self-service provider boundaries', () => {
 
     await user.click(within(confirmation).getByRole('button', { name: 'Keep editing' }))
     expect(screen.queryByRole('dialog', { name: 'Confirm profile changes' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Phone number')).toHaveValue('+63 917 555 0101')
+    expect(phone).toBeEnabled()
+    expect(phone).toHaveValue('+63 917 555 0101')
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await user.click(within(screen.getByRole('dialog', { name: 'Confirm profile changes' })).getByRole('button', { name: 'Confirm & save' }))
 
     await waitFor(() => expect(updateEmployee).toHaveBeenCalledWith(employee.id, { phone: '+63 917 555 0101' }))
-    expect(screen.queryByLabelText('Phone number')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Phone number')).toBeDisabled()
   })
 
   it('retains the profile draft when saving fails so the employee can retry', async () => {
@@ -305,8 +289,8 @@ describe('Employee self-service provider boundaries', () => {
       .mockRejectedValueOnce(new Error('Network unavailable'))
       .mockResolvedValueOnce(emptySnapshot)
     renderEmployee({ updateEmployee })
-    await user.click(sidebarPage('My Profile'))
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'My Profile' }))
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }))
     await user.clear(screen.getByLabelText('Phone number'))
     await user.type(screen.getByLabelText('Phone number'), '+63 917 555 0102')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -318,7 +302,7 @@ describe('Employee self-service provider boundaries', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Confirm & save' }))
     await waitFor(() => expect(updateEmployee).toHaveBeenCalledTimes(2))
     expect(screen.queryByRole('dialog', { name: 'Confirm profile changes' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Edit profile' })).toBeVisible()
   })
 
   it('rejects whitespace-only phone changes before showing confirmation', async () => {
@@ -326,8 +310,8 @@ describe('Employee self-service provider boundaries', () => {
     const notify = vi.fn()
     const updateEmployee = vi.fn()
     renderEmployee({ notify, updateEmployee })
-    await user.click(sidebarPage('My Profile'))
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'My Profile' }))
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }))
     const phone = screen.getByLabelText('Phone number')
     await user.clear(phone)
     await user.type(phone, '       ')
@@ -342,7 +326,7 @@ describe('Employee self-service provider boundaries', () => {
     const notify = vi.fn()
     const updateProfilePhoto = vi.fn(async () => emptySnapshot)
     renderEmployee({ notify, updateProfilePhoto })
-    await user.click(sidebarPage('My Profile'))
+    await user.click(screen.getByRole('button', { name: 'My Profile' }))
     const invalidPhoto = new File(['not an image'], 'profile.txt', { type: 'text/plain' })
     await user.upload(screen.getByLabelText('Choose profile picture'), invalidPhoto)
 
@@ -363,7 +347,7 @@ describe('Employee self-service provider boundaries', () => {
         ],
       },
     })
-    await user.click(sidebarPage('My Journey'))
+    await user.click(screen.getByRole('button', { name: 'My Journey' }))
     expect(screen.getByText('Review employee handbook')).toBeVisible()
     expect(screen.queryByText('Provision privileged database role')).not.toBeInTheDocument()
   })
@@ -379,7 +363,7 @@ describe('Employee self-service provider boundaries', () => {
         ],
       },
     })
-    await user.click(sidebarPage('Goals & Growth'))
+    await user.click(screen.getByRole('button', { name: 'Goals & Growth' }))
     expect(screen.getByText('Published feedback for the employee.')).toBeVisible()
     expect(screen.queryByText('Private calibration notes.')).not.toBeInTheDocument()
   })

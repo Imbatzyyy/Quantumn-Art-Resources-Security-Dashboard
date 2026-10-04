@@ -24,7 +24,7 @@ for (const theme of ['light', 'dark']) {
         await page.getByRole('navigation', { name: 'On this page' }).getByRole('link').last().click()
         await expect(page.locator('.account-policy-sections section').last()).toBeInViewport()
         await page.getByRole('link', { name: 'Employee sign in', exact: true }).click()
-        await expect(page.getByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
         await page.getByRole('link', { name: 'Privacy Notice', exact: true }).click()
         await expect(page.getByRole('heading', { level: 1, name: 'Privacy Notice' })).toBeVisible()
       })

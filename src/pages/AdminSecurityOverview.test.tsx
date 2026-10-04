@@ -21,8 +21,8 @@ describe('security overview data and recovery states',()=>{
   it('renders measured coverage and distinguishes observed sessions from online people',async()=>{
     mount()
     expect(await screen.findByText('50%')).toBeVisible()
-    expect(screen.getByText('Active in the last 15 minutes')).toBeVisible()
-    expect(screen.getByText('No scan has been imported yet.')).toBeVisible()
+    expect(screen.getByText('Observed in 15 minutes · not online users')).toBeVisible()
+    expect(screen.getByText(/No scan evidence has been recorded/)).toBeVisible()
   })
   it('requests a selected time window and drills into severity-filtered alerts',async()=>{
     const {read,navigate}=mount()
@@ -30,7 +30,7 @@ describe('security overview data and recovery states',()=>{
     fireEvent.change(screen.getByLabelText('Trend period'),{target:{value:'7'}})
     await waitFor(()=>expect(read).toHaveBeenLastCalledWith(7))
     fireEvent.click(screen.getByRole('button',{name:'View High alerts'}))
-    expect(navigate).toHaveBeenCalledWith('security?tab=alerts&severity=High')
+    expect(navigate).toHaveBeenCalledWith('security:High')
   })
   it('keeps the last snapshot explicitly stale after a failed refresh and can retry',async()=>{
     const {read}=mount()
@@ -38,7 +38,7 @@ describe('security overview data and recovery states',()=>{
     read.mockRejectedValueOnce(new Error('Offline'))
     await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Refresh security statistics'})))
     expect(screen.getByRole('alert')).toHaveTextContent('could not be refreshed')
-    expect(screen.getByText('Not up to date')).toBeVisible()
+    expect(screen.getByText('Stale snapshot')).toBeVisible()
     expect(screen.getByText('50%')).toBeVisible()
     await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Refresh security statistics'})))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

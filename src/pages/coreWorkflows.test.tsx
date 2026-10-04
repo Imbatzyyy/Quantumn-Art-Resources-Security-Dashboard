@@ -49,16 +49,19 @@ describe('People Directory protected workflows', () => {
     for (const account of administrators) {
       expect(within(table).queryByText(`${account.firstName} ${account.lastName}`)).not.toBeInTheDocument()
     }
-    expect(screen.getByText('3 employees · 1 active · 1 on leave · 2 departments')).toBeVisible()
+    const metric = (label: string) => screen.getByText(label).closest('article')!.querySelector('strong')
+    expect(metric('Employee records')).toHaveTextContent('3')
+    expect(metric('Departments')).toHaveTextContent('2')
+    expect(metric('Active employees')).toHaveTextContent('1')
 
-    await user.type(screen.getByRole('searchbox', { name: 'Search employees' }), 'Privileged')
-    expect(screen.getByText('No matching employees')).toBeVisible()
+    await user.type(screen.getByRole('textbox', { name: 'Search employees' }), 'Privileged')
+    expect(screen.getByText('No matching employee')).toBeVisible()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    await user.clear(screen.getByRole('searchbox', { name: 'Search employees' }))
-    await user.type(screen.getByRole('searchbox', { name: 'Search employees' }), 'jamie')
-    expect(screen.getAllByRole('button', { name: /^Open / })).toHaveLength(1)
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Jamie Santos' })).toBeVisible()
+    await user.clear(screen.getByRole('textbox', { name: 'Search employees' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search employees' }), 'jamie')
+    expect(screen.getAllByRole('button', { name: 'Open profile' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
   })
 
   it('groups employee details and preserves tab navigation and benefit actions', async () => {
@@ -70,8 +73,8 @@ describe('People Directory protected workflows', () => {
         { id: 'A2', employeeId: 'OTHER', date: '2026-08-29', hours: 2, status: 'Absent' },
       ] },
     }))
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
-    const dialog = within(document.querySelector<HTMLElement>('.employee-profile-page')!)
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Employee 360°' }))
     expect(dialog.getByRole('region', { name: 'Personal & contact details' })).toHaveTextContent('Jamie Rivera Santos')
     expect(dialog.getByRole('region', { name: 'Employment details' })).toHaveTextContent('Privileged Account 0')
     expect(dialog.getByRole('region', { name: 'Emergency contact' })).toHaveTextContent('Sibling')
@@ -93,7 +96,7 @@ describe('People Directory protected workflows', () => {
     let complete!: () => void
     const saveBenefit = vi.fn(() => new Promise<void>((resolve) => { complete = resolve }))
     renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({ user: adminIdentity, saveBenefit, data: { ...emptySnapshot, employees: [employee] } }))
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
     await user.click(screen.getByRole('tab', { name: 'Pay & benefits' }))
     await user.click(screen.getByRole('button', { name: 'Add benefit' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
@@ -114,14 +117,14 @@ describe('People Directory protected workflows', () => {
     expect(screen.queryByRole('button', { name: 'Close dialog' })).not.toBeInTheDocument()
     complete()
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add benefit record' })).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { level: 1, name: 'Jamie Santos' })).toBeVisible()
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
   })
 
   it('preserves benefit entries after failure and allows cancellation back to the profile', async () => {
     const user = userEvent.setup()
     const saveBenefit = vi.fn(async () => { throw new Error('Permission denied') })
     renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, createTestContext({ user: adminIdentity, saveBenefit, data: { ...emptySnapshot, employees: [employee] } }))
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
     await user.click(screen.getByRole('tab', { name: 'Pay & benefits' }))
     await user.click(screen.getByRole('button', { name: 'Add benefit' }))
     await user.type(screen.getByLabelText(/Plan name/), 'Keep this plan')
@@ -140,13 +143,13 @@ describe('People Directory protected workflows', () => {
     renderFeature(<PeopleDirectory onNavigate={onNavigate} />, createTestContext({
       user: adminIdentity, updateEmployee, data: { ...emptySnapshot, employees: [employee] },
     }))
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
     await user.click(screen.getByRole('button', { name: 'Edit employee' }))
     expect(screen.getByRole('dialog', { name: 'Edit Jamie Santos' })).toBeVisible()
     expect(screen.getByLabelText('First name')).toHaveValue('Jamie')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Start offboarding' }))
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    await user.click(screen.getByRole('button', { name: 'Start secure offboarding' }))
     expect(onNavigate).toHaveBeenCalledWith('lifecycle')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(updateEmployee).not.toHaveBeenCalled()
@@ -159,7 +162,7 @@ describe('People Directory protected workflows', () => {
     }))
     expect(screen.getByText('No employee records yet')).toBeVisible()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: 'Add employee' })[0])
+    await user.click(screen.getByRole('button', { name: 'Create employee & login' }))
     const managers = within(screen.getByRole('dialog')).getByLabelText(/Reports to/)
     expect(within(managers).getAllByRole('option')).toHaveLength(3)
     expect(within(managers).getByRole('option', { name: /Privileged Account 0/ })).toBeVisible()
@@ -170,10 +173,10 @@ describe('People Directory protected workflows', () => {
     const user = userEvent.setup()
     const context = createTestContext({ user: adminIdentity, data: { ...emptySnapshot, employees: [employee] } })
     const rendered = renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, context)
-    await user.click(screen.getByRole('button', { name: 'Open Jamie Santos' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Jamie Santos' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Open profile' }))
+    expect(screen.getByRole('dialog', { name: 'Employee 360°' })).toBeVisible()
     rendered.rerender(<HrmsState.Provider value={{ ...context, data: { ...emptySnapshot, employees: [{ ...employee, role: 'hr_admin' }] } }}><PeopleDirectory onNavigate={vi.fn()} /></HrmsState.Provider>)
-    expect(screen.queryByRole('heading', { level: 1, name: 'Jamie Santos' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Employee 360°' })).not.toBeInTheDocument()
     expect(screen.getByText('No employee records yet')).toBeVisible()
   })
 
@@ -199,9 +202,9 @@ describe('People Directory protected workflows', () => {
     })
 
     renderFeature(<PeopleDirectory onNavigate={vi.fn()} />, context)
-    await user.click(screen.getByRole('button', { name: 'Add employee' }))
+    await user.click(screen.getByRole('button', { name: 'Create employee & login' }))
 
-    const dialog = screen.getByRole('dialog', { name: 'Add employee' })
+    const dialog = screen.getByRole('dialog', { name: 'Create employee account' })
     expect(within(dialog).getByText(/sign-in in one step/)).toBeVisible()
     expect(addEmployee).not.toHaveBeenCalled()
 
@@ -371,7 +374,7 @@ describe('Security Center protected workflows', () => {
       }),
     )
 
-    await user.click(screen.getByRole('tab', { name: /Alerts/ }))
+    await user.click(screen.getByRole('button', { name: 'Alerts' }))
     expect(screen.getByText('Pagination alert 1')).toBeVisible()
     expect(screen.queryByText('Pagination alert 6')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Next alert page' }))
@@ -379,7 +382,7 @@ describe('Security Center protected workflows', () => {
     expect(screen.queryByText('Pagination alert 1')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Alert page 2' })).toHaveAttribute('aria-current', 'page')
 
-    await user.click(screen.getByRole('tab', { name: 'Audit log' }))
+    await user.click(screen.getByRole('button', { name: 'Audit trail' }))
     expect(screen.getByText(/Pagination audit action 1/)).toBeVisible()
     expect(screen.queryByText(/Pagination audit action 7/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Next audit page' }))
@@ -425,7 +428,7 @@ describe('Security Center protected workflows', () => {
       }),
     )
 
-    await user.click(screen.getByRole('tab', { name: /Alerts/ }))
+    await user.click(screen.getByRole('button', { name: 'Alerts' }))
     await user.click(screen.getByRole('button', { name: 'Investigate' }))
     const investigationDialog = screen.getByRole('dialog', { name: `Investigation ${alert.id}` })
     await user.selectOptions(within(investigationDialog).getByLabelText(/Next status/), 'Resolved')
@@ -443,7 +446,7 @@ describe('Security Center protected workflows', () => {
       note: 'Reviewed the session evidence with the account owner.',
     }))
 
-    await user.click(screen.getByRole('tab', { name: 'Sign-in sessions' }))
+    await user.click(screen.getByRole('button', { name: 'Sessions' }))
     await user.click(screen.getByRole('button', { name: 'Review & revoke' }))
     const sessionDialog = screen.getByRole('dialog', { name: 'Review organization session' })
     expect(within(sessionDialog).getByText('Chrome on Windows')).toBeVisible()
@@ -463,7 +466,7 @@ describe('Security Center protected workflows', () => {
       }),
     )
 
-    await user.click(screen.getByRole('tab', { name: 'Vulnerability scans' }))
+    await user.click(screen.getByRole('button', { name: 'Vulnerability testing' }))
     const input = document.querySelector<HTMLInputElement>('input[type="file"][accept*="json"]')
     expect(input).not.toBeNull()
     const reportBody = JSON.stringify({ '@version': '2.15.0', site: [] })

@@ -29,7 +29,7 @@ describe('public entrypoint routing', () => {
   it.each(['/', '/unknown-page'])('sends anonymous visitors from %s to Employee sign-in', async path => {
     renderRoute(path)
     await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/employee/login'))
-    expect(await screen.findByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
   })
 
   it('keeps direct Administrator sign-in available', async () => {
@@ -40,7 +40,7 @@ describe('public entrypoint routing', () => {
 
   it('keeps the homepage employee-facing even with an administrator session', async () => {
     renderRoute('/', adminIdentity)
-    expect(await screen.findByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Welcome to your workspace' })).toBeVisible()
     expect(screen.getByTestId('current-path')).toHaveTextContent('/employee/login')
   })
 

@@ -1,32 +1,24 @@
 import { useState, type FormEvent } from 'react'
-import { BellRing, CheckCircle2, Circle, FileCheck2, FileText, FolderLock, LoaderCircle, Paperclip, Plus, Send, ShieldCheck, X } from 'lucide-react'
-import { Badge, Modal, SectionHeading, StatCard, Tabs } from '../components/ui.js'
-import { tabPanelProps } from '../components/tabPanel.js'
-import { DataTable, type DataColumn } from '../components/DataTable.js'
-import { useDocumentPreview } from './employee/documentPreview.js'
-import { DocumentFileButton } from '../components/DocumentFileButton.js'
-import { DOCUMENT_FILE_ACCEPT, documentFileError, formatFileSize } from '../utils/documentFiles.js'
+import { BellRing, FileCheck2, FileText, FolderLock, Plus, Send, ShieldCheck } from 'lucide-react'
+import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '../components/ui.js'
 import { Field, FormFooter, FormIntro, Note, SectionTitle, SummaryList } from '../components/readable.js'
 import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
-import { formatDate, formatDateTime } from '../utils/format.js'
+import { formatDateTime } from '../utils/format.js'
 import { businessDate } from '../utils/securityMetrics.js'
-import type { DocumentInput, DocumentRecord, HrmsSnapshot } from '../types/hrms.js'
+import type { DocumentInput, HrmsSnapshot } from '../types/hrms.js'
 
 const personName = (data: HrmsSnapshot, employeeId: string) => {
   const employee = data.employees.find((item) => item.id === employeeId)
   return employee ? `${employee.firstName} ${employee.lastName}` : employeeId
 }
 
-export default function AdminDocumentOperations({ documentId, onDocumentChange }: { documentId?: string | null; onDocumentChange?: (id: string | null) => void } = {}) {
+export default function AdminDocumentOperations() {
   const submission = useSubmissionLock()
   const { data, createDocument } = useHrms()
   const [showCreate, setShowCreate] = useState(false)
   const [formError, setFormError] = useState('')
-  const [localDocument, setLocalDocument] = useState<string | null>(null)
-  const [form, setForm] = useState<DocumentInput>({ employeeId: '', title: '', type: 'Policy', period: `${new Date().getFullYear()}`, content: '', filename: '', version: '1.0', requiresAck: true, sensitive: false, expiresOn: '', file: null })
-  const [fileError, setFileError] = useState('')
-  const [fileInputKey, setFileInputKey] = useState(0)
+  const [form, setForm] = useState<DocumentInput>({ employeeId: '', title: '', type: 'Policy', period: `${new Date().getFullYear()}`, content: '', filename: '', version: '1.0', requiresAck: true, sensitive: false, expiresOn: '' })
   if (!data) return null
   const acknowledgedPairs = new Set(data.documentAcknowledgements.map((item) => `${item.documentId}:${item.employeeId}`))
   const activeEmployees = data.employees.filter((item) => item.role === 'employee' && ['Active', 'On Leave'].includes(item.status))
@@ -46,57 +38,13 @@ export default function AdminDocumentOperations({ documentId, onDocumentChange }
       return
     }
     if (!submission.begin()) return
-    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '', file: null }); setFileInputKey((key) => key + 1) } catch { /* Keep protected input. */ } finally { submission.finish() }
+    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '' }) } catch { /* Keep protected input. */ } finally { submission.finish() }
   }
-  const chooseFile = (file: File | undefined) => {
-    setFileError('')
-    if (!file) return
-    const problem = documentFileError(file)
-    if (problem) {
-      setFileError(problem)
-      setFileInputKey((key) => key + 1)
-      return
-    }
-    setForm((current) => ({ ...current, file, filename: current.filename || file.name }))
-  }
-  const removeFile = () => {
-    setForm((current) => ({ ...current, file: null }))
-    setFileInputKey((key) => key + 1)
-  }
-
-  const selectedDocumentId = onDocumentChange ? documentId ?? null : localDocument
-  const selectDocument = (id: string | null) => onDocumentChange ? onDocumentChange(id) : setLocalDocument(id)
-  const selectedDocument = data.documents.find((item) => item.id === selectedDocumentId)
-  const audienceOf = (document: DocumentRecord) => document.employeeId ? [document.employeeId] : activeEmployees.map((employee) => employee.id)
-  const acknowledgedCount = (document: DocumentRecord) => audienceOf(document).filter((employeeId) => acknowledgedPairs.has(`${document.id}:${employeeId}`)).length
-  const columns: DataColumn<DocumentRecord>[] = [
-    { id: 'title', header: 'Document', primary: true, cell: (item) => <span className="cell-stack"><strong>{item.title}</strong><small>{item.type} · Version {item.version}{item.filePath ? ' · File attached' : ''}</small></span>, sortValue: (item) => item.title },
-    { id: 'audience', header: 'Audience', cell: (item) => item.employeeId ? personName(data, item.employeeId) : 'All employees', sortValue: (item) => item.employeeId ? personName(data, item.employeeId) : '' },
-    { id: 'added', header: 'Published', hideOnMobile: true, cell: (item) => formatDate(item.createdAt.slice(0, 10)), sortValue: (item) => item.createdAt },
-    { id: 'ack', header: 'Acknowledged', cell: (item) => { if (!item.requiresAck) return <span className="text-muted">Not required</span>; const done = acknowledgedCount(item); const total = audienceOf(item).length; return <span className="inline-progress"><progress value={done} max={Math.max(total, 1)} aria-hidden="true" />{done} of {total}</span> }, sortValue: (item) => item.requiresAck ? acknowledgedCount(item) / Math.max(audienceOf(item).length, 1) : -1, csv: (item) => item.requiresAck ? `${acknowledgedCount(item)}/${audienceOf(item).length}` : 'Not required' },
-    { id: 'classification', header: 'Handling', hideOnMobile: true, cell: (item) => <Badge tone={item.sensitive ? 'warning' : 'neutral'}>{item.sensitive ? 'Sensitive' : 'Standard'}</Badge>, sortValue: (item) => item.sensitive ? 'Sensitive' : 'Standard' },
-  ]
 
   return <div className="page-stack">
-    <SectionHeading title="Documents & Policies" description="Publish policies and personal documents, and track who has acknowledged them." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus aria-hidden="true" />Publish document</button>} />
-    <div className="stats-grid stats-grid-3"><StatCard icon={FileText} label="Documents" value={data.documents.length} detail={`${data.documents.filter((item) => !item.employeeId).length} company-wide`} tone="blue" /><StatCard icon={FileCheck2} label="Acknowledgements outstanding" value={requiredCount} detail="Across all required documents" tone="amber" /><StatCard icon={ShieldCheck} label="Sensitive documents" value={data.documents.filter((item) => item.sensitive).length} detail="Personal, restricted access" tone="purple" /></div>
-    <section className="panel">
-      <DataTable
-        rows={data.documents}
-        columns={columns}
-        getRowId={(item) => item.id}
-        caption="Document register"
-        count={{ singular: 'document', plural: 'documents' }}
-        search={{ placeholder: 'Search documents', text: (item) => `${item.title} ${item.type} ${item.filename} ${item.employeeId ? personName(data, item.employeeId) : ''}` }}
-        filters={[{ id: 'type', label: 'Types', value: (item) => item.type }, { id: 'audience', label: 'Audiences', value: (item) => item.employeeId ? 'One employee' : 'All employees' }]}
-        initialSort={{ column: 'added', direction: 'desc' }}
-        exportName="document-register"
-        onRowClick={(item) => selectDocument(item.id)}
-        rowActionLabel={(item) => `Open ${item.title}`}
-        empty={{ icon: FolderLock, title: 'No documents yet', text: 'Publish a policy or a personal document to begin.', action: <button type="button" className="button button-primary button-small" onClick={() => setShowCreate(true)}><Plus aria-hidden="true" />Publish document</button> }}
-      />
-    </section>
-    {selectedDocument && <DocumentDetail document={selectedDocument} audience={audienceOf(selectedDocument)} acknowledged={(employeeId) => data.documentAcknowledgements.find((item) => item.documentId === selectedDocument.id && item.employeeId === employeeId)?.acknowledgedAt} name={(employeeId) => personName(data, employeeId)} onClose={() => selectDocument(null)} />}
+    <SectionHeading eyebrow="Policy lifecycle" title="Documents & Acknowledgements" description="Publish organization policies or employee-specific records and monitor acknowledgement completion." actions={<button className="button button-primary" onClick={() => setShowCreate(true)}><Plus />Publish document</button>} />
+    <div className="stats-grid stats-grid-3"><StatCard icon={FileText} label="Documents" value={data.documents.length} tone="blue" /><StatCard icon={FileCheck2} label="Acknowledgements due" value={requiredCount} tone="amber" /><StatCard icon={ShieldCheck} label="Sensitive documents" value={data.documents.filter((item) => item.sensitive).length} tone="purple" /></div>
+    <section className="panel"><div className="panel-header"><div><h2>Document register</h2><p>Audience, version, sensitivity, and acknowledgement status</p></div></div>{data.documents.length ? <TableShell><thead><tr><th>Document</th><th>Audience</th><th>Version</th><th>Added</th><th>Acknowledgement</th><th>Classification</th></tr></thead><tbody>{data.documents.map((item) => { const targets = item.employeeId ? [item.employeeId] : activeEmployees.map((employee) => employee.id); const acknowledged = targets.filter((employeeId) => acknowledgedPairs.has(`${item.id}:${employeeId}`)).length; return <tr key={item.id}><td><strong>{item.title}</strong><small className="table-subtitle">{item.type} · {item.filename}</small></td><td>{item.employeeId ? personName(data, item.employeeId) : 'All active employees'}</td><td>{item.version}</td><td>{formatDateTime(item.createdAt)}</td><td>{item.requiresAck ? <Badge tone={acknowledged === targets.length ? 'success' : 'warning'}>{acknowledged}/{targets.length} acknowledged</Badge> : <Badge tone="neutral">Not required</Badge>}</td><td><Badge tone={item.sensitive ? 'warning' : 'info'}>{item.sensitive ? 'Sensitive' : 'Standard'}</Badge></td></tr> })}</tbody></TableShell> : <EmptyState icon={FolderLock} title="No documents" text="Publish a policy or employee record to begin." />}</section>
     {showCreate && <Modal title="Publish HR document" onClose={() => setShowCreate(false)} size="large">
       <form className="rf-form rf-form--lg" onSubmit={submit}>
         <FormIntro>Write the document, choose who receives it, and decide whether they must confirm they have read it. Recipients are notified when it is published.</FormIntro>
@@ -111,11 +59,7 @@ export default function AdminDocumentOperations({ documentId, onDocumentChange }
                 <Field label="Filename">{(control) => <input {...control} placeholder="example-policy.txt" value={form.filename} onChange={(event) => setForm({ ...form, filename: event.target.value })} required />}</Field>
                 <Field label="Version">{(control) => <input {...control} value={form.version} onChange={(event) => setForm({ ...form, version: event.target.value })} required />}</Field>
               </div>
-              <Field label="Attach a file" optional help="PDF, Word (.docx), PNG, JPEG or text, up to 10 MB. Stored privately; only the audience can download it.">{(control) => form.file
-                ? <div className="file-chip"><Paperclip aria-hidden="true" /><span><strong>{form.file.name}</strong><small>{formatFileSize(form.file.size)}</small></span><button type="button" className="icon-button" onClick={removeFile} aria-label={`Remove ${form.file.name}`}><X aria-hidden="true" /></button></div>
-                : <input {...control} key={fileInputKey} type="file" accept={DOCUMENT_FILE_ACCEPT} onChange={(event) => chooseFile(event.target.files?.[0])} />}</Field>
-              {fileError && <p className="rf-error" role="alert">{fileError}</p>}
-              <Field label={form.file ? 'Summary' : 'Document text'} count={`${form.content.length.toLocaleString()}/10,000`} help={form.file ? 'A short description shown with the attached file.' : 'This text becomes the document employees download.'}>{(control) => <textarea {...control} rows={form.file ? 4 : 8} minLength={3} maxLength={10000} value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder={form.file ? 'What the file is and what employees should do with it' : 'Write the document content employees will receive'} required />}</Field>
+              <Field label="Document text" count={`${form.content.length.toLocaleString()}/10,000`} help="This text becomes the document employees download.">{(control) => <textarea {...control} rows={8} minLength={3} maxLength={10000} value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="Write the document content employees will receive" required />}</Field>
             </section>
 
             <section className="rf-section">
@@ -142,7 +86,6 @@ export default function AdminDocumentOperations({ documentId, onDocumentChange }
             <SummaryList items={[
               ['Audience', audienceLabel],
               ['Recipients', targetCount],
-              ['Attached file', form.file ? form.file.name : 'None, text only'],
               ['Acknowledgement', form.requiresAck ? 'Required' : 'Not required'],
               ['Classification', form.sensitive ? <Badge tone="warning">Sensitive</Badge> : 'Standard'],
             ]} />
@@ -157,30 +100,4 @@ export default function AdminDocumentOperations({ documentId, onDocumentChange }
       </form>
     </Modal>}
   </div>
-}
-
-function DocumentDetail({ document, audience, acknowledged, name, onClose }: { document: DocumentRecord; audience: string[]; acknowledged: (employeeId: string) => string | undefined; name: (employeeId: string) => string; onClose: () => void }) {
-  const { readDocument } = useHrms()
-  const [view, setView] = useState<'status' | 'text'>(document.requiresAck ? 'status' : 'text')
-  const preview = useDocumentPreview(view === 'text' ? document : undefined, readDocument)
-  const done = audience.filter((employeeId) => acknowledged(employeeId))
-  const pending = audience.filter((employeeId) => !acknowledged(employeeId))
-  return <Modal title={document.title} onClose={onClose} size="large">
-    <div className="document-preview">
-      <div className="document-preview-meta"><Badge tone={document.sensitive ? 'warning' : 'info'}>{document.type}</Badge><span>Version {document.version}</span><span>{document.employeeId ? name(document.employeeId) : 'All employees'}</span><span>Published {formatDateTime(document.createdAt)}</span>{document.expiresOn && <span>Expires {formatDate(document.expiresOn)}</span>}</div>
-      <Tabs idPrefix="document-detail" label="Document details" tabs={[...(document.requiresAck ? [{ id: 'status' as const, label: 'Acknowledgements', count: pending.length }] : []), { id: 'text' as const, label: document.filePath ? 'Summary' : 'Document text' }]} active={view} onChange={setView} />
-      <div {...tabPanelProps('document-detail', view)} className="tab-panel">
-        {view === 'status' && <div className="ack-roster">
-          <p className="tab-panel-intro">{done.length} of {audience.length} acknowledged{pending.length ? ` · ${pending.length} still to go` : ' · complete'}</p>
-          <ul>{[...pending, ...done].map((employeeId) => { const at = acknowledged(employeeId); return <li key={employeeId} className={at ? 'is-done' : undefined}>{at ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<span><strong>{name(employeeId)}</strong><small>{at ? `Acknowledged ${formatDateTime(at)}` : 'Not yet acknowledged'}</small></span></li> })}</ul>
-        </div>}
-        {view === 'text' && <div className="document-preview-body" tabIndex={0} aria-label={`${document.title} text`}>
-          {preview.status === 'loading' && <p className="document-preview-state" role="status"><LoaderCircle className="spin" aria-hidden="true" />Opening document…</p>}
-          {preview.status === 'error' && <p className="document-preview-state" role="alert"><FileText aria-hidden="true" />This document is unavailable or has expired.</p>}
-          {preview.status === 'ready' && <div className="document-preview-text">{preview.text}</div>}
-        </div>}
-      </div>
-      <div className="modal-actions"><DocumentFileButton document={document} /><button type="button" className="button button-primary" onClick={onClose}>Done</button></div>
-    </div>
-  </Modal>
 }
