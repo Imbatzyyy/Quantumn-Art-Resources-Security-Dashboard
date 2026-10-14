@@ -19,6 +19,6 @@ Release gates (do not treat unchecked items as complete):
 - [x] Encrypted pre-release database backup; authenticated encryption verification; fictional-data restore into an isolated local database.
 - [ ] Organization-owned offsite destination, Storage object backups and recurring retention/restore schedule. See backup-and-restore.md; no full disaster-recovery claim.
 - [x] Unit, database, authenticated workflow, responsive and accessibility validation. See security-remediation-release.md for counts and boundaries.
-- [ ] Preview/staging verification, safe migration and production release, hosted checks, push.
+- [x] Preview verification, six safe migrations, production release, hosted checks and fast-forward push to main. Application commit: 3f19aec; deployment: 6acee774a5acd078c2b3f4c8.
 
 Any provider limitation, missing recovery authority, real-inbox/device verification gap, or remaining implementation must be disclosed; never silently certify it.
