@@ -15,7 +15,7 @@ Release gates (do not treat unchecked items as complete):
 - [ ] Full page-scoped server queries, independent page failure isolation and retention policies. Initial and fallback reads still use complete shared snapshots; no partial totals are substituted.
 - [x] Concurrency and negative-access regressions; dependency updates; CI workflow added.
 - [x] Staged source secret scan (Gitleaks) and whitespace checks.
-- [ ] First remote CI run after GitHub push.
+- [x] Remote CI on a fresh hosted runner: application and database jobs passed in run 38501748214, with reviewed action commit pins, read-only token permissions and Ubuntu 24.04.
 - [x] Encrypted pre-release database backup; authenticated encryption verification; fictional-data restore into an isolated local database.
 - [ ] Organization-owned offsite destination, Storage object backups and recurring retention/restore schedule. See backup-and-restore.md; no full disaster-recovery claim.
 - [x] Unit, database, authenticated workflow, responsive and accessibility validation. See security-remediation-release.md for counts and boundaries.
