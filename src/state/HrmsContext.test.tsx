@@ -11,7 +11,7 @@ function Harness() {
   const { user, syncError, addAnnouncement }=useHrms()
   return <><p>{user ? 'Signed in' : 'Signed out'}</p><p>{syncError ? 'Stale' : 'Current'}</p><button onClick={() => void addAnnouncement({title:'Test',content:'Test message',priority:'Normal'})}>Publish</button></>
 }
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks() })
 const setup=async (portal:'admin'|'employee') => {
   vi.useFakeTimers()
   provider.getCurrentUser.mockImplementation(async () => ({ ...(portal==='admin' ? adminIdentity : employeeIdentity) }))
@@ -104,6 +104,42 @@ describe('verified sign-in workspace handoff', () => {
     expect(state.user).toBeNull()
     expect(state.data).toBeNull()
     expect(state.loading).toBe(false)
+  })
+  it('does not merge different announcements just because they have the same success message', async () => {
+    await start()
+    const finishes: ((value: typeof emptySnapshot) => void)[] = []
+    provider.addAnnouncement.mockImplementation(() => new Promise(done => { finishes.push(done) }))
+    let first!: Promise<unknown>, second!: Promise<unknown>
+    await act(async () => {
+      first = state.addAnnouncement({ title: 'First', content: 'First update', priority: 'Normal' })
+      second = state.addAnnouncement({ title: 'Second', content: 'Second update', priority: 'Normal' })
+    })
+    expect(provider.addAnnouncement).toHaveBeenCalledTimes(2)
+    await act(async () => { finishes.forEach(finish => finish(emptySnapshot)); await Promise.all([first, second]) })
+  })
+  it('does not restore private data when a mutation finishes after logout', async () => {
+    await start()
+    let finish!: (value: typeof emptySnapshot) => void
+    provider.addAnnouncement.mockImplementation(() => new Promise(done => { finish = done }))
+    let pending!: Promise<unknown>
+    await act(async () => { pending = state.addAnnouncement({ title: 'Update', content: 'Pending update', priority: 'Normal' }) })
+    await act(async () => { await state.logout() })
+    await act(async () => { finish(loadedSnapshot); await pending })
+    expect(state.data).toBeNull()
+    expect(state.user).toBeNull()
+  })
+  it('locks the workspace immediately while a sign-out request is still pending', async () => {
+    await start()
+    provider.getSnapshot.mockResolvedValue(loadedSnapshot)
+    await act(async () => { await state.completeEmailSignIn!('employee') })
+    expect(state.user).not.toBeNull()
+    let finish!: () => void
+    provider.signOut.mockImplementation(() => new Promise<void>(done => { finish = done }))
+    let pending!: Promise<void>
+    await act(async () => { pending = state.logout() })
+    expect(state.user).toBeNull()
+    expect(state.data).toBeNull()
+    await act(async () => { finish(); await pending })
   })
   it('allows an offline workspace load to be retried without re-verifying or signing in again', async () => {
     await start()

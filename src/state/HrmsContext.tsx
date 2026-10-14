@@ -19,6 +19,10 @@ const errorMessage = (error: unknown) => error instanceof Error
 const isIdentity = (result: AuthenticationResult): result is PortalIdentity =>
   !('mfaRequired' in result) && !('emailVerificationRequired' in result)
 
+const rememberActivity = (id: string) => {
+  try { sessionStorage.setItem(`hrms-activity:${id}`, String(Date.now())) } catch { /* Server expiry remains authoritative. */ }
+}
+
 const getSecurityOverview: NonNullable<HrmsContextValue['getSecurityOverview']> = (windowDays) => securityOperation({ action: 'security-overview', windowDays })
 const getSecurityAccountOptions = async () => {
   const { data, error } = await requireSupabase().rpc('security_account_options')
@@ -34,6 +38,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   const toastSequence = useRef(0)
   const userId = user?.id
   const userPortal = user?.portal
+  const setupRequired = Boolean(user?.mustChangePassword || user?.mustSetPassword)
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncError, setSyncError] = useState(false)
   const mutations = useRef(new Map<unknown, Promise<HrmsSnapshot>>())
@@ -59,7 +64,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       if (workspaceGeneration.current !== generation) return
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') {
+        ++workspaceGeneration.current
         setUser(null)
+        setLoading(false)
         void dataProvider.signOut?.().catch(() => undefined)
       } else setSyncError(true)
     } finally {
@@ -136,18 +143,25 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const generation = workspaceGeneration.current
     const isCurrent = () => active && workspaceGeneration.current === generation
     let syncing = false
-    const sync = async () => {
+    const pendingTables = new Set<string>()
+    let pendingFull = false
+    const sync = async (changedTables?: string[]) => {
+      if (syncing) {
+        if (!changedTables) pendingFull = true
+        else changedTables.forEach(table => pendingTables.add(table))
+        return
+      }
       if (syncing || /\/(reset-password|setup-password)$/.test(window.location.pathname)) return
       syncing = true
       try {
         const refreshedUser = await dataProvider.getCurrentUser()
         if (!refreshedUser) {
-          if (isCurrent()) { setUser(null); setData(null) }
+          if (isCurrent()) { ++workspaceGeneration.current; setUser(null); setData(null) }
           return
         }
-        if (!refreshedUser.mustChangePassword && !refreshedUser.mustSetPassword && dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
+        if (!changedTables && !refreshedUser.mustChangePassword && !refreshedUser.mustSetPassword && dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = dataProvider.refresh
-          ? await dataProvider.refresh()
+          ? await dataProvider.refresh(changedTables)
           : await dataProvider.getSnapshot()
         if (isCurrent()) {
           setData(snapshot)
@@ -158,12 +172,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       } catch (error: unknown) {
         if (isCurrent()) {
           if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') {
+            ++workspaceGeneration.current
             setUser(null); setData(null)
             void dataProvider.signOut?.().catch(() => undefined)
           } else setSyncError(true)
         }
       } finally {
         syncing = false
+        if (isCurrent() && (pendingFull || pendingTables.size)) {
+          const next = pendingFull ? undefined : [...pendingTables]
+          pendingFull = false; pendingTables.clear()
+          void sync(next)
+        }
       }
     }
 
@@ -187,55 +207,80 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     if (!userId) return undefined
 
     const timeoutMs = userPortal === 'admin' ? 15 * 60 * 1000 : 30 * 60 * 1000
+    let active = true
     let timeout: number | undefined
     const expire = async () => {
-      const generation = ++workspaceGeneration.current
+      if (!active) return
+      active = false
+      ++workspaceGeneration.current
+      setUser(null)
+      setData(null)
+      setLoading(false)
+      notify('You were signed out after a period of inactivity.', 'error')
       try {
         if (dataProvider.signOut) await dataProvider.signOut()
       } catch {
-        // An unavailable network must never retain the private workspace on expiry.
-      } finally {
-        if (workspaceGeneration.current === generation) {
-          setUser(null)
-          setData(null)
-          setLoading(false)
-          notify('You were signed out after a period of inactivity.', 'error')
-        }
+        // The server expiry and immediate local lock do not depend on transport.
       }
     }
+    const activityKey = `hrms-activity:${userId}`
+    const readActivity = () => {
+      try {
+        const saved = Number(sessionStorage.getItem(activityKey))
+        if (saved > 0) return saved
+        rememberActivity(userId)
+        return Date.now()
+      } catch { return Date.now() }
+    }
+    let lastTouch = 0
     const reset = () => {
+      if (!active) return
+      const now = Date.now()
+      if (now - readActivity() >= timeoutMs) { void expire(); return }
+      rememberActivity(userId)
       window.clearTimeout(timeout)
       timeout = window.setTimeout(expire, timeoutMs)
+      if (!setupRequired && now - lastTouch >= 60_000 && dataProvider.touchSession) {
+        lastTouch = now
+        void dataProvider.touchSession().catch((error: unknown) => {
+          if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501') void expire()
+        })
+      }
     }
     const events = ['click', 'keydown', 'pointerdown', 'touchstart']
 
     events.forEach((eventName) => window.addEventListener(eventName, reset, { passive: true }))
-    reset()
+    timeout = window.setTimeout(expire, Math.max(0, timeoutMs - (Date.now() - readActivity())))
     return () => {
+      active = false
       window.clearTimeout(timeout)
       events.forEach((eventName) => window.removeEventListener(eventName, reset))
     }
-  }, [notify, userId, userPortal])
+  }, [notify, userId, userPortal, setupRequired])
 
   const run = async (
     operation: () => Promise<HrmsSnapshot>,
     successMessage?: string,
-    options: { reportError?: boolean } = {},
+    options: { reportError?: boolean; dedupeKey?: string } = {},
   ) => {
-    const mutationKey = successMessage || operation
+    const generation = workspaceGeneration.current
+    // Different records can share a toast; only explicitly identical requests
+    // may be coalesced. A shared success message is not an operation identity.
+    const mutationKey = options.dedupeKey ? `${generation}:${options.dedupeKey}` : operation
     const pending = mutations.current.get(mutationKey)
     if (pending) return pending
     const task = operation()
     mutations.current.set(mutationKey, task)
     try {
       const snapshot = await task
+      if (workspaceGeneration.current !== generation) return snapshot
       setData(snapshot)
       setLastSyncedAt(new Date().toISOString())
       setSyncError(false)
       if (successMessage) notify(successMessage)
       return snapshot
     } catch (error: unknown) {
-      if (options.reportError !== false) notify(errorMessage(error), 'error')
+      if (workspaceGeneration.current === generation && options.reportError !== false) notify(errorMessage(error), 'error')
       throw error
     } finally {
       mutations.current.delete(mutationKey)
@@ -265,6 +310,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (dataProvider.recordCurrentSession) await dataProvider.recordCurrentSession()
         const snapshot = await dataProvider.getSnapshot()
         if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
+        rememberActivity(authenticated.id)
         setUser(authenticated)
         setData(snapshot)
         return authenticated
@@ -275,6 +321,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         const authenticated = await dataProvider.completeEmailSignIn(portal)
         if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
         if (!isIdentity(authenticated)) return authenticated
+        rememberActivity(authenticated.id)
         // The server handoff already registered this verified session. Do not
         // repeat it or keep the code form blocked on all workspace records.
         void loadVerifiedWorkspace(authenticated, generation)
@@ -284,6 +331,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         const generation = ++workspaceGeneration.current
         const authenticated = await dataProvider.verifyMfaLogin(input)
         if (generation !== workspaceGeneration.current) throw new Error('This sign-in was cancelled. Please sign in again.')
+        rememberActivity(authenticated.id)
         void loadVerifiedWorkspace(authenticated, generation)
         return authenticated
       },
@@ -291,57 +339,61 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (user && !loading) await loadVerifiedWorkspace(user, ++workspaceGeneration.current)
       },
       async logout() {
-        const generation = ++workspaceGeneration.current
-        try {
-          if (dataProvider.signOut) await dataProvider.signOut()
-        } finally {
-          if (workspaceGeneration.current === generation) {
-            setUser(null)
-            setData(null)
-            setLoading(false)
-          }
-        }
+        ++workspaceGeneration.current
+        setUser(null)
+        setData(null)
+        setLoading(false)
+        if (dataProvider.signOut) await dataProvider.signOut()
       },
       addEmployee: (input) => run(() => dataProvider.addEmployee(input), 'Employee created and temporary credentials emailed securely.'),
       inviteAdminAccount: (input) => run(() => dataProvider.inviteAdminAccount(input), 'Administrator invitation sent securely.'),
       async completeAdminInvitation(input) {
+        const generation = workspaceGeneration.current
         const result = await dataProvider.completeAdminInvitation(input)
+        if (generation !== workspaceGeneration.current) return result
         setUser(null)
-        setData(await dataProvider.getSnapshot())
+        setData(null)
         notify('Administrator password created. Sign in with your new credentials.')
         return result
       },
       async completeInitialPassword(input) {
+        const generation = workspaceGeneration.current
         const snapshot = await dataProvider.completeInitialPassword(input)
         const refreshedUser = await dataProvider.getCurrentUser()
+        if (generation !== workspaceGeneration.current) return null
+        if (refreshedUser) rememberActivity(refreshedUser.id)
         setUser(refreshedUser)
         setData(snapshot)
         notify('Your private password is ready. Welcome to Quantum HRMS.')
         return refreshedUser
       },
       async updateEmployee(id, changes) {
+        const generation = workspaceGeneration.current
         const snapshot = await run(
           () => dataProvider.updateEmployee(id, changes),
           'Employee profile updated.',
         )
-        if (user?.id === id) {
+        if (user?.id === id && generation === workspaceGeneration.current) {
           const updatedUser = await dataProvider.getCurrentUser()
-          setUser(updatedUser)
+          if (generation === workspaceGeneration.current) setUser(updatedUser)
         }
         return snapshot
       },
       async updateProfilePhoto(photo) {
+        const generation = workspaceGeneration.current
         const snapshot = await run(
           () => dataProvider.updateProfilePhoto(photo),
           'Profile photo updated securely.',
           { reportError: false },
         )
-        const updatedUser = await dataProvider.getCurrentUser()
-        setUser(updatedUser)
+        if (generation === workspaceGeneration.current) {
+          const updatedUser = await dataProvider.getCurrentUser()
+          if (generation === workspaceGeneration.current) setUser(updatedUser)
+        }
         return snapshot
       },
       submitLeave: (input) => run(() => dataProvider.submitLeave(input), 'Leave request submitted.'),
-      reviewLeave: (id, status) => run(() => dataProvider.reviewLeave(id, status), `Leave request ${status.toLowerCase()}.`),
+      reviewLeave: (id, status, note) => run(() => dataProvider.reviewLeave(id, status, note), `Leave request ${status.toLowerCase()}.`),
       submitRequest: (input) => run(() => dataProvider.submitRequest(input), 'Request submitted to HR.'),
       reviewRequest: (id, status, reason) => run(() => dataProvider.reviewRequest(id, status, reason), `Request marked ${status.toLowerCase()}.`),
       addRequestComment: (id, body, internal) => run(() => dataProvider.addRequestComment(id, body, internal), 'Response added.'),
@@ -372,7 +424,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       beginMfaEnrollment: () => dataProvider.beginMfaEnrollment(),
       verifyMfaEnrollment: (input) => dataProvider.verifyMfaEnrollment(input),
       disableMfa: (factorId) => dataProvider.disableMfa(factorId),
-      addAnnouncement: (input) => run(() => dataProvider.addAnnouncement(input), 'Announcement published.'),
+      addAnnouncement: (input) => run(() => dataProvider.addAnnouncement(input), 'Announcement published.', { dedupeKey: `announcement:${JSON.stringify(input)}` }),
       createDocument: (input) => run(() => dataProvider.createDocument(input), 'Document published securely.'),
       saveSchedule: (input) => run(() => dataProvider.saveSchedule(input), 'Work schedule saved.'),
       saveBenefit: (input) => run(() => dataProvider.saveBenefit(input), 'Benefit record saved.'),

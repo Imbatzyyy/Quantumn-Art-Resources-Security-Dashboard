@@ -67,12 +67,15 @@ export const attendanceFromRow = (row: Tables<'attendance'>): AttendanceRecord =
 })
 
 export const leaveFromRow = (row: Tables<'leave_requests'>): LeaveRequestRecord => ({
+  decisionNote: optionalText(row.decision_note),
   id: text(row.id), employeeId: text(row.employee_code), type: text(row.leave_type),
   startDate: text(row.start_date), endDate: text(row.end_date), days: numeric(row.days),
   reason: text(row.reason), status: text(row.status),
 })
 
 export const payrollFromRow = (row: Tables<'payroll'>): PayrollRecord & { paymentDate?: string } => ({
+  sssContribution: numeric(row.sss_contribution), philhealthContribution: numeric(row.philhealth_contribution),
+  pagibigContribution: numeric(row.pagibig_contribution), withholdingTax: numeric(row.withholding_tax),
   id: text(row.id), employeeId: text(row.employee_code), period: text(row.period),
   gross: numeric(row.gross), allowances: numeric(row.allowances), bonuses: numeric(row.bonuses),
   deductions: numeric(row.deductions), net: numeric(row.net), status: text(row.status),
@@ -81,6 +84,7 @@ export const payrollFromRow = (row: Tables<'payroll'>): PayrollRecord & { paymen
 })
 
 export const payrollRunFromRow = (row: Tables<'payroll_runs'>): PayrollRunRecord & Record<string, unknown> => ({
+  calculationMethod: text(row.calculation_method, 'Flat rate'),
   id: numeric(row.id), period: text(row.period), deductionRate: numeric(row.deduction_rate),
   status: text(row.status) as PayrollRunRecord['status'], employeeCount: numeric(row.employee_count),
   grossTotal: numeric(row.gross_total), netTotal: numeric(row.net_total),
@@ -171,6 +175,7 @@ export const notificationFromRow = (row: Tables<'notifications'>): NotificationS
 })
 
 export const documentFromRow = (row: Omit<Tables<'employee_documents'>, 'content'> & { content?: string }): DocumentRecord & Record<string, unknown> => ({
+  filePath: optionalText(row.file_path), fileSize: row.file_size == null ? undefined : numeric(row.file_size), mimeType: optionalText(row.mime_type),
   id: text(row.id), employeeId: nullableText(row.employee_code), title: text(row.title),
   type: text(row.document_type), period: optionalText(row.period), content: text(row.content),
   filename: text(row.filename), version: text(row.version), requiresAck: truthy(row.requires_ack),

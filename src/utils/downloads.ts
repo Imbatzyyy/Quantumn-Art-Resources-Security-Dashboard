@@ -5,7 +5,10 @@ export interface CsvColumn {
 }
 
 const csvCell = (value: unknown): string => {
-  const text = value == null ? '' : String(value)
+  const raw = value == null ? '' : String(value)
+  // Spreadsheet applications execute formulas even inside quoted CSV fields.
+  // Preserve real numbers while neutralizing untrusted text and control prefixes.
+  const text = typeof value === 'string' && (/^[\t\r\n]/.test(raw) || /^[\s]*[=+@-]/.test(raw)) ? `'${raw}` : raw
   return `"${text.replaceAll('"', '""')}"`
 }
 

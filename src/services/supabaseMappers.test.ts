@@ -49,6 +49,7 @@ describe('Supabase row boundary', () => {
       .toMatchObject({ shiftStart: '00:00', shiftEnd: '00:00' })
     expect(payrollRunFromRow({
       id: 3, period: 'August 2026', status: 'Draft', employee_count: 2,
+      calculation_method: 'Flat rate',
       gross_total: 90000, net_total: 82000, deduction_rate: 8.25,
       approved_at: null, approved_by: null, created_at: '2026-08-30T00:00:00Z',
       created_by: null, locked_at: null, paid_at: null, released_at: null,
@@ -60,6 +61,7 @@ describe('Supabase row boundary', () => {
   it('preserves notification privacy state without inventing a read timestamp', () => {
     expect(notificationFromRow({
       id: 4, employee_code: 'EMP001', category: 'HR', title: 'Update',
+      announcement_id: null,
       message: 'Review policy', read_at: null, created_at: '2026-08-30',
       destination: null, action_label: null,
     }))

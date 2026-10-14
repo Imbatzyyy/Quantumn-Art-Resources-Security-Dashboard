@@ -7,17 +7,37 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
       account_sessions: {
         Row: {
-          auth_session_id: string | null
           assurance_level: string
+          auth_session_id: string | null
           created_at: string
           device: string
           employee_code: string
@@ -29,8 +49,8 @@ export type Database = {
           trust_status: string
         }
         Insert: {
-          auth_session_id?: string | null
           assurance_level?: string
+          auth_session_id?: string | null
           created_at?: string
           device: string
           employee_code: string
@@ -42,8 +62,8 @@ export type Database = {
           trust_status?: string
         }
         Update: {
-          auth_session_id?: string | null
           assurance_level?: string
+          auth_session_id?: string | null
           created_at?: string
           device?: string
           employee_code?: string
@@ -73,6 +93,7 @@ export type Database = {
           priority: string
           published_on: string
           title: string
+          updated_at: string | null
         }
         Insert: {
           author_employee_code?: string | null
@@ -82,6 +103,7 @@ export type Database = {
           priority?: string
           published_on?: string
           title: string
+          updated_at?: string | null
         }
         Update: {
           author_employee_code?: string | null
@@ -91,6 +113,7 @@ export type Database = {
           priority?: string
           published_on?: string
           title?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -153,6 +176,7 @@ export type Database = {
           actor_label: string
           created_at: string
           display_time: string
+          event_source: string
           id: number
           target: string
         }
@@ -162,6 +186,7 @@ export type Database = {
           actor_label: string
           created_at?: string
           display_time: string
+          event_source?: string
           id?: number
           target: string
         }
@@ -171,6 +196,7 @@ export type Database = {
           actor_label?: string
           created_at?: string
           display_time?: string
+          event_source?: string
           id?: number
           target?: string
         }
@@ -274,8 +300,11 @@ export type Database = {
           document_type: string
           employee_code: string | null
           expires_on: string | null
+          file_path: string | null
+          file_size: number | null
           filename: string
           id: number
+          mime_type: string | null
           period: string | null
           requires_ack: boolean
           sensitive: boolean
@@ -290,8 +319,11 @@ export type Database = {
           document_type: string
           employee_code?: string | null
           expires_on?: string | null
+          file_path?: string | null
+          file_size?: number | null
           filename: string
           id?: number
+          mime_type?: string | null
           period?: string | null
           requires_ack?: boolean
           sensitive?: boolean
@@ -306,8 +338,11 @@ export type Database = {
           document_type?: string
           employee_code?: string | null
           expires_on?: string | null
+          file_path?: string | null
+          file_size?: number | null
           filename?: string
           id?: number
+          mime_type?: string | null
           period?: string | null
           requires_ack?: boolean
           sensitive?: boolean
@@ -406,6 +441,7 @@ export type Database = {
           reviewed_by: string | null
           status: string
           subject: string
+          submission_key: string | null
           updated_at: string
         }
         Insert: {
@@ -423,6 +459,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           subject: string
+          submission_key?: string | null
           updated_at?: string
         }
         Update: {
@@ -440,6 +477,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           subject?: string
+          submission_key?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -466,10 +504,44 @@ export type Database = {
           },
         ]
       }
+      leave_policies: {
+        Row: {
+          annual_days: number | null
+          description: string
+          leave_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          annual_days?: number | null
+          description?: string
+          leave_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          annual_days?: number | null
+          description?: string
+          leave_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["employee_code"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
+          cancelled_at: string | null
           created_at: string
           days: number
+          decision_note: string | null
           employee_code: string
           end_date: string
           id: number
@@ -481,8 +553,10 @@ export type Database = {
           status: string
         }
         Insert: {
+          cancelled_at?: string | null
           created_at?: string
           days: number
+          decision_note?: string | null
           employee_code: string
           end_date: string
           id?: number
@@ -494,8 +568,10 @@ export type Database = {
           status?: string
         }
         Update: {
+          cancelled_at?: string | null
           created_at?: string
           days?: number
+          decision_note?: string | null
           employee_code?: string
           end_date?: string
           id?: number
@@ -628,6 +704,7 @@ export type Database = {
       notifications: {
         Row: {
           action_label: string | null
+          announcement_id: number | null
           category: string
           created_at: string
           destination: string | null
@@ -639,6 +716,7 @@ export type Database = {
         }
         Insert: {
           action_label?: string | null
+          announcement_id?: number | null
           category?: string
           created_at?: string
           destination?: string | null
@@ -650,6 +728,7 @@ export type Database = {
         }
         Update: {
           action_label?: string | null
+          announcement_id?: number | null
           category?: string
           created_at?: string
           destination?: string | null
@@ -660,6 +739,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_employee_code_fkey"
             columns: ["employee_code"]
@@ -679,10 +765,14 @@ export type Database = {
           gross: number
           id: number
           net: number | null
+          pagibig_contribution: number
           payment_date: string | null
           payroll_run_id: number | null
           period: string
+          philhealth_contribution: number
+          sss_contribution: number
           status: string
+          withholding_tax: number
         }
         Insert: {
           allowances?: number
@@ -693,10 +783,14 @@ export type Database = {
           gross: number
           id?: number
           net?: number | null
+          pagibig_contribution?: number
           payment_date?: string | null
           payroll_run_id?: number | null
           period: string
+          philhealth_contribution?: number
+          sss_contribution?: number
           status?: string
+          withholding_tax?: number
         }
         Update: {
           allowances?: number
@@ -707,10 +801,14 @@ export type Database = {
           gross?: number
           id?: number
           net?: number | null
+          pagibig_contribution?: number
           payment_date?: string | null
           payroll_run_id?: number | null
           period?: string
+          philhealth_contribution?: number
+          sss_contribution?: number
           status?: string
+          withholding_tax?: number
         }
         Relationships: [
           {
@@ -733,6 +831,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          calculation_method: string
           created_at: string
           created_by: string | null
           deduction_rate: number
@@ -750,6 +849,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          calculation_method?: string
           created_at?: string
           created_by?: string | null
           deduction_rate?: number
@@ -767,6 +867,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          calculation_method?: string
           created_at?: string
           created_by?: string | null
           deduction_rate?: number
@@ -1357,15 +1458,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      signin_email_context: { Args: Record<PropertyKey, never>; Returns: Json }
-      finish_hrms_signin: { Args: { selected_portal: string; device_label: string; location_label: string }; Returns: Json }
-      read_employee_document: { Args: { selected_document_id: number }; Returns: string }
-      security_account_options: { Args: Record<PropertyKey, never>; Returns: Array<{ employee_code: string; first_name: string; last_name: string }> }
-      assert_hrms_access: { Args: Record<PropertyKey, never>; Returns: undefined }
-      get_hrms_identity: { Args: Record<PropertyKey, never>; Returns: Json }
-      record_hrms_session: { Args: { device_label: string; location_label: string }; Returns: string }
-      revoke_hrms_sessions: { Args: { operation: string; target_code?: string }; Returns: number }
-      security_overview: { Args: { window_days?: number }; Returns: Json }
       acknowledge_document: {
         Args: { selected_document_id: number }
         Returns: undefined
@@ -1378,11 +1470,17 @@ export type Database = {
         }
         Returns: number
       }
+      assert_hrms_access: { Args: never; Returns: undefined }
+      assert_hrms_setup_access: { Args: never; Returns: undefined }
       cancel_employee_request: {
         Args: { selected_request_id: number }
         Returns: undefined
       }
-      clock_attendance: { Args: { clock_action: string }; Returns: undefined }
+      cancel_leave_request: { Args: { request_id: number }; Returns: undefined }
+      clock_attendance:
+        | { Args: never; Returns: undefined }
+        | { Args: { clock_action: string }; Returns: undefined }
+      consume_mfa_recovery: { Args: { recovery_code: string }; Returns: Json }
       create_lifecycle_case: {
         Args: {
           selected_case_type: string
@@ -1391,20 +1489,66 @@ export type Database = {
         }
         Returns: number
       }
+      create_mfa_recovery_codes: { Args: never; Returns: Json }
       current_employee_code: { Args: never; Returns: string }
       current_hrms_role: { Args: never; Returns: string }
+      finish_hrms_signin: {
+        Args: {
+          device_label: string
+          location_label: string
+          selected_portal: string
+        }
+        Returns: Json
+      }
       generate_payroll: {
-        Args: { deduction_rate: number; payroll_period: string }
+        Args: {
+          calculation_method?: string
+          deduction_rate?: number
+          payroll_period: string
+        }
         Returns: number
       }
+      get_hrms_identity: { Args: never; Returns: Json }
       has_hrms_role: { Args: { allowed_roles: string[] }; Returns: boolean }
       is_active_hrms_user: { Args: never; Returns: boolean }
       is_hrms_admin: { Args: never; Returns: boolean }
+      manage_admin_account: {
+        Args: { new_role?: string; operation: string; target_code: string }
+        Returns: Json
+      }
+      manage_admin_password_reset: {
+        Args: {
+          actor_id?: string
+          operation: string
+          request_id?: string
+          sid?: string
+          target_code?: string
+          token_hash?: string
+        }
+        Returns: Json
+      }
+      manage_security_alert: {
+        Args: { details: Json; operation: string }
+        Returns: Json
+      }
+      manage_signin_email: {
+        Args: {
+          challenge?: string
+          code_hash?: string
+          force_resend?: boolean
+          operation: string
+          sid: string
+          uid: string
+        }
+        Returns: Json
+      }
       mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_notification_read: {
         Args: { selected_notification_id: number }
         Returns: undefined
       }
+      my_leave_balances: { Args: { balance_year?: number }; Returns: Json }
+      my_security_history: { Args: never; Returns: Json }
       notify_employee: {
         Args: {
           notification_action?: string
@@ -1416,9 +1560,48 @@ export type Database = {
         }
         Returns: number
       }
+      prepare_hr_report: {
+        Args: { report_id: string; search_text?: string }
+        Returns: Json
+      }
+      prepare_own_payslip: {
+        Args: { selected_payroll_id: number }
+        Returns: {
+          allowances: number
+          bonuses: number
+          created_at: string
+          deductions: number
+          employee_code: string
+          gross: number
+          id: number
+          net: number | null
+          pagibig_contribution: number
+          payment_date: string | null
+          payroll_run_id: number | null
+          period: string
+          philhealth_contribution: number
+          sss_contribution: number
+          status: string
+          withholding_tax: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payroll"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       publish_performance_review: {
         Args: { selected_review_id: number }
         Returns: undefined
+      }
+      read_employee_document: {
+        Args: { selected_document_id: number }
+        Returns: string
+      }
+      record_hrms_session: {
+        Args: { device_label: string; location_label: string }
+        Returns: string
       }
       record_user_activity: {
         Args: { activity_action: string; activity_target: string }
@@ -1445,7 +1628,19 @@ export type Database = {
         Returns: undefined
       }
       review_leave_request: {
-        Args: { decision: string; request_id: number }
+        Args: { decision: string; decision_note?: string; request_id: number }
+        Returns: undefined
+      }
+      revoke_hrms_sessions: {
+        Args: { operation: string; target_code?: string }
+        Returns: number
+      }
+      save_leave_policy: {
+        Args: {
+          allowance: number
+          policy_description?: string
+          selected_type: string
+        }
         Returns: undefined
       }
       save_performance_review: {
@@ -1463,18 +1658,48 @@ export type Database = {
         }
         Returns: number
       }
-      submit_employee_request: {
-        Args: {
-          request_key: string
-          requested_date?: string
-          requested_description: string
-          requested_priority?: string
-          requested_subject: string
-          requested_type: string
-          requested_value?: string
-        }
-        Returns: number
+      security_account_options: {
+        Args: never
+        Returns: {
+          employee_code: string
+          first_name: string
+          last_name: string
+        }[]
       }
+      security_overview: { Args: { window_days?: number }; Returns: Json }
+      set_privileged_mfa_required: {
+        Args: { required: boolean }
+        Returns: undefined
+      }
+      signin_email_context: { Args: never; Returns: Json }
+      store_zap_evidence: {
+        Args: { actor: string; findings: Json; scan: Json }
+        Returns: string
+      }
+      submit_employee_request:
+        | {
+            Args: {
+              request_key: string
+              requested_date?: string
+              requested_description: string
+              requested_priority?: string
+              requested_subject: string
+              requested_type: string
+              requested_value?: string
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              requested_date?: string
+              requested_description: string
+              requested_priority?: string
+              requested_subject: string
+              requested_type: string
+              requested_value?: string
+            }
+            Returns: number
+          }
       submit_leave_request: {
         Args: {
           requested_end: string
@@ -1484,6 +1709,7 @@ export type Database = {
         }
         Returns: number
       }
+      touch_hrms_session: { Args: never; Returns: undefined }
       transition_payroll_run: {
         Args: { next_status: string; selected_run_id: number }
         Returns: undefined
@@ -1629,6 +1855,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

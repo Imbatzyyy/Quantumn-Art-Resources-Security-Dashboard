@@ -11,6 +11,7 @@ import completeAdminInvite from './netlify/functions/complete-admin-invite.mjs'
 import importZapReport from './netlify/functions/import-zap-report.mjs'
 import securityOperations from './netlify/functions/security-operations.mjs'
 import signinEmail from './netlify/functions/signin-email.mjs'
+import mfaRecovery from './netlify/functions/mfa-recovery.mjs'
 import adminResetPassword from './netlify/functions/admin-reset-password.mjs'
 import { validateBrowserBuildEnv } from './scripts/validate-browser-build-env.mjs'
 
@@ -121,6 +122,7 @@ const localApiEndpoints = (): Plugin => {
 
       const webEndpoints: Array<[string, WebHandler, boolean]> = [
         ['/api/signin-email', signinEmail, true],
+        ['/api/mfa-recovery', mfaRecovery, false],
         ['/api/admin-create-employee', adminCreateEmployee, true],
         ['/api/admin-invite-account', adminInviteAccount, true],
         ['/api/admin-reset-password', adminResetPassword, true],

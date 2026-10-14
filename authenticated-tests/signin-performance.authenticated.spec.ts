@@ -46,8 +46,12 @@ for (const portal of ['admin', 'employee'] as const) {
     await Promise.all(bodies)
     const measurements = { portal, fixedBrowserRequestDelayMs: 120, readyMs, verifiedMs, readyWorkspaceMs, decodedSupabaseRestBytes: bytes, requestsBeforeEmail: requests.filter(r => r.phase === 'send').length, requestsAfterCode: requests.filter(r => r.phase === 'verify').length, paths: requests }
     expect(measurements.requestsBeforeEmail).toBe(2) // Password + one email request.
-    expect(measurements.requestsAfterCode).toBeLessThanOrEqual(29)
     const afterCode = requests.filter(r => r.phase === 'verify').map(r => r.path)
+    // Count API requests separately from the two visible avatar image loads.
+    // Employees add one authoritative balance query; no serial identity read.
+    const apiReads = afterCode.filter(path => !path.startsWith('/storage/v1/object/sign/profile-avatars/'))
+    expect(apiReads.length).toBeLessThanOrEqual(29)
+    expect(measurements.requestsAfterCode).toBeLessThanOrEqual(portal === 'employee' ? 31 : 29)
     expect(afterCode.filter(path => path.endsWith('/finish_hrms_signin'))).toHaveLength(1)
     expect(afterCode.filter(path => /\/(signin_email_context|get_hrms_identity|record_hrms_session)$/.test(path))).toHaveLength(0)
     expect(afterCode.filter(path => path.endsWith('/profiles'))).toHaveLength(1)

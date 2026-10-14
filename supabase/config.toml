@@ -89,44 +89,37 @@ subject = "Verify your identity | Quantumn Art Resources"
 content_path = "./supabase/templates/reauthentication.html"
 
 [auth.email.notification.password_changed]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "Your password was changed | Quantumn Art Resources"
 content_path = "./supabase/templates/password_changed_notification.html"
 
 [auth.email.notification.email_changed]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "Your email address was changed | Quantumn Art Resources"
 content_path = "./supabase/templates/email_changed_notification.html"
 
 [auth.email.notification.phone_changed]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "Your sign-in phone number was changed | Quantumn Art Resources"
 content_path = "./supabase/templates/phone_changed_notification.html"
 
 [auth.email.notification.identity_linked]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "A sign-in method was linked | Quantumn Art Resources"
 content_path = "./supabase/templates/identity_linked_notification.html"
 
 [auth.email.notification.identity_unlinked]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "A sign-in method was removed | Quantumn Art Resources"
 content_path = "./supabase/templates/identity_unlinked_notification.html"
 
 [auth.email.notification.mfa_factor_enrolled]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "A verification method was added | Quantumn Art Resources"
 content_path = "./supabase/templates/mfa_factor_enrolled_notification.html"
 
 [auth.email.notification.mfa_factor_unenrolled]
-# Keep opt-in notification behavior unchanged.
-enabled = false
+enabled = true
 subject = "A verification method was removed | Quantumn Art Resources"
 content_path = "./supabase/templates/mfa_factor_unenrolled_notification.html"
 

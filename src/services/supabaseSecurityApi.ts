@@ -12,6 +12,7 @@ export async function securityOperation<T = unknown>(input: SecurityOperationInp
   if (!session) throw new Error('Your session has expired. Sign in again.')
   const response = await fetch('/api/security-operations', {
     method: 'POST',
+    signal: AbortSignal.timeout(12_000),
     headers: {
       authorization: `Bearer ${session.access_token}`,
       'content-type': 'application/json',

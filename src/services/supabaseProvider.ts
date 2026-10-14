@@ -35,6 +35,7 @@ const realtimeTables = [
   'request_comments', 'notifications', 'employee_documents',
   'document_acknowledgements', 'work_schedules', 'employee_benefits',
   'employee_goals', 'lifecycle_cases', 'lifecycle_tasks',
+  'account_sessions', 'audit_logs', 'leave_policies',
 ] as const satisfies readonly PublicTable[]
 
 const requireCurrentUser = async () => {
@@ -45,21 +46,29 @@ const requireCurrentUser = async () => {
 
 export const supabaseProvider: HrmsDataProvider = {
   getSnapshot: fetchSnapshot,
+  async touchSession() {
+    const { error } = await requireSupabase().rpc('touch_hrms_session')
+    if (error) throw error
+  },
 
   subscribeToChanges(onChange) {
     const client = requireSupabase()
     let debounceTimer: number | undefined
+    const pending = new Set<string>()
     let channel = client.channel(`hrms-live-${Date.now()}`)
-    const queueRefresh = () => {
+    const queueRefresh = (table: string) => {
+      pending.add(table)
+      // Database triggers also create audit and notification rows.
+      pending.add('audit_logs'); pending.add('notifications')
       window.clearTimeout(debounceTimer)
-      debounceTimer = window.setTimeout(onChange, 250)
+      debounceTimer = window.setTimeout(() => { const tables = [...pending]; pending.clear(); void onChange(tables) }, 750)
     }
 
     realtimeTables.forEach((table) => {
       channel = channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table },
-        queueRefresh,
+        () => queueRefresh(table),
       )
     })
     channel.subscribe()
@@ -245,10 +254,11 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
-  async reviewLeave(id, status) {
+  async reviewLeave(id, status, note) {
     const { error } = await requireSupabase().rpc('review_leave_request', {
       request_id: databaseId(id, 'Leave request'),
       decision: status,
+      decision_note: note,
     })
     if (error) throw error
     return fetchSnapshot()
@@ -381,11 +391,11 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async endSession(id) {
     const client = requireSupabase()
-    const profile = await requireCurrentUser()
+    await requireCurrentUser()
     const session = await currentSession()
     if (!session) throw new Error('Your session has expired. Sign in again.')
     const currentSessionCode = currentBrowserSessionCode(session.user.id)
-    if (profile.role === 'employee' || id === 'all-other-sessions') {
+    if (id === 'all-other-sessions') {
       await securityOperation({ action: 'revoke-other-sessions', currentSessionCode })
       const { error: signOutError } = await client.auth.signOut({ scope: 'others' })
       if (signOutError) throw signOutError
@@ -440,7 +450,16 @@ export const supabaseProvider: HrmsDataProvider = {
 
   async createDocument(input) {
     const profile = await requireCurrentUser()
-    const { error } = await requireSupabase().from('employee_documents').insert({
+    const client = requireSupabase()
+    let filePath: string | undefined
+    if (input.file) {
+      if (input.file.size > 10 * 1024 * 1024 || !['application/pdf','text/plain','image/jpeg','image/png','application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(input.file.type)) throw new Error('Choose a PDF, text, Word, PNG or JPEG document up to 10 MB.')
+      const filename = input.file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(-120) || 'document'
+      filePath = `${crypto.randomUUID()}/${filename}`
+      const { error: uploadError } = await client.storage.from('hr-documents').upload(filePath, input.file, { contentType: input.file.type, upsert: false })
+      if (uploadError) throw uploadError
+    }
+    const { error } = await client.from('employee_documents').insert({
       employee_code: input.employeeId || null,
       title: input.title.trim(),
       document_type: input.type,
@@ -452,8 +471,14 @@ export const supabaseProvider: HrmsDataProvider = {
       sensitive: Boolean(input.sensitive),
       expires_on: input.expiresOn || null,
       uploaded_by: profile.id,
+      file_path: filePath,
     })
-    if (error) throw error
+    if (error) {
+      // Attached files cannot be removed by this policy; only a failed orphan
+      // upload is eligible for cleanup. The original failure is preserved.
+      if (filePath) await client.storage.from('hr-documents').remove([filePath])
+      throw error
+    }
     return fetchSnapshot()
   },
 
@@ -531,10 +556,11 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
-  async generatePayroll({ period, deductionRate }) {
+  async generatePayroll({ period, deductionRate, calculationMethod }) {
     const { error } = await requireSupabase().rpc('generate_payroll', {
       payroll_period: period.trim(),
       deduction_rate: Number(deductionRate),
+      calculation_method: calculationMethod || 'Flat rate',
     })
     if (error) throw error
     return fetchSnapshot()
@@ -599,8 +625,8 @@ export const supabaseProvider: HrmsDataProvider = {
     return fetchSnapshot()
   },
 
-  async refresh() {
-    return fetchSnapshot()
+  async refresh(changedTables) {
+    return fetchSnapshot(changedTables)
   },
 
 }

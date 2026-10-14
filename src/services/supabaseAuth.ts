@@ -22,6 +22,7 @@ import type {
 } from '../types/hrms.js'
 
 const portalForRole = (role: string): PortalKind => role === 'employee' ? 'employee' : 'admin'
+let pendingSignOut: Promise<void> | null = null
 
 const profileAvatarUrl = async (avatarPath?: string): Promise<string | undefined> => {
   if (!avatarPath) return undefined
@@ -66,6 +67,8 @@ export async function getCurrentUser(): Promise<PortalIdentity | null> {
 }
 
 export async function authenticate({ email, password, portal }: LoginCredentials): Promise<AuthenticationResult> {
+  // Do not let a slow logout clear the storage of a newly authenticated user.
+  await pendingSignOut?.catch(() => undefined)
   const client = requireSupabase()
   const { data, error } = await client.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
   if (error) throw new Error('Email or password is incorrect.')
@@ -119,7 +122,7 @@ export async function authenticate({ email, password, portal }: LoginCredentials
   }
 }
 
-export async function signOut(): Promise<void> {
+async function finishSignOut(): Promise<void> {
   const client = requireSupabase()
   const session = await currentSession()
   if (session) {
@@ -129,6 +132,13 @@ export async function signOut(): Promise<void> {
   }
   const { error } = await client.auth.signOut()
   if (error) throw error
+}
+
+export function signOut(): Promise<void> {
+  if (pendingSignOut) return pendingSignOut
+  const task = finishSignOut().finally(() => { if (pendingSignOut === task) pendingSignOut = null })
+  pendingSignOut = task
+  return task
 }
 
 export async function completeEmailSignIn(portal: PortalKind): Promise<AuthenticationResult> {
@@ -141,7 +151,7 @@ export async function completeEmailSignIn(portal: PortalKind): Promise<Authentic
   if (error) throw error
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Sign-in could not be completed.')
   if (data.mfaRequired === true && typeof data.factorId === 'string' && data.portal === portal) {
-    return { mfaRequired: true, factorId: data.factorId, portal, email: '' }
+    return { mfaRequired: true, factorId: data.factorId, portal, email: '', enrollmentRequired: data.enrollmentRequired === true }
   }
   const row = data.profile
   if (!row || typeof row !== 'object' || Array.isArray(row) || row.auth_user_id !== session.user.id || typeof data.sessionCode !== 'string') {

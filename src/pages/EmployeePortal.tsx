@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import { Link } from 'react-router-dom'
 import { businessDate, attendanceForClock } from '../utils/securityMetrics.js'
 import { requireSupabase } from '../services/supabaseClient.js'
+import { useLeaveBalances, balanceLabel } from '../services/useLeaveBalances.js'
 import {
   Bell,
   BookOpenCheck,
@@ -98,13 +99,6 @@ const requestPriorities = [
   { value: 'Urgent', label: 'Urgent', detail: 'Immediate work impact' },
 ] as const
 
-const availableLeave = (requests: LeaveRequestRecord[]) => Math.max(
-  0,
-  12 - requests
-    .filter((request) => request.status === 'Approved')
-    .reduce((total, request) => total + request.days, 0),
-)
-
 const downloadText = (filename: string, content: string) => {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -142,6 +136,7 @@ export default function EmployeePortal() {
 
 function MyDay({ onNavigate }: NavigateProps) {
   const { data, user, clock } = useHrms()
+  const balances = useLeaveBalances(Number(businessDate().slice(0, 4)), data?.leaveRequests)
   if (!data || !user) return null
   const today = businessDate()
   const attendance = attendanceForClock(data.attendance, user.id)
@@ -167,7 +162,7 @@ function MyDay({ onNavigate }: NavigateProps) {
 
       <div className="stats-grid stats-grid-4 employee-metric-grid">
         <StatCard icon={Clock3} label="Attendance" value={attendance?.status ?? 'Not started'} detail={attendance?.clockIn ? `In ${attendance.clockIn}${attendance.clockOut ? ` · Out ${attendance.clockOut}` : ''}` : 'Secure time record'} tone="blue" />
-        <StatCard icon={CalendarDays} label="Leave available" value={`${availableLeave(leaves)} days`} detail={`${leaves.filter((item) => item.status === 'Pending').length} pending`} tone="green" />
+        <StatCard icon={CalendarDays} label="Vacation available" value={balances ? balanceLabel(balances.balances.find(item => item.type === 'Vacation')) : 'Loading…'} detail={`Calendar days · ${leaves.filter((item) => item.status === 'Pending').length} pending requests`} tone="green" />
         <StatCard icon={FileCheck2} label="Open requests" value={requests.filter((item) => openRequestStatuses.includes(item.status)).length} detail="Shared with HR" tone="amber" />
         <StatCard icon={Bell} label="Unread updates" value={unread.length} detail={`${requiredDocuments.length} acknowledgement${requiredDocuments.length === 1 ? '' : 's'} due`} tone="purple" />
       </div>
@@ -205,17 +200,21 @@ function TimeAndSchedule({ onNavigate }: NavigateProps) {
 }
 
 function EmployeeLeave() {
-  const { data, user, submitLeave } = useHrms()
+  const { data, user, submitLeave, refreshData, notify } = useHrms()
   const [showRequest, setShowRequest] = useState(false)
   const [leaveSaving, setLeaveSaving] = useState(false)
   const [form, setForm] = useState({ type: 'Vacation', startDate: '', endDate: '', reason: '' })
+  const [cancelTarget, setCancelTarget] = useState<LeaveRequestRecord | null>(null)
+  const year = Number((form.startDate || businessDate()).slice(0, 4))
+  const balances = useLeaveBalances(year, data?.leaveRequests)
   if (!data || !user) return null
   const requests = data.leaveRequests.filter((item) => item.employeeId === user.id)
   const days = inclusiveDays(form.startDate, form.endDate)
   const today = businessDate()
-  const balance = availableLeave(requests)
+  const selectedBalance = balances?.balances.find(item => item.type === form.type)
+  const balance = balanceLabel(selectedBalance)
   const requestReady = days > 0 && days <= 30 && form.reason.trim().length >= 3
-  const remainingBalance = Math.max(0, balance - days)
+  const remainingBalance = selectedBalance?.available == null ? null : Math.max(0, selectedBalance.available - days)
   const leaveGuidance: Record<string, string> = {
     Vacation: 'Plan ahead when possible so your team can arrange coverage.',
     Sick: 'Use this when illness or recovery prevents you from working.',
@@ -241,11 +240,23 @@ function EmployeeLeave() {
     finally { setLeaveSaving(false) }
   }
 
-  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label="Available balance" value={`${balance} days`} tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td></tr>)}</tbody></TableShell></section>{showRequest && <Modal title="Request leave" onClose={closeLeaveRequest} size="large">
+  const cancelLeave = async () => {
+    if (!cancelTarget || leaveSaving) return
+    setLeaveSaving(true)
+    try {
+      const { error } = await requireSupabase().rpc('cancel_leave_request', { request_id: Number(cancelTarget.id) })
+      if (error) throw error
+      setCancelTarget(null)
+      await refreshData()
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'The leave could not be cancelled.', 'error') }
+    finally { setLeaveSaving(false) }
+  }
+
+  return <div className="page-stack employee-feature-page employee-leave-page"><SectionHeading eyebrow="My work" title="Leave" description="Plan time away and follow each database-backed approval." actions={<button className="button button-primary" onClick={() => setShowRequest(true)}><Plus />New leave request</button>} /><div className="stats-grid stats-grid-3"><StatCard icon={CalendarDays} label={`${form.type} available · ${year}`} value={balances ? balance : 'Loading…'} detail="Calendar days; pending requests reserve allowance" tone="green" /><StatCard icon={CheckCircle2} label="Approved" value={requests.filter((item) => item.status === 'Approved').length} tone="blue" /><StatCard icon={Clock3} label="Pending" value={requests.filter((item) => item.status === 'Pending').length} tone="amber" /></div><section className="panel"><div className="panel-header"><div><h2>Leave history</h2><p>Administrator decisions synchronize here automatically.</p></div></div><TableShell><thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason / HR note</th><th>Status</th><th>Action</th></tr></thead><tbody>{requests.map((request) => <tr key={request.id}><td><strong>{request.type}</strong></td><td>{formatDate(request.startDate)} – {formatDate(request.endDate)}</td><td>{request.days}</td><td>{request.reason}{request.decisionNote && <small className="table-subtitle">HR: {request.decisionNote}</small>}</td><td><Badge tone={statusTone(request.status)}>{request.status}</Badge></td><td>{(request.status === 'Pending' || (request.status === 'Approved' && request.startDate > today)) && <button className="mini-button" onClick={() => setCancelTarget(request)}>Cancel leave</button>}</td></tr>)}</tbody></TableShell></section>{balances?.error && <p role="alert" className="form-error">Leave balances could not be loaded. The server will still check your allowance before accepting a request.</p>}{cancelTarget && <Modal title="Cancel leave request?" onClose={() => !leaveSaving && setCancelTarget(null)}><div className="rf-form rf-form--sm"><p>This withdraws your {cancelTarget.type.toLowerCase()} request for {formatDate(cancelTarget.startDate)}–{formatDate(cancelTarget.endDate)} and releases the reserved days.</p><div className="modal-actions"><button className="button button-secondary" disabled={leaveSaving} onClick={() => setCancelTarget(null)}>Keep request</button><button className="button button-primary" disabled={leaveSaving} onClick={() => void cancelLeave()}>{leaveSaving ? 'Cancelling…' : 'Confirm cancellation'}</button></div></div></Modal>}{showRequest && <Modal title="Request leave" onClose={closeLeaveRequest} size="large">
     <form className="rf-form" onSubmit={submit} aria-busy={leaveSaving}>
       <div className="rf-intro">
         <p>Choose a leave type and your dates, then tell your approver why you need the time off. HR reviews every request before it is approved.</p>
-        <div className="rf-balance"><span>Available balance</span><strong>{balance} days</strong></div>
+        <div className="rf-balance"><span>{form.type} · {year}</span><strong>{balances ? balance : 'Loading…'}</strong></div>
       </div>
 
       <div className="rf-layout">
@@ -288,8 +299,8 @@ function EmployeeLeave() {
             <div><dt>Dates</dt><dd>{form.startDate && form.endDate ? `${formatDate(form.startDate)} – ${formatDate(form.endDate)}` : form.startDate ? `From ${formatDate(form.startDate)}` : 'Not selected yet'}</dd></div>
             <div><dt>Duration</dt><dd>{days ? `${days} day${days === 1 ? '' : 's'}` : '—'}</dd></div>
             <div><dt>Requested by</dt><dd>{user.firstName} {user.lastName}</dd></div>
-            <div><dt>Current balance</dt><dd>{balance} days</dd></div>
-            <div><dt>Balance after approval</dt><dd>{days ? `${remainingBalance} days` : '—'}</dd></div>
+            <div><dt>Available in {year}</dt><dd>{balance}</dd></div>
+            <div><dt>After reservation</dt><dd>{form.endDate.slice(0, 4) !== String(year) ? 'Calculated separately for each year' : remainingBalance === null ? 'Subject to HR review' : days ? `${remainingBalance} days` : '—'}</dd></div>
             <div><dt>Status after sending</dt><dd><Badge tone="warning">Pending review</Badge></dd></div>
           </dl>
           <p className="rf-note"><ShieldCheck aria-hidden="true" /><span>Only you and authorized HR approvers can see this request. The decision appears in your leave history.</span></p>
@@ -297,7 +308,7 @@ function EmployeeLeave() {
       </div>
 
       <footer className="rf-footer">
-        <p><Info aria-hidden="true" /><span>Approved leave is deducted from your available balance.</span></p>
+        <p><Info aria-hidden="true" /><span>Pending and approved requests reserve calendar days for their leave type and year. HR sets the allowances.</span></p>
         <div className="rf-actions"><button type="button" className="button button-secondary" onClick={closeLeaveRequest} disabled={leaveSaving}>Cancel</button><button className="button button-primary" disabled={!requestReady || leaveSaving}>{leaveSaving ? 'Submitting…' : 'Submit leave request'}</button></div>
       </footer>
     </form>
@@ -420,7 +431,7 @@ function ActionInbox({ onNavigate }: NavigateProps) {
 }
 
 function PayAndBenefits() {
-  const { data, user, recordActivity } = useHrms()
+  const { data, user, notify } = useHrms()
   if (!data || !user) return null
   const records = data.payroll.filter((item) => item.employeeId === user.id)
   const benefits = data.benefits.filter((item) => item.employeeId === user.id)
@@ -428,8 +439,13 @@ function PayAndBenefits() {
   const employerBenefits = benefits.reduce((sum, item) => sum + item.employerShare, 0)
 
   const download = async (record: PayrollRecord) => {
+    try {
+    const { data: prepared, error } = await requireSupabase().rpc('prepare_own_payslip', { selected_payroll_id: Number(record.id) })
+    if (error) throw error
+    if (!prepared || prepared.employee_code !== user.id || !['Released', 'Paid', 'Locked'].includes(prepared.status) || prepared.net === null) throw new Error('This payslip could not be authorized.')
+    record = { ...record, period: prepared.period, gross: prepared.gross, allowances: prepared.allowances, bonuses: prepared.bonuses, deductions: prepared.deductions, net: prepared.net, status: prepared.status }
     downloadCsv(`payslip-${user.id}-${record.period}`, [{ label: 'Employee ID', value: () => user.id }, { label: 'Employee', value: () => `${user.firstName} ${user.lastName}` }, { label: 'Period', key: 'period' }, { label: 'Gross pay', key: 'gross' }, { label: 'Allowances', key: 'allowances' }, { label: 'Bonuses', key: 'bonuses' }, { label: 'Deductions', key: 'deductions' }, { label: 'Net pay', key: 'net' }, { label: 'Status', key: 'status' }], [record])
-    try { await recordActivity({ action: 'Downloaded own payslip', target: record.period }) } catch { /* The export is complete; toast reports the audit issue. */ }
+    } catch { notify('The payslip could not be securely prepared. No file was downloaded.', 'error') }
   }
 
   return <div className="page-stack employee-feature-page employee-pay-page"><SectionHeading eyebrow="Private total rewards" title="Pay & Benefits" description="Understand salary, employer-paid benefits, and released payslips in one secure view." /><div className="privacy-banner"><ShieldCheck /><div><strong>Protected by Supabase Row-Level Security</strong><p>Only you and authorized payroll roles can retrieve these records. Payslip downloads are audited.</p></div></div><div className="stats-grid stats-grid-3"><StatCard icon={PhilippinePeso} label="Latest net pay" value={latest ? formatMoney(latest.net) : '—'} detail={latest?.period ?? 'No released payslip'} tone="green" /><StatCard icon={BriefcaseBusiness} label="Employer benefits" value={formatMoney(employerBenefits)} detail="Monthly contribution estimate" tone="blue" /><StatCard icon={WalletCards} label="Active plans" value={benefits.filter((item) => item.status === 'Active').length} detail="Benefits in your profile" tone="purple" /></div>{records.map((record) => <section className="panel payslip-card" key={record.id}><div className="payslip-head"><div><span>Payslip</span><h2>{record.period}</h2></div><Badge tone={statusTone(record.status)}>{record.status}</Badge></div><div className="payslip-summary payslip-summary-5"><div><span>Base pay</span><strong>{formatMoney(record.gross)}</strong></div><div><span>Allowances</span><strong>{formatMoney(record.allowances)}</strong></div><div><span>Bonuses</span><strong>{formatMoney(record.bonuses)}</strong></div><div><span>Deductions</span><strong>-{formatMoney(record.deductions)}</strong></div><div className="net"><span>Net pay</span><strong>{formatMoney(record.net)}</strong></div></div><button className="button button-secondary" onClick={() => download(record)}><Download size={17} />Download payslip CSV</button></section>)}{!records.length && <EmptyState icon={ReceiptText} title="No released payslip" text="Draft and validation records stay hidden until payroll authorizes release." />}<section className="panel"><div className="panel-header"><div><h2>Benefits coverage</h2><p>Your active plans and contribution breakdown</p></div></div><div className="benefit-grid">{benefits.map((item) => <article key={item.id}><span><BriefcaseBusiness /></span><div><Badge tone={statusTone(item.status)}>{item.status}</Badge><h3>{item.planName}</h3><p>{item.type} · {item.provider}</p><dl><div><dt>Your share</dt><dd>{formatMoney(item.employeeShare)}</dd></div><div><dt>Employer share</dt><dd>{formatMoney(item.employerShare)}</dd></div></dl></div></article>)}</div></section></div>
@@ -460,6 +476,17 @@ function DocumentVault() {
     try {
       const { data: body, error } = await requireSupabase().rpc('read_employee_document', { selected_document_id: Number(document.id) })
       if (error) throw error
+      if (document.filePath) {
+        // Re-read the metadata under RLS and recheck the expiry before issuing
+        // a short-lived attachment URL; never trust an old in-memory path.
+        const client = requireSupabase()
+        const { data: fresh, error: readError } = await client.from('employee_documents').select('file_path,filename,expires_on').eq('id', Number(document.id)).single()
+        if (readError || !fresh.file_path || (fresh.expires_on && fresh.expires_on < businessDate())) throw new Error('This attachment is no longer available.')
+        const { data: signed, error: signedError } = await client.storage.from('hr-documents').createSignedUrl(fresh.file_path, 60, { download: fresh.filename })
+        if (signedError) throw signedError
+        const link = window.document.createElement('a'); link.href = signed.signedUrl; link.rel = 'noopener'; link.click()
+        return
+      }
       downloadText(document.filename, body)
     } catch { notify('This document is unavailable or expired. Refresh the page and try again.', 'error') }
   }

@@ -4,6 +4,7 @@ import { Badge, EmptyState, Modal, SectionHeading, StatCard } from '../component
 import { Banner, Field, FormFooter, FormIntro, SectionTitle } from '../components/readable.js'
 import { useHrms } from '../state/useHrms.js'
 import { downloadCsv } from '../utils/downloads.js'
+import { prepareReport } from '../services/auditedReports.js'
 import { statusTone } from '../utils/format.js'
 import type {
   OrganizationSecuritySummary,
@@ -31,7 +32,7 @@ const pageWindow = (current: number, total: number) => {
 export default function AdminSecurityCenter({ readOnly = false, initialFilter = 'Overview' }: { readOnly?: boolean; initialFilter?: string }) {
   const {
     data: snapshot, user: identity, refreshData, addSecurityAlert, updateSecurityInvestigation,
-    endSession, importZapReport, recordActivity, getOrganizationSecuritySummary, getSecurityAccountOptions,
+    endSession, importZapReport, notify, getOrganizationSecuritySummary, getSecurityAccountOptions, lastSyncedAt, syncError,
   } = useHrms()
   const data = snapshot!
   const user = identity!
@@ -61,10 +62,10 @@ export default function AdminSecurityCenter({ readOnly = false, initialFilter = 
 
   useEffect(() => {
     let current = true
-    getOrganizationSecuritySummary().then((result) => current && setSummary(result)).catch(() => current && setSummaryError(true))
+    getOrganizationSecuritySummary().then((result) => current && (setSummary(result), setSummaryError(false))).catch(() => current && setSummaryError(true))
       .finally(() => current && setSummaryLoading(false))
     return () => { current = false }
-  }, [getOrganizationSecuritySummary])
+  }, [getOrganizationSecuritySummary, lastSyncedAt])
 
   useEffect(() => {
     if (!showCreate || !getSecurityAccountOptions) return
@@ -124,14 +125,16 @@ export default function AdminSecurityCenter({ readOnly = false, initialFilter = 
     finally { setZapImporting(false) }
   }
   const exportAudit = async () => {
-    downloadCsv('quantum-security-audit', [{ label: 'Actor', key: 'actor' }, { label: 'Action', key: 'action' }, { label: 'Target', key: 'target' }, { label: 'Time', key: 'time' }], filteredAudit)
-    await recordActivity({ action: 'Exported security audit evidence', target: `${filteredAudit.length} authorized events` })
+    try {
+      const rows = await prepareReport('audit', auditQuery)
+      downloadCsv('quantum-security-audit', [{ label: 'Actor', key: 'actor' }, { label: 'Action', key: 'action' }, { label: 'Target', key: 'target' }, { label: 'Time', key: 'time' }, { label: 'Evidence source', key: 'eventSource' }], rows)
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'Export could not be audited. Nothing was downloaded.', 'error') }
   }
 
   return <div className="page-stack security-operations-page">
     <SectionHeading eyebrow="Security operations and assurance" title="Unified Security Center" description="Investigate organization-wide events, review authenticated sessions, preserve audit evidence, and track authorized OWASP ZAP assessments." actions={<div className="section-action-row">{canManage && <button className="button button-primary" onClick={() => setShowCreate(true)}><ShieldAlert size={17} />Create alert</button>}<button className="button button-secondary" onClick={refreshData}><RefreshCw size={17} />Refresh evidence</button></div>} />
 
-    <Banner icon={Gauge} tone={postureTone} label="Organization security status" title={posture} badge={<Badge tone={postureTone}>Live data</Badge>}>{openAlerts.length} open {openAlerts.length === 1 ? 'alert' : 'alerts'} · {openFindings.length} open ZAP {openFindings.length === 1 ? 'finding' : 'findings'} · {summaryLoading ? 'checking MFA coverage' : `${summary.mfaEnabled} of ${summary.totalAccounts} accounts use MFA`}</Banner>
+    <Banner icon={Gauge} tone={postureTone} label="Organization security status" title={posture} badge={<Badge tone={postureTone}>{syncError || summaryError ? 'Stale evidence' : 'Database snapshot'}</Badge>}>{openAlerts.length} open {openAlerts.length === 1 ? 'alert' : 'alerts'} · {openFindings.length} open ZAP {openFindings.length === 1 ? 'finding' : 'findings'} · {summaryLoading ? 'checking MFA coverage' : summaryError ? 'MFA coverage unavailable' : `${summary.mfaEnabled} of ${summary.totalAccounts} accounts use MFA`}</Banner>
     <nav className="security-tabs security-operations-tabs" aria-label="Security operations sections">{tabs.map((tab) => <button className={activeTab === tab ? 'active' : ''} key={tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</nav>
 
     {activeTab === 'Overview' && <>
@@ -170,7 +173,7 @@ export default function AdminSecurityCenter({ readOnly = false, initialFilter = 
       {latestScan && <section className="panel"><div className="panel-header"><div><h2>Latest reviewed findings</h2><p>{latestScan.id} · report integrity {latestScan.reportSha256.slice(0,12)}…</p></div></div><div className="zap-findings-table">{latestFindings.map((finding) => <button key={finding.id} onClick={() => setSelectedFinding(finding)}><Badge tone={riskTone[finding.risk]}>{finding.risk}</Badge><div><strong>{finding.name}</strong><span>{finding.pluginId ? `Rule ${finding.pluginId} · ` : ''}{finding.affectedUrl}</span></div><Badge tone={statusTone(finding.status)}>{finding.status}</Badge></button>)}</div></section>}
     </div>}
 
-    {activeTab === 'Security controls' && <section className="panel"><div className="panel-header"><div><h2>Security control register</h2><p>Operational evidence separated from personal employee account controls.</p></div></div><div className="security-control-register"><article><span><Fingerprint /></span><div><strong>Employee-owned MFA</strong><p>Employees enroll, verify, and remove their own TOTP factors. Secrets and codes are never visible to administrators.</p></div><Badge tone="success">Implemented</Badge></article><article><span><LockKeyhole /></span><div><strong>Supabase Row-Level Security</strong><p>Employees see their own alerts and sessions; security roles see organization evidence; auditors remain read-only.</p></div><Badge tone="success">Active</Badge></article><article><span><Clock3 /></span><div><strong>Session lifecycle</strong><p>Sessions use authenticated identifiers and server-derived MFA assurance. Device and region labels are not independently verified.</p></div><Badge tone="success">Active</Badge></article><article><span><FileSearch /></span><div><strong>OWASP ZAP testing</strong><p>Authorized reports are scope checked, hashed, stored, reviewed, and separated from live employee controls.</p></div><Badge tone={latestScan ? 'success' : 'warning'}>{latestScan ? 'Evidence available' : 'Awaiting scan'}</Badge></article><article><span><ShieldAlert /></span><div><strong>Incident response history</strong><p>Employee decisions and administrator investigation transitions are recorded in Supabase.</p></div><Badge tone="success">Realtime</Badge></article></div></section>}
+    {activeTab === 'Security controls' && <section className="panel"><div className="panel-header"><div><h2>Security control register</h2><p>Operational evidence separated from personal employee account controls.</p></div></div><div className="security-control-register"><article><span><Fingerprint /></span><div><strong>Employee-owned MFA</strong><p>Employees enroll, verify, and remove their own TOTP factors. Secrets and codes are never visible to administrators.</p></div><Badge tone="success">Implemented</Badge></article><article><span><LockKeyhole /></span><div><strong>Supabase Row-Level Security</strong><p>Employees see their own alerts and sessions; security roles see organization evidence; auditors remain read-only.</p></div><Badge tone="success">Active</Badge></article><article><span><Clock3 /></span><div><strong>Session lifecycle</strong><p>Sessions use authenticated identifiers and server-derived MFA assurance. Device and region labels are not independently verified.</p></div><Badge tone="success">Active</Badge></article><article><span><FileSearch /></span><div><strong>OWASP ZAP testing</strong><p>Authorized reports are scope checked, hashed, stored, reviewed, and separated from live employee controls.</p></div><Badge tone={latestScan ? 'success' : 'warning'}>{latestScan ? 'Evidence available' : 'Awaiting scan'}</Badge></article><article><span><ShieldAlert /></span><div><strong>Incident response history</strong><p>Employee decisions and administrator investigation transitions are recorded in Supabase.</p></div><Badge tone={syncError ? 'warning' : 'info'}>{syncError ? 'Refresh failed' : 'Stored evidence'}</Badge></article></div></section>}
 
     {showCreate && canManage && <Modal title="Create a reviewable security alert" onClose={() => setShowCreate(false)} size="wide">
       <form className="rf-form rf-form--sm" onSubmit={submitAlert}>

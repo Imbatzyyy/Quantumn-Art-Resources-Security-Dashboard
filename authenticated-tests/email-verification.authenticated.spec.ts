@@ -15,6 +15,45 @@ function authenticatorCode(secret: string) {
   return String((digest.readUInt32BE(digest[19] & 15) & 0x7fffffff) % 1000000).padStart(6, '0')
 }
 
+test('mandatory administrator MFA enrolls in the mobile UI and requires saved recovery codes', async ({ page }) => {
+  const apiUrl = process.env.SUPABASE_URL!, serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  resetLocalEmailLimits(apiUrl)
+  const service = createClient(apiUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const account = authenticatedAccounts.admin
+  const { data: profile } = await service.from('profiles').select('auth_user_id').eq('email', account.email).single()
+  expect(profile).not.toBeNull()
+  expect((await service.rpc('set_privileged_mfa_required', { required: true })).error).toBeNull()
+  try {
+    await page.setViewportSize({ width: 320, height: 700 })
+    await page.goto('/admin/login')
+    await page.getByLabel('Work email').fill(account.email)
+    await page.getByLabel('Password', { exact: true }).fill(account.password)
+    await page.getByRole('button', { name: 'Sign in to Admin Console' }).click()
+    await expect(page.getByLabel('Email verification code')).toBeEnabled()
+    const code = await capturedLocalCode(new URL(page.url()).origin, account.email, process.env.LOCAL_QA_CAPTURE_TOKEN)
+    await page.getByLabel('Email verification code').fill(code!)
+    await page.getByRole('button', { name: 'Verify & continue' }).click()
+    await page.getByRole('button', { name: 'Set up authenticator' }).click()
+    const secret = await page.locator('.mfa-setup-secret').textContent()
+    await page.getByLabel('Authenticator code').fill(authenticatorCode(secret!))
+    await page.getByRole('button', { name: 'Verify authenticator' }).click()
+    const codes = page.getByLabel('Private single-use recovery codes')
+    await expect(codes).toBeVisible()
+    expect((await codes.textContent())!.trim().split('\n')).toHaveLength(8)
+    await expect(page.getByRole('button', { name: 'Continue to workspace' })).toBeDisabled()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+    const axe = await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa']).analyze()
+    expect(axe.violations.map(item => item.id)).toEqual([])
+    await page.getByLabel('I saved these recovery codes somewhere private.').check()
+    await page.getByRole('button', { name: 'Continue to workspace' }).click()
+    await expect(page.getByRole('heading', { name: /Good day,/ })).toBeVisible()
+  } finally {
+    await service.rpc('set_privileged_mfa_required', { required: false })
+    const factors = await service.auth.admin.mfa.listFactors({ userId: profile!.auth_user_id })
+    for (const factor of factors.data?.factors || []) await service.auth.admin.mfa.deleteFactor({ userId: profile!.auth_user_id, id: factor.id })
+  }
+})
+
 for (const portal of ['admin', 'employee'] as const) {
   test(`${portal} can retry an offline workspace after verification without another email`, async ({ page }) => {
     resetLocalEmailLimits(process.env.SUPABASE_URL!)

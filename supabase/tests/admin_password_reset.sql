@@ -12,6 +12,8 @@ insert into auth.sessions(id,user_id) values
  ('22000000-0000-4000-8000-000000000001','11000000-0000-4000-8000-000000000001'),
  ('22000000-0000-4000-8000-000000000002','11000000-0000-4000-8000-000000000002'),
  ('22000000-0000-4000-8000-000000000003','11000000-0000-4000-8000-000000000002');
+-- Match real GoTrue sessions; NULL creation times fail closed.
+update auth.sessions set created_at=now() where created_at is null;
 select ok(not has_function_privilege('authenticated','public.manage_admin_password_reset(text,uuid,uuid,text,text,uuid)','execute'),'browser cannot create or consume reset grants through the RPC');
 select ok(not has_function_privilege('anon','public.manage_admin_password_reset(text,uuid,uuid,text,text,uuid)','execute'),'anonymous clients cannot call the private reset manager');
 select ok(not has_table_privilege('authenticated','private.admin_password_resets','SELECT'),'browser cannot read reset token hashes');

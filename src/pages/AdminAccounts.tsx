@@ -7,6 +7,7 @@ import { statusTone } from '../utils/format.js'
 import type { AdminInviteInput } from '../types/hrms.js'
 import type { EmployeeRecord } from '../types/hrms.js'
 import { adminPasswordReset } from '../services/adminPasswordReset.js'
+import { requireSupabase } from '../services/supabaseClient.js'
 
 type AdminRoleKey = AdminInviteInput['role']
 
@@ -65,7 +66,13 @@ const adminRoles: Record<AdminRoleKey, AdminRoleDefinition> = {
 const emptyForm: AdminInviteInput = { firstName: '', lastName: '', email: '', phone: '', role: 'hr_admin', confirmed: false }
 
 export default function AdminAccounts() {
-  const { data, user, inviteAdminAccount } = useHrms()
+  const { data, user, inviteAdminAccount, refreshData, notify } = useHrms()
+  const [manageAccount, setManageAccount] = useState<EmployeeRecord | null>(null)
+  const [manageOperation, setManageOperation] = useState('change-role')
+  const [manageRole, setManageRole] = useState('hr_admin')
+  const [manageConfirmed, setManageConfirmed] = useState(false)
+  const [manageBusy, setManageBusy] = useState(false)
+  const [manageError, setManageError] = useState('')
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
@@ -77,6 +84,17 @@ export default function AdminAccounts() {
   if (!data || !user) return null
 
   const accounts = data.employees.filter((employee) => employee.role !== 'employee')
+  const saveAccess = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!manageAccount || !manageConfirmed || manageBusy) return
+    setManageBusy(true); setManageError('')
+    try {
+      const { error } = await requireSupabase().rpc('manage_admin_account', { operation: manageOperation, target_code: manageAccount.id, ...(manageOperation === 'change-role' ? { new_role: manageRole } : {}) })
+      if (error) throw new Error(error.message)
+      setManageAccount(null); await refreshData(); notify('Administrator access updated and audited.')
+    } catch (reason) { setManageError(reason instanceof Error ? reason.message : 'Administrator access could not be changed.') }
+    finally { setManageBusy(false) }
+  }
   const activeAccounts = accounts.filter((account) => account.status === 'Active').length
   const representedRoles = new Set(accounts.map((account) => account.role)).size
   const sendReset = async () => {
@@ -127,10 +145,10 @@ export default function AdminAccounts() {
 
       <section className="panel">
         <div className="panel-header"><div><h2>Privileged account directory</h2><p>Profile and access-role changes synchronize from Supabase in real time.</p></div><Badge tone="success">Live</Badge></div>
-        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th><th>Recovery</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td><td><button className="button button-secondary admin-reset-trigger" disabled={account.status !== 'Active'} aria-label={`Reset password for ${account.firstName} ${account.lastName}`} onClick={() => { setResetAccount(account); setResetError(''); setResetSent(false); setResetConfirmed(false) }}><KeyRound size={16} />Reset password</button></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
+        {accounts.length ? <TableShell><thead><tr><th>Administrator</th><th>Access role</th><th>Department</th><th>Status</th><th>Account ID</th><th>Access & recovery</th></tr></thead><tbody>{accounts.map((account) => { const role = adminRoles[account.role as AdminRoleKey] || adminRoles.auditor; return <tr key={account.id}><td><div className="table-person"><span>{account.firstName[0]}{account.lastName[0]}</span><div><strong>{account.firstName} {account.lastName}</strong><small>{account.email}</small></div></div></td><td><Badge tone={role.tone}>{role.label}</Badge><small className="table-subtitle">{role.short}</small></td><td>{account.department}</td><td><Badge tone={statusTone(account.status)}>{account.status}</Badge></td><td><code>{account.id}</code></td><td><button className="button button-secondary" disabled={account.id === user.id} onClick={() => { setManageAccount(account); setManageRole(account.role || 'hr_admin'); setManageOperation(account.status === 'Inactive' ? 'reactivate' : 'change-role'); setManageConfirmed(false); setManageError('') }}>Manage access</button><button className="button button-secondary admin-reset-trigger" disabled={account.status !== 'Active'} aria-label={`Reset password for ${account.firstName} ${account.lastName}`} onClick={() => { setResetAccount(account); setResetError(''); setResetSent(false); setResetConfirmed(false) }}><KeyRound size={16} />Reset password</button></td></tr> })}</tbody></TableShell> : <EmptyState icon={UserCog} title="No administrator profiles" text="Invite the first role-scoped administrator." />}
       </section>
 
-      {resetAccount && <Modal title={resetSent ? 'Reset email requested' : 'Reset administrator password'} onClose={() => !resetBusy && setResetAccount(null)} size="wide">
+      {manageAccount && <Modal title="Manage administrator access" onClose={() => !manageBusy && setManageAccount(null)}><form className="rf-form rf-form--sm" onSubmit={saveAccess}><PersonCard name={`${manageAccount.firstName} ${manageAccount.lastName}`} meta={manageAccount.email} /><Field label="Access action">{control => <select {...control} value={manageOperation} onChange={event => { setManageOperation(event.target.value); setManageConfirmed(false) }}><option value="change-role">Change role</option>{manageAccount.status === 'Inactive' ? <option value="reactivate">Reactivate account</option> : <option value="deactivate">Deactivate account</option>}</select>}</Field>{manageOperation === 'change-role' && <Field label="New role">{control => <select {...control} value={manageRole} onChange={event => { setManageRole(event.target.value); setManageConfirmed(false) }}>{Object.entries(adminRoles).map(([key, role]) => <option key={key} value={key}>{role.label}</option>)}</select>}</Field>}<p>Role changes and deactivation revoke all existing HRMS sessions for this account. You cannot change your own access or remove the last active System Administrator.</p><label className="account-policy-confirm"><input type="checkbox" checked={manageConfirmed} onChange={event => setManageConfirmed(event.target.checked)} /><span>I reviewed the target account and the effect of this change.</span></label>{manageError && <p className="form-error" role="alert">{manageError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" disabled={manageBusy} onClick={() => setManageAccount(null)}>Cancel</button><button className="button button-primary" disabled={!manageConfirmed || manageBusy}>{manageBusy ? 'Saving…' : 'Confirm access change'}</button></div></form></Modal>}{resetAccount && <Modal title={resetSent ? 'Reset email requested' : 'Reset administrator password'} onClose={() => !resetBusy && setResetAccount(null)} size="wide">
         <div className="rf-form rf-form--sm" aria-busy={resetBusy}>
           <div className="admin-reset-content">
             <Banner icon={resetSent ? MailCheck : KeyRound} title={resetSent ? 'Check the administrator’s inbox' : 'Send a private recovery link'} tone={resetSent ? 'success' : 'info'}>{resetSent ? 'The email provider accepted the message. Delivery to the inbox may take a moment; the recipient can also check Spam or Junk.' : 'Only the selected administrator receives the link. Their password and role stay unchanged until they complete the reset.'}</Banner>

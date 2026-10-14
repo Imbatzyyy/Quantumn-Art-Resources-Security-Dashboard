@@ -9,6 +9,7 @@ import { HrmsState } from '../state/HrmsState.js'
 import type { HrmsSnapshot, PortalIdentity } from '../types/hrms.js'
 import { createTestContext, emptySnapshot } from './testContext.js'
 import { saveThemePreference } from '../utils/theme.js'
+import { LeaveBalanceSource } from '../services/useLeaveBalances.js'
 import '../styles.css'
 import '../workspace-redesign.css'
 import '../readable-ui.css'
@@ -125,6 +126,10 @@ const context = createTestContext({
   lastSyncedAt: '2026-08-30T04:00:00.000Z',
   getSecurityOverview: async (days) => ({
     asOf: '2026-08-30T04:00:00.000Z', windowDays: days,
+    ...(params.has('securityEvidence') ? {
+      authEvents: { passwordSignIns: 42, passwordChanges: 3, recoveryRequests: 1, factorRemovals: 0, failedPasswordAttemptsAvailable: false, trend: Array.from({ length: days }, (_, index) => ({ date: new Date(Date.UTC(2026, 7, 30 - days + 1 + index)).toISOString().slice(0, 10), signins: index % 5 })) },
+      controls: { rlsTables: 25, publicTables: 25, privilegedMfaRequired: true, privateBuckets: 2, publicBuckets: 0, employeeIdleMinutes: 30, adminIdleMinutes: 15, employeeMaximumHours: 12, adminMaximumHours: 8 },
+    } : {}),
     accounts: { total: 3, mfaEnabled: 2, privileged: 1, privilegedMfaEnabled: 1 },
     alerts: { open: 12, critical: 1, resolvedInWindow: 8, falsePositivesInWindow: 2 },
     sessions: { observedRecently: 2, legacyObservations: 1 },
@@ -157,7 +162,7 @@ const view = screen === 'admin-login'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MemoryRouter>
-      <HrmsState.Provider value={context}>{view}</HrmsState.Provider>
+      <LeaveBalanceSource.Provider value={async year => ['Vacation', 'Sick', 'Emergency', 'Other'].map(type => ({ type, year, annualDays: type === 'Other' ? null : 12, approved: 0, pending: type === 'Vacation' ? 2 : 0, available: type === 'Other' ? null : type === 'Vacation' ? 10 : 12, description: 'Fictional visual fixture only.' }))}><HrmsState.Provider value={context}>{view}</HrmsState.Provider></LeaveBalanceSource.Provider>
     </MemoryRouter>
   </StrictMode>,
 )

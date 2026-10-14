@@ -7,6 +7,8 @@ import type { MfaChallenge, PortalKind } from '../types/hrms.js'
 import logoBlue from '../../assets/images/mainlogo_blue.png'
 import { readThemePreference } from '../utils/theme.js'
 import './SignInVerificationPage.css'
+import MfaEnrollmentGate from '../components/MfaEnrollmentGate.js'
+import { currentSession } from '../services/supabaseReads.js'
 
 export default function SignInVerificationPage({ portal }: { portal: PortalKind }) {
   const { completeEmailSignIn, verifyMfaLogin } = useHrms()
@@ -21,6 +23,8 @@ export default function SignInVerificationPage({ portal }: { portal: PortalKind 
   const [retryAt, setRetryAt] = useState<string | null>(null)
   const [restartRequired, setRestartRequired] = useState(false)
   const [now, setNow] = useState(() => Date.now())
+  const [recovering, setRecovering] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState('')
 
   useEffect(() => {
     document.documentElement.dataset.theme = readThemePreference()
@@ -60,7 +64,14 @@ export default function SignInVerificationPage({ portal }: { portal: PortalKind 
     if (submitting.current || busy) return
     submitting.current = true; setBusy(true); setError('')
     try {
-      if (mfa) {
+      if (recovering) {
+        const session = await currentSession()
+        if (!session) throw new Error('Sign in and verify your email again.')
+        const response = await fetch('/api/mfa-recovery', { method: 'POST', signal: AbortSignal.timeout(15_000), headers: { authorization: `Bearer ${session.access_token}`, 'content-type': 'application/json' }, body: JSON.stringify({ code: recoveryCode }) })
+        const result = await response.json()
+        if (!response.ok || !result.recovered) throw new Error(result.error || 'Recovery failed.')
+        setRecovering(false); setRecoveryCode(''); await finish()
+      } else if (mfa) {
         await verifyMfaLogin({ factorId: mfa.factorId, code, portal })
         navigate(`/${portal}`, { replace: true })
       } else {
@@ -99,8 +110,8 @@ export default function SignInVerificationPage({ portal }: { portal: PortalKind 
         <p className="verification-kicker">{portal === 'admin' ? 'Administrator' : 'Employee'} sign-in · Verification</p>
         <h1 id="verification-title">{mfa ? 'One more security check' : delivery?.verified ? 'Your email is verified' : 'Check your email'}</h1>
         <p className="verification-intro">{mfa ? 'Enter the six-digit code from your authenticator app to finish signing in.' : delivery?.verified ? 'Continue to complete your sign-in securely.' : delivery?.maskedEmail ? <>We sent a six-digit code to <strong>{delivery.maskedEmail}</strong>. Enter it below to open your workspace.</> : busy ? 'Sending a verification code to your account email…' : 'A verification code is needed before your workspace can open.'}</p>
-        <form onSubmit={submit}>
-          {(!delivery?.verified || mfa) && <div className="verification-field">
+        {mfa?.enrollmentRequired ? <MfaEnrollmentGate onComplete={finish} /> : <form onSubmit={submit}>
+          {recovering ? <div className="verification-field"><label htmlFor="mfa-recovery-code">Single-use recovery code</label><input id="mfa-recovery-code" type="text" autoComplete="off" spellCheck={false} maxLength={40} value={recoveryCode} onChange={event => setRecoveryCode(event.target.value.trim())} required /><p>This replaces your authenticator and signs out your other browsers. Never share a recovery code.</p></div> : (!delivery?.verified || mfa) && <div className="verification-field">
             <label htmlFor="signin-verification-code">{mfa ? 'Authenticator code' : 'Email verification code'}</label>
             <input id="signin-verification-code" name="verification-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required
               value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -109,10 +120,11 @@ export default function SignInVerificationPage({ portal }: { portal: PortalKind 
             <p id="verification-help">{mfa ? 'Use the current code from your enrolled authenticator.' : expired ? 'This code has expired. Request a new one below.' : 'Your code expires after 10 minutes. Never share it.'}</p>
           </div>}
           {error && <p className="verification-error" role="alert">{error}</p>}
-          <button className="button button-primary verification-submit" type="submit" disabled={busy || restartRequired || (!delivery?.verified && (!delivery?.challengeId || expired)) || ((!delivery?.verified || !!mfa) && code.length !== 6)}>
+          <button className="button button-primary verification-submit" type="submit" disabled={busy || restartRequired || (!delivery?.verified && (!delivery?.challengeId || expired)) || (recovering ? !/^[a-fA-F0-9-]{32,40}$/.test(recoveryCode) : ((!delivery?.verified || !!mfa) && code.length !== 6))}>
             {busy ? 'Please wait…' : delivery?.verified && !mfa ? 'Continue to workspace' : 'Verify & continue'}<ArrowRight size={18} aria-hidden="true" />
           </button>
-        </form>
+        </form>}
+        {mfa && !mfa.enrollmentRequired && <button className="verification-back" type="button" disabled={busy} onClick={() => { setRecovering(!recovering); setError(''); setCode(''); setRecoveryCode('') }}>{recovering ? 'Use authenticator instead' : 'Lost your authenticator? Use a recovery code'}</button>}
         {!mfa && !delivery?.verified && !restartRequired && <div className="verification-resend">
           <p>Can’t find it? Check your spam or junk folder.</p>
           <button type="button" onClick={resend} disabled={busy || remaining > 0}>Send a new code</button>

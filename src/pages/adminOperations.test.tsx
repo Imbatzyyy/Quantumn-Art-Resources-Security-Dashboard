@@ -45,7 +45,8 @@ describe('core administrator operation boundaries', () => {
     })
 
     await user.click(screen.getByRole('button', { name: 'Approve' }))
-    await waitFor(() => expect(reviewLeave).toHaveBeenCalledWith('LEV-1', 'Approved'))
+    await user.click(screen.getByRole('button', { name: 'Confirm decision' }))
+    await waitFor(() => expect(reviewLeave).toHaveBeenCalledWith('LEV-1', 'Approved', ''))
   })
 
   it('keeps private request handoffs separate from employee-notified decisions', async () => {
@@ -153,7 +154,7 @@ describe('core administrator operation boundaries', () => {
     await user.clear(within(generation).getByLabelText('Deduction rate (%)'))
     await user.type(within(generation).getByLabelText('Deduction rate (%)'), '9.5')
     fireEvent.submit(generation.querySelector('form')!)
-    await waitFor(() => expect(generatePayroll).toHaveBeenCalledWith({ period: 'September 2026', deductionRate: 9.5 }))
+    await waitFor(() => expect(generatePayroll).toHaveBeenCalledWith({ period: 'September 2026', deductionRate: 9.5, calculationMethod: 'Flat rate' }))
 
     await user.click(screen.getByRole('button', { name: /Advance to Validation/ }))
     const transition = screen.getByRole('dialog', { name: 'Advance August 2026' })

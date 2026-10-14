@@ -14,6 +14,9 @@ export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
         detectSessionInUrl: true,
         storage: window.sessionStorage,
       },
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) }),
+      },
     })
   : null
 

@@ -84,6 +84,7 @@ describe('communications, report, and employee-download boundaries', () => {
       id: 'EMP-REPORT-1', firstName: 'Avery', lastName: 'Santos', email: 'avery@example.test',
       role: 'employee', status: 'Active', department: 'Operations', position: 'Analyst',
     }]
+    documentRpc.mockResolvedValueOnce({ data: { rows: workforce, auditId: 10, generatedAt: new Date().toISOString() } as unknown as string, error: null })
     renderWithContext(<AdminAnalyticsReports />, {
       recordActivity,
       data: { ...emptySnapshot, employees: workforce },
@@ -97,22 +98,30 @@ describe('communications, report, and employee-download boundaries', () => {
       expect.arrayContaining([expect.objectContaining({ label: 'Employee ID', key: 'id' })]),
       workforce,
     )
-    await waitFor(() => expect(recordActivity).toHaveBeenCalledWith({
-      action: 'Exported authorized HR report',
-      target: 'Workforce directory',
-    }))
+    expect(documentRpc).toHaveBeenCalledWith('prepare_hr_report', { report_id: 'workforce', search_text: '' })
+    expect(recordActivity).not.toHaveBeenCalled()
   })
 
-  it('audits a signed-in employee payslip download', async () => {
+  it('does not download a report when the database cannot authorize and audit it', async () => {
+    const user = userEvent.setup()
+    documentRpc.mockResolvedValueOnce({ data: null as unknown as string, error: new Error('Denied') as unknown as null })
+    renderWithContext(<AdminAnalyticsReports />)
+    const card = screen.getByRole('heading', { name: 'Workforce directory' }).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Download CSV' }))
+    expect(downloadCsv).not.toHaveBeenCalled()
+  })
+
+  it('audits a signed-in employee payslip download before saving the file', async () => {
     const user = userEvent.setup()
     const recordActivity = vi.fn(async () => emptySnapshot)
+    documentRpc.mockImplementation(async (...args: unknown[]) => ({ data: (args[0] === 'prepare_own_payslip' ? { employee_code: employee.id, period: 'August 2026', gross: 35000, allowances: 2500, bonuses: 1000, deductions: 3200, net: 35300, status: 'Released' } : []) as unknown as string, error: null }))
     renderWithContext(<EmployeePortal />, {
       user: employee,
       recordActivity,
       data: {
         ...emptySnapshot,
         payroll: [{
-          id: 'PAY-1', employeeId: employee.id, period: 'August 2026', gross: 35000,
+          id: '1', employeeId: employee.id, period: 'August 2026', gross: 35000,
           allowances: 2500, bonuses: 1000, deductions: 3200, net: 35300, status: 'Released',
         }],
       },
@@ -123,15 +132,14 @@ describe('communications, report, and employee-download boundaries', () => {
     expect(downloadCsv).toHaveBeenCalledWith(
       `payslip-${employee.id}-August 2026`,
       expect.any(Array),
-      [expect.objectContaining({ id: 'PAY-1', employeeId: employee.id })],
+      [expect.objectContaining({ id: '1', employeeId: employee.id })],
     )
-    await waitFor(() => expect(recordActivity).toHaveBeenCalledWith({
-      action: 'Downloaded own payslip',
-      target: 'August 2026',
-    }))
+    expect(documentRpc).toHaveBeenCalledWith('prepare_own_payslip', { selected_payroll_id: 1 })
+    expect(recordActivity).not.toHaveBeenCalled()
   })
 
   it('audits a signed-in employee document download', async () => {
+    documentRpc.mockImplementation(async () => ({ data: 'Authorized fictional classroom document.', error: null }))
     const user = userEvent.setup()
     const recordActivity = vi.fn(async () => emptySnapshot)
     renderWithContext(<EmployeePortal />, {

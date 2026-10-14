@@ -15,6 +15,7 @@ blob-report/
 npm-debug.log*
 *.log
 *.zip
+*.hrmsbackup
 tmp/
 supabase/.temp/
 supabase/.branches/

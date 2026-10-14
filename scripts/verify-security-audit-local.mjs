@@ -103,12 +103,20 @@ await verify('Payroll removes ineligible draft recipients and remains immutable 
   const after=await ok(service.from('payroll_runs').select('status').eq('id',run.id).single()); assert.equal(after.status,'Locked')
 })
 await verify('Reopened lifecycle tasks reopen their completed case', async () => {
+  // Reruns may encounter the previous fictional fixture. Finish its tasks
+  // before creating a new case; never weaken the one-open-case constraint.
+  const existing=await ok(service.from('lifecycle_cases').select('id').eq('employee_code',identity.employee_code).eq('case_type','Onboarding').neq('status','Completed'))
+  for(const item of existing) {
+    const pending=await ok(service.from('lifecycle_tasks').select('id').eq('case_id',item.id))
+    for(const task of pending) await ok(admin.rpc('update_lifecycle_task',{selected_task_id:task.id,new_status:'Complete'}))
+  }
   const id=await ok(admin.rpc('create_lifecycle_case',{target_employee:identity.employee_code,selected_case_type:'Onboarding',selected_target_date:'2026-12-31'}))
   const tasks=await ok(service.from('lifecycle_tasks').select('id').eq('case_id',id))
   for(const task of tasks) await ok(admin.rpc('update_lifecycle_task',{selected_task_id:task.id,new_status:'Complete'}))
   assert.equal((await ok(service.from('lifecycle_cases').select('status').eq('id',id).single())).status,'Completed')
   await ok(admin.rpc('update_lifecycle_task',{selected_task_id:tasks[0].id,new_status:'Pending'}))
   assert.equal((await ok(service.from('lifecycle_cases').select('status').eq('id',id).single())).status,'Active')
+  await ok(admin.rpc('update_lifecycle_task',{selected_task_id:tasks[0].id,new_status:'Complete'}))
 })
 await verify('Published performance history cannot be overwritten with another draft', async () => {
   const input={target_employee:identity.employee_code,review_period:`Local audit ${Date.now()}`,review_score:80,review_goal_progress:80,review_quality:80,review_productivity:80,review_teamwork:80,review_rating:'Meets Expectations',review_comments:'Fictional review for regression verification.'}

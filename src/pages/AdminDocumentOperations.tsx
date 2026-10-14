@@ -38,7 +38,7 @@ export default function AdminDocumentOperations() {
       return
     }
     if (!submission.begin()) return
-    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '' }) } catch { /* Keep protected input. */ } finally { submission.finish() }
+    try { await createDocument(form); setShowCreate(false); setForm({ ...form, title: '', content: '', filename: '', employeeId: '', file: undefined }) } catch { /* Keep protected input. */ } finally { submission.finish() }
   }
 
   return <div className="page-stack">
@@ -54,6 +54,11 @@ export default function AdminDocumentOperations() {
             {formError && <p className="rf-error" role="alert">{formError}</p>}
             <section className="rf-section">
               <SectionTitle step={1}>Document</SectionTitle>
+              <Field label="Attachment" optional help="PDF, Word, text, JPEG or PNG; maximum 10 MB. Stored in private Supabase Storage. The document text becomes a summary when a file is attached.">{control => <><input {...control} type="file" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" onChange={event => {
+                const file = event.target.files?.[0]
+                if (file && file.size > 10 * 1024 * 1024) { setFormError('The file must be no larger than 10 MB.'); setForm({ ...form, file: undefined }); event.target.value = ''; return }
+                setFormError(''); setForm({ ...form, file, filename: file?.name || form.filename })
+              }} />{form.file && <small>{form.file.name} · {Math.ceil(form.file.size / 1024)} KB</small>}</>}</Field>
               <Field label="Document title" count={`${form.title.length}/160`} help="The official title employees will see in their documents.">{(control) => <input {...control} minLength={3} maxLength={160} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Remote Work Security Policy" required />}</Field>
               <div className="rf-grid">
                 <Field label="Filename">{(control) => <input {...control} placeholder="example-policy.txt" value={form.filename} onChange={(event) => setForm({ ...form, filename: event.target.value })} required />}</Field>

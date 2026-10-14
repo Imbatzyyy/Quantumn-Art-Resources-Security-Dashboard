@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AlertTriangle, CheckCircle2, Circle, Clock3, Eye, EyeOff, KeyRound, Laptop, LockKeyhole, LogOut, RefreshCw, ShieldCheck, ShieldQuestion, Smartphone, UserCheck } from 'lucide-react'
 import { Badge, Modal, SectionHeading, StatCard } from '../components/ui.js'
 import { Banner } from '../components/readable.js'
+import RecoveryCodes from '../components/RecoveryCodes.js'
+import { requireSupabase } from '../services/supabaseClient.js'
 import { useHrms } from '../state/useHrms.js'
 import {
   PASSWORD_MAX_LENGTH,
@@ -22,13 +24,18 @@ type EnrollmentState = ({ manage: true } | (MfaEnrollment & { manage?: false }))
 export default function EmployeeAccountSecurity() {
   const {
     data: snapshot, user: identity, refreshData, respondToAlert, endSession, changePassword,
-    getMfaStatus, beginMfaEnrollment, verifyMfaEnrollment, disableMfa,
+    getMfaStatus, beginMfaEnrollment, verifyMfaEnrollment, disableMfa, lastSyncedAt,
   } = useHrms()
   const data = snapshot!
   const user = identity!
   const [activeTab, setActiveTab] = useState('Overview')
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlertSummary | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null)
+  const [singleSession, setSingleSession] = useState(false)
+  const [sessionBusy, setSessionBusy] = useState(false)
+  const [sessionError, setSessionError] = useState('')
+  const [history, setHistory] = useState<Array<{ id: string; action: string; target: string; created_at: string; event_source: string }>>([])
+  const [historyError, setHistoryError] = useState(false)
   const [mfaStatus, setMfaStatus] = useState<MfaStatus>({ enabled: false, currentLevel: 'aal1', factorId: null })
   const [mfaLoading, setMfaLoading] = useState(true)
   const [mfaEnrollment, setMfaEnrollment] = useState<EnrollmentState>(null)
@@ -43,11 +50,28 @@ export default function EmployeeAccountSecurity() {
 
   useEffect(() => {
     let current = true
-    getMfaStatus().then((result) => current && setMfaStatus(result))
+    getMfaStatus().then((result) => current && (setMfaStatus(result), setMfaError('')))
       .catch(() => current && setMfaError('MFA coverage could not be verified. Refresh before changing security settings.'))
       .finally(() => current && setMfaLoading(false))
     return () => { current = false }
-  }, [getMfaStatus])
+  }, [getMfaStatus, lastSyncedAt])
+
+  useEffect(() => {
+    if (activeTab !== 'Security history') return
+    let active = true
+    void (async () => {
+      try {
+        const { data: rows, error } = await requireSupabase().rpc('my_security_history')
+        if (error || !Array.isArray(rows)) throw error
+        const events = rows.map(row => {
+          if (!row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string' || typeof row.action !== 'string' || typeof row.created_at !== 'string' || typeof row.event_source !== 'string') throw new Error('Invalid history')
+          return { id: row.id, action: row.action, target: String(row.target || ''), created_at: row.created_at, event_source: row.event_source }
+        })
+        if (active) { setHistory(events); setHistoryError(false) }
+      } catch { if (active) setHistoryError(true) }
+    })()
+    return () => { active = false }
+  }, [activeTab, lastSyncedAt])
 
   const alerts = useMemo(() => data.securityAlerts.filter((alert) => alert.employeeId === user.id), [data.securityAlerts, user.id])
   const sessions = useMemo(() => data.sessions.filter((session) => session.employeeId === user.id), [data.sessions, user.id])
@@ -105,9 +129,11 @@ export default function EmployeeAccountSecurity() {
     setSelectedAlert(null)
   }
   const revokeOthers = async () => {
-    if (!selectedSession) return
-    await endSession('all-other-sessions')
-    setSelectedSession(null)
+    if (!selectedSession || sessionBusy) return
+    setSessionBusy(true); setSessionError('')
+    try { await endSession(singleSession ? selectedSession.id : 'all-other-sessions'); setSelectedSession(null); setSingleSession(false) }
+    catch { setSessionError('The session could not be ended. Try again.') }
+    finally { setSessionBusy(false) }
   }
   const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setPasswordError('')
@@ -123,10 +149,11 @@ export default function EmployeeAccountSecurity() {
   }
 
   const timeline = useMemo(() => [
+    ...history.map(item => ({ id: item.id, at: item.created_at, icon: ShieldCheck, title: item.action.replaceAll('_', ' '), detail: `${item.event_source === 'client' ? 'Client-reported activity' : item.event_source === 'legacy' ? 'Historical source unverified' : item.event_source === 'auth' ? 'Supabase Auth evidence' : 'Database-confirmed activity'} · ${item.target}` })),
     ...alerts.map((item) => ({ id: `a-${item.id}`, at: item.createdAt, icon: AlertTriangle, title: item.title, detail: `${item.severity} alert · ${item.status}` })),
     ...responses.map((item) => ({ id: `r-${item.id}`, at: item.createdAt, icon: UserCheck, title: item.action, detail: `Response to ${item.alertId}` })),
     ...sessions.map((item) => ({ id: `s-${item.id}`, at: item.createdAt ?? item.lastSeenAt ?? '', icon: Laptop, title: item.current ? 'Current browser session' : 'Browser session recorded', detail: `${item.device} · ${item.location}` })),
-  ].sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()), [alerts, responses, sessions])
+  ].sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()), [alerts, responses, sessions, history])
 
   return <div className="page-stack account-security-page">
     <SectionHeading eyebrow="Your private account protection" title="Account Security" description="Protect your own sign-in, review personal security activity, and remove devices you do not recognize." actions={<button className="button button-secondary" onClick={refreshData}><RefreshCw size={17} />Refresh my activity</button>} />
@@ -151,7 +178,7 @@ export default function EmployeeAccountSecurity() {
         <section className="panel"><div className="panel-header"><div><h2>What needs attention</h2><p>Complete the safest next action first.</p></div></div><div className="security-next-actions">
           {!mfaStatus.enabled && !mfaError && <button onClick={beginMfa}><ShieldQuestion /><div><strong>Enable authenticator MFA</strong><span>Recommended protection against stolen passwords</span></div></button>}
           {openAlerts.slice(0, 3).map((alert) => <button key={alert.id} onClick={() => setSelectedAlert(alert)}><AlertTriangle /><div><strong>{alert.title}</strong><span>{alert.recommendedAction}</span></div></button>)}
-          {unfamiliar.length > 0 && <button onClick={() => setSelectedSession(unfamiliar[0])}><LogOut /><div><strong>Review other browser sessions</strong><span>End access on devices you no longer recognize</span></div></button>}
+          {unfamiliar.length > 0 && <button onClick={() => { setSingleSession(false); setSelectedSession(unfamiliar[0]); setSessionError('') }}><LogOut /><div><strong>Review other browser sessions</strong><span>End access on devices you no longer recognize</span></div></button>}
           {!mfaError && mfaStatus.enabled && !openAlerts.length && !unfamiliar.length && <div className="security-all-clear"><CheckCircle2 /><strong>No action needed</strong><p>New security activity will appear here.</p></div>}
         </div></section>
       </div>
@@ -159,15 +186,15 @@ export default function EmployeeAccountSecurity() {
 
     {activeTab === 'My alerts' && <section className="panel"><div className="panel-header"><div><h2>Security activity involving your account</h2><p>Every alert explains what happened, why it matters, and what you can do.</p></div></div><div className="alert-list">{alerts.map((alert) => <article className={`security-alert severity-${alert.severity.toLowerCase()}`} key={alert.id}><div className="alert-severity-icon"><AlertTriangle /></div><div className="alert-main"><div className="alert-labels"><Badge tone={severityTone[alert.severity]}>{alert.severity}</Badge><Badge tone={statusTone(alert.status)}>{alert.status}</Badge><span>{alert.id}</span></div><h3>{alert.title}</h3><p>{alert.description}</p><div className="alert-meta"><span><Clock3 />{alert.time}</span></div></div><button className="button button-secondary" onClick={() => setSelectedAlert(alert)}><Eye size={16} />Review</button></article>)}{!alerts.length && <div className="security-all-clear roomy"><CheckCircle2 /><strong>No security alerts</strong><p>Only activity connected to your own account will appear here.</p></div>}</div></section>}
 
-    {activeTab === 'My sessions' && <section className="panel"><div className="panel-header"><div><h2>Your recorded browsers</h2><p>Device and region labels are browser-reported, not verified locations.</p></div>{unfamiliar.length > 0 && <button className="button button-secondary danger-text" onClick={() => setSelectedSession(unfamiliar[0])}><LogOut size={16} />End other sessions</button>}</div><div className="session-list">{sessions.map((session) => <article className={session.current ? 'current-session' : ''} key={session.id}><div className="session-icon">{session.device.includes('iPhone') ? <Smartphone /> : <Laptop />}</div><div><strong>{session.device}</strong><span>{session.location}</span><span>First recorded {when(session.createdAt)} · {session.assuranceLevel.toUpperCase()}</span></div><div className="session-actions"><Badge tone={session.current ? 'success' : 'neutral'}>{session.current ? 'This browser' : session.authSessionId ? session.trustStatus : 'Historical observation'}</Badge></div></article>)}</div></section>}
+    {activeTab === 'My sessions' && <section className="panel"><div className="panel-header"><div><h2>Your recorded browsers</h2><p>Device and region labels are browser-reported, not verified locations.</p></div>{unfamiliar.length > 0 && <button className="button button-secondary danger-text" onClick={() => { setSingleSession(false); setSelectedSession(unfamiliar[0]); setSessionError('') }}><LogOut size={16} />End other sessions</button>}</div><div className="session-list">{sessions.map((session) => <article className={session.current ? 'current-session' : ''} key={session.id}><div className="session-icon">{session.device.includes('iPhone') ? <Smartphone /> : <Laptop />}</div><div><strong>{session.device}</strong><span>{session.location}</span><span>First recorded {when(session.createdAt)} · {session.assuranceLevel.toUpperCase()}</span></div><div className="session-actions">{!session.current && session.authSessionId && session.trustStatus !== 'Revoked' && <button className="button button-secondary" onClick={() => { setSingleSession(true); setSelectedSession(session); setSessionError('') }}>End this session</button>}<Badge tone={session.current ? 'success' : 'neutral'}>{session.current ? 'This browser' : session.authSessionId ? session.trustStatus : 'Historical observation'}</Badge></div></article>)}</div></section>}
 
-    {activeTab === 'Security history' && <section className="panel"><div className="panel-header"><div><h2>Your security history</h2><p>A personal timeline assembled from your alerts, responses, and sessions.</p></div></div><div className="personal-security-timeline">{timeline.map(({ id, at, icon: Icon, title, detail }) => <article key={id}><span><Icon /></span><div><strong>{title}</strong><p>{detail}</p></div><time>{when(at)}</time></article>)}</div></section>}
+    {activeTab === 'Security history' && <section className="panel"><div className="panel-header"><div><h2>Your security history</h2><p>Your latest 100 account events, alongside alerts and sessions. Evidence sources are labeled.</p></div></div>{historyError && <p role="alert" className="form-error">Account events could not be refreshed. Previously loaded events may be stale.</p>}<div className="personal-security-timeline">{timeline.map(({ id, at, icon: Icon, title, detail }) => <article key={id}><span><Icon /></span><div><strong>{title}</strong><p>{detail}</p></div><time>{when(at)}</time></article>)}</div></section>}
 
     {selectedAlert && <Modal title={`Review ${selectedAlert.id}`} onClose={() => setSelectedAlert(null)}><div className="alert-detail"><div className="alert-detail-banner"><AlertTriangle /><div><Badge tone={severityTone[selectedAlert.severity]}>{selectedAlert.severity}</Badge><h3>{selectedAlert.title}</h3></div></div><dl><div><dt>What happened</dt><dd>{selectedAlert.description}</dd></div><div><dt>When</dt><dd>{selectedAlert.time}</dd></div><div><dt>Why this matters</dt><dd>{selectedAlert.whyItMatters}</dd></div><div className="recommended"><dt>Recommended action</dt><dd>{selectedAlert.recommendedAction}</dd></div></dl><div className="modal-actions"><button className="button button-secondary" onClick={() => answerAlert('This was me')}>This was me</button><button className="button button-primary danger-button" onClick={() => answerAlert('This was not me')}>This was not me</button></div></div></Modal>}
 
-    {selectedSession && <Modal title="End other sessions" onClose={() => setSelectedSession(null)}><div className="session-review"><span><LogOut /></span><div><h3>Sign out every other browser?</h3><p>This browser remains signed in. Supabase will revoke your other refresh sessions and the HRMS will record your security action.</p></div><div className="modal-actions"><button className="button button-secondary" onClick={() => setSelectedSession(null)}>Cancel</button><button className="button button-primary danger-button" onClick={revokeOthers}>End other sessions</button></div></div></Modal>}
+    {selectedSession && <Modal title={singleSession ? 'End this session' : 'End other sessions'} onClose={() => !sessionBusy && setSelectedSession(null)}><div className="session-review"><span><LogOut /></span><div><h3>{singleSession ? `End access for ${selectedSession.device}?` : 'Sign out every other browser?'}</h3><p>{singleSession ? 'This browser remains signed in. The selected session loses HRMS access immediately, including with a refreshed token.' : 'This browser remains signed in. Supabase will revoke your other refresh sessions and the HRMS will record your security action.'}</p>{sessionError && <p className="form-error" role="alert">{sessionError}</p>}</div><div className="modal-actions"><button className="button button-secondary" onClick={() => setSelectedSession(null)}>Cancel</button><button className="button button-primary danger-button" disabled={sessionBusy} onClick={() => void revokeOthers()}>{sessionBusy ? 'Ending…' : singleSession ? 'End selected session' : 'End other sessions'}</button></div></div></Modal>}
 
-    {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button></div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
+    {mfaEnrollment && <Modal title={mfaEnrollment.manage ? 'Manage your MFA' : 'Set up authenticator MFA'} onClose={() => { setMfaEnrollment(null); setMfaCode(''); setMfaError('') }}>{mfaEnrollment.manage ? <div className="mfa-manage"><span><ShieldCheck /></span><div><Badge tone="success">Enabled</Badge><h3>Your authenticator is protecting this account</h3><p>Future sign-ins require your password and a current six-digit code. Administrators cannot see your secret or codes.</p></div>{mfaError && <p className="form-error" role="alert">{mfaError}</p>}<div className="modal-actions"><button className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Done</button><RecoveryCodes enabled={mfaStatus.enabled} />{user.portal === 'employee' && <button className="button button-secondary danger-text" disabled={mfaSaving} onClick={removeMfa}>{mfaSaving ? 'Disabling…' : 'Disable MFA'}</button>}</div></div> : <form className="mfa-enrollment" onSubmit={confirmMfa}><div className="mfa-steps"><span>1</span><div><h3>Scan with your authenticator app</h3><p>Use Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP-compatible app.</p></div></div><div className="mfa-qr"><img src={mfaEnrollment.qrCode} alt="Private authenticator enrollment QR code" /><div><small>Manual setup key</small><code>{mfaEnrollment.secret}</code><p>Keep this secret private. Never send it to an administrator or include it in screenshots.</p></div></div><div className="mfa-steps"><span>2</span><div><h3>Verify your six-digit code</h3><p>Enter the current code from your authenticator app.</p></div></div><label>Authenticator code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>{mfaError && <p className="form-error">{mfaError}</p>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMfaEnrollment(null)}>Cancel</button><button className="button button-primary" disabled={mfaSaving || mfaCode.length !== 6}>{mfaSaving ? 'Verifying…' : 'Enable my MFA'}</button></div></form>}</Modal>}
 
     {showPassword && <Modal title="Change your password" size="large" onClose={closePasswordDialog}>
       <form className="rf-form rf-form--md" onSubmit={submitPassword} aria-busy={passwordSaving}>

@@ -62,10 +62,15 @@ export async function getProfileByAuthId(authUserId: string): Promise<EmployeeRe
   return { ...employeeFromRow(data as Tables<'profiles'>), mustChangePassword: data.must_change_password === true, mustSetPassword: data.must_set_password === true, emailVerified: data.email_verified === true, requiresMfa: data.mfa_required === true }
 }
 
-export async function fetchSnapshot(): Promise<HrmsSnapshot> {
+let cachedToken: string | null = null
+let cachedRows = new Map<string, object[]>()
+let readSequence = 0
+
+export async function fetchSnapshot(changedTables?: string[]): Promise<HrmsSnapshot> {
+  const sequence = ++readSequence
   const client = requireSupabase()
   const session = await currentSession()
-  if (!session) return emptySnapshot()
+  if (!session) { cachedToken = null; cachedRows.clear(); return emptySnapshot() }
   if (session.user.app_metadata?.must_change_password || session.user.app_metadata?.must_set_password) return emptySnapshot()
   const { error: accessError } = await client.rpc('assert_hrms_access')
   if (accessError) {
@@ -78,6 +83,19 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     throw accessError
   }
 
+  // Realtime tells us which tables changed. Reuse only complete, previously
+  // authorized reads for this exact token, never across accounts/sessions.
+  // A full foreground refresh remains the recovery path after missed events.
+  const targeted = changedTables && !changedTables.includes('profiles') && cachedToken === session.access_token
+  const previous = targeted ? cachedRows : new Map<string, object[]>()
+  const pendingRows = new Map(previous)
+  const read = async <Row extends object>(table: string, query: { range: (from: number, to: number) => PromiseLike<QueryResultLike<Row>> }): Promise<QueryResultLike<Row>> => {
+    if (targeted && !changedTables.includes(table) && previous.has(table)) return { data: previous.get(table) as Row[], error: null }
+    const result = await paged(query)
+    if (!result.error && result.data) pendingRows.set(table, result.data)
+    return result
+  }
+
   const [
     profiles, attendance, leaveRequests, payroll, payrollRuns, performance,
     performanceCycles, announcements, securityAlerts, alertResponses, sessions,
@@ -85,33 +103,37 @@ export async function fetchSnapshot(): Promise<HrmsSnapshot> {
     notifications, documents, documentAcknowledgements, schedules, benefits,
     goals, lifecycleCases, lifecycleTasks,
   ] = await Promise.all([
-    paged(client.from('profiles').select('*').order('employee_code')),
-    paged(client.from('attendance').select('*').order('work_date', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('leave_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('payroll').select('*').order('id', { ascending: false })),
-    paged(client.from('payroll_runs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('performance_reviews').select('*').order('id', { ascending: false })),
-    paged(client.from('performance_cycles').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('announcements').select('*').order('published_on', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('security_alerts').select('*').order('created_at', { ascending: false }).order('alert_code', { ascending: true })),
-    paged(client.from('security_alert_responses').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('account_sessions').select('*').order('created_at', { ascending: false }).order('session_code', { ascending: true })),
-    paged(client.from('audit_logs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('zap_scan_runs').select('*').order('completed_at', { ascending: false }).order('scan_code', { ascending: true })),
-    paged(client.from('zap_findings').select('*').order('id', { ascending: false })),
-    paged(client.from('employee_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('request_comments').select('*').order('created_at', { ascending: true }).order('id', { ascending: true })),
-    paged(client.from('notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('employee_documents').select('id,employee_code,document_type,title,filename,version,period,requires_ack,sensitive,expires_on,created_at,updated_at,uploaded_by').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('document_acknowledgements').select('*').order('acknowledged_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('work_schedules').select('*').order('work_date', { ascending: true }).order('id', { ascending: true })),
-    paged(client.from('employee_benefits').select('*').order('benefit_type', { ascending: true }).order('id', { ascending: true })),
-    paged(client.from('employee_goals').select('*').order('due_date', { ascending: true }).order('id', { ascending: true })),
-    paged(client.from('lifecycle_cases').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
-    paged(client.from('lifecycle_tasks').select('*').order('id', { ascending: true })),
+    read('profiles', client.from('profiles').select('*').order('employee_code')),
+    read('attendance', client.from('attendance').select('*').order('work_date', { ascending: false }).order('id', { ascending: true })),
+    read('leave_requests', client.from('leave_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('payroll', client.from('payroll').select('*').order('id', { ascending: false })),
+    read('payroll_runs', client.from('payroll_runs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('performance_reviews', client.from('performance_reviews').select('*').order('id', { ascending: false })),
+    read('performance_cycles', client.from('performance_cycles').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('announcements', client.from('announcements').select('*').order('published_on', { ascending: false }).order('id', { ascending: true })),
+    read('security_alerts', client.from('security_alerts').select('*').order('created_at', { ascending: false }).order('alert_code', { ascending: true })),
+    read('security_alert_responses', client.from('security_alert_responses').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('account_sessions', client.from('account_sessions').select('*').order('created_at', { ascending: false }).order('session_code', { ascending: true })),
+    read('audit_logs', client.from('audit_logs').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('zap_scan_runs', client.from('zap_scan_runs').select('*').order('completed_at', { ascending: false }).order('scan_code', { ascending: true })),
+    read('zap_findings', client.from('zap_findings').select('*').order('id', { ascending: false })),
+    read('employee_requests', client.from('employee_requests').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('request_comments', client.from('request_comments').select('*').order('created_at', { ascending: true }).order('id', { ascending: true })),
+    read('notifications', client.from('notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('employee_documents', client.from('employee_documents').select('id,employee_code,document_type,title,filename,version,period,requires_ack,sensitive,expires_on,created_at,updated_at,uploaded_by,file_path,file_size,mime_type').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('document_acknowledgements', client.from('document_acknowledgements').select('*').order('acknowledged_at', { ascending: false }).order('id', { ascending: true })),
+    read('work_schedules', client.from('work_schedules').select('*').order('work_date', { ascending: true }).order('id', { ascending: true })),
+    read('employee_benefits', client.from('employee_benefits').select('*').order('benefit_type', { ascending: true }).order('id', { ascending: true })),
+    read('employee_goals', client.from('employee_goals').select('*').order('due_date', { ascending: true }).order('id', { ascending: true })),
+    read('lifecycle_cases', client.from('lifecycle_cases').select('*').order('created_at', { ascending: false }).order('id', { ascending: true })),
+    read('lifecycle_tasks', client.from('lifecycle_tasks').select('*').order('id', { ascending: true })),
   ])
 
   const currentCode = currentBrowserSessionCode(session.user.id)
+  if (sequence === readSequence && [profiles, attendance, leaveRequests, payroll, payrollRuns, performance, performanceCycles, announcements, securityAlerts, alertResponses, sessions, auditLog, zapScanRuns, zapFindings, employeeRequests, requestComments, notifications, documents, documentAcknowledgements, schedules, benefits, goals, lifecycleCases, lifecycleTasks].every(result => !result.error)) {
+    cachedToken = session.access_token
+    cachedRows = pendingRows
+  }
   return {
     employees: await withEmployeeAvatarUrls(queryRows(profiles, 'profiles').map(employeeFromRow), session.user.id),
     attendance: queryRows(attendance, 'attendance').map(attendanceFromRow),

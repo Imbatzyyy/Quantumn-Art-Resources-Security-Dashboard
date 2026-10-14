@@ -15,6 +15,8 @@ insert into auth.sessions(id,user_id) values
  ('42000000-0000-4000-8000-000000000004','41000000-0000-4000-8000-000000000004'),
  ('42000000-0000-4000-8000-000000000005','41000000-0000-4000-8000-000000000005'),
  ('42000000-0000-4000-8000-000000000006','41000000-0000-4000-8000-000000000006');
+-- Match real GoTrue sessions; NULL creation times fail closed.
+update auth.sessions set created_at=now() where created_at is null;
 insert into private.email_signin_sessions(session_id,user_id,email,state,verified_at)
 select s.id, s.user_id, u.email, 'verified', now()
 from auth.sessions s join auth.users u on u.id = s.user_id

@@ -6,12 +6,15 @@ import { useSubmissionLock } from '../utils/useSubmissionLock.js'
 import { useHrms } from '../state/useHrms.js'
 import { formatDate } from '../utils/format.js'
 import type { AnnouncementInput } from '../types/hrms.js'
+import { requireSupabase } from '../services/supabaseClient.js'
 
 const emptyAnnouncement: AnnouncementInput = { title: '', content: '', priority: 'Normal' }
 
 export default function AdminCommunications() {
   const submission = useSubmissionLock()
-  const { data, addAnnouncement } = useHrms()
+  const { data, addAnnouncement, refreshData, notify } = useHrms()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [withdrawId, setWithdrawId] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<AnnouncementInput>(emptyAnnouncement)
   if (!data) return null
@@ -20,9 +23,26 @@ export default function AdminCommunications() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!submission.begin()) return
-    try { await addAnnouncement(form); setShowAdd(false); setForm(emptyAnnouncement) } catch { /* Keep protected input. */ } finally { submission.finish() }
+    try {
+      if (editingId) {
+        const { data: updated, error } = await requireSupabase().from('announcements').update({ title: form.title.trim(), content: form.content.trim(), priority: form.priority }).eq('id', Number(editingId)).select('id').single()
+        if (error || !updated) throw new Error(error?.message || 'This announcement is no longer available.')
+        await refreshData()
+      } else await addAnnouncement(form)
+      setShowAdd(false); setEditingId(null); setForm(emptyAnnouncement)
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'The announcement could not be saved.', 'error') }
+    finally { submission.finish() }
   }
-  return <div className="page-stack"><SectionHeading eyebrow="Clear organization updates" title="Communications" description="Publish concise announcements that also create employee notifications." actions={<button className="button button-primary" onClick={() => setShowAdd(true)}><Plus />New announcement</button>} /><div className="announcement-grid">{data.announcements.map((item) => <article className="panel announcement-card" key={item.id}><div><Badge tone={item.priority === 'High' ? 'warning' : 'info'}>{item.priority}</Badge><time>{formatDate(item.date)}</time></div><h2>{item.title}</h2><p>{item.content}</p></article>)}</div>{!data.announcements.length && <EmptyState icon={BellRing} title="No announcements" text="Publish the first organization update." />}{showAdd && <Modal title="Publish announcement" onClose={() => setShowAdd(false)} size="large">
+  const withdraw = async () => {
+    if (!withdrawId || !submission.begin()) return
+    try {
+      const { error } = await requireSupabase().from('announcements').delete().eq('id', Number(withdrawId))
+      if (error) throw new Error(error.message)
+      setWithdrawId(null); await refreshData(); notify('Announcement withdrawn. Linked inbox copies were removed; audit history remains.')
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'The announcement could not be withdrawn.', 'error') }
+    finally { submission.finish() }
+  }
+  return <div className="page-stack"><SectionHeading eyebrow="Clear organization updates" title="Communications" description="Publish concise announcements that also create employee notifications." actions={<button className="button button-primary" onClick={() => { setEditingId(null); setForm(emptyAnnouncement); setShowAdd(true) }}><Plus />New announcement</button>} /><div className="announcement-grid">{data.announcements.map((item) => <article className="panel announcement-card" key={item.id}><div><Badge tone={item.priority === 'High' ? 'warning' : 'info'}>{item.priority}</Badge><time>{formatDate(item.date)}</time></div><h2>{item.title}</h2><p>{item.content}</p><div className="table-actions"><button className="button button-secondary" onClick={() => { setEditingId(String(item.id)); setForm({ title: item.title, content: item.content, priority: item.priority }); setShowAdd(true) }}>Edit</button><button className="button button-secondary" onClick={() => setWithdrawId(String(item.id))}>Withdraw</button></div></article>)}</div>{!data.announcements.length && <EmptyState icon={BellRing} title="No announcements" text="Publish the first organization update." />}{withdrawId && <Modal title="Withdraw announcement?" onClose={() => !submission.busy && setWithdrawId(null)}><div className="rf-form rf-form--sm"><p>This removes the published announcement and its linked employee inbox copies. Audit history remains available.</p><div className="modal-actions"><button className="button button-secondary" disabled={submission.busy} onClick={() => setWithdrawId(null)}>Keep announcement</button><button className="button button-primary" disabled={submission.busy} onClick={() => void withdraw()}>Confirm withdrawal</button></div></div></Modal>}{showAdd && <Modal title={editingId ? 'Edit announcement' : 'Publish announcement'} onClose={() => setShowAdd(false)} size="large">
     <form className="rf-form" onSubmit={submit}>
       <FormIntro>Write a short, clear update. It is posted to every employee’s portal and each person receives a notification.</FormIntro>
 
@@ -58,7 +78,7 @@ export default function AdminCommunications() {
 
       <FormFooter icon={Send} note="Check the title, message, and priority before publishing.">
         <button type="button" className="button button-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-        <button className="button button-primary" disabled={submission.busy}><Send aria-hidden="true" />Publish &amp; notify</button>
+        <button className="button button-primary" disabled={submission.busy}><Send aria-hidden="true" />{editingId ? 'Save corrections' : 'Publish & notify'}</button>
       </FormFooter>
     </form>
   </Modal>}</div>

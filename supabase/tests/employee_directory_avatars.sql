@@ -9,6 +9,8 @@ insert into auth.sessions (id, user_id) values
   ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-00000000a001'),
   ('00000000-0000-4000-8000-00000000a002', '00000000-0000-4000-8000-00000000a002'),
   ('00000000-0000-4000-8000-00000000a003', '00000000-0000-4000-8000-00000000a003');
+-- Match real GoTrue sessions; NULL creation times fail closed.
+update auth.sessions set created_at=now() where created_at is null;
 insert into public.profiles (employee_code, auth_user_id, first_name, last_name, email, role, department, position, avatar_path) values
   ('AVATAR-ADMIN', '00000000-0000-4000-8000-00000000a001', 'Test', 'Admin', 'avatar-admin@example.test', 'admin', 'QA', 'Admin', null),
   ('AVATAR-EMPLOYEE', '00000000-0000-4000-8000-00000000a002', 'Test', 'Employee', 'avatar-employee@example.test', 'employee', 'QA', 'Employee', '00000000-0000-4000-8000-00000000a002/avatar.png'),

@@ -4,6 +4,7 @@ import { Badge, EmptyState, Modal, SectionHeading, StatCard, TableShell } from '
 import { useHrms } from '../state/useHrms.js'
 import { formatDate, formatDateTime, statusTone } from '../utils/format.js'
 import type { HrmsSnapshot } from '../types/hrms.js'
+import { LeavePolicies } from '../components/LeavePolicies.js'
 
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
 const decisionOptions = [
@@ -25,9 +26,20 @@ export default function AdminApprovals() {
   const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')
   const [internal, setInternal] = useState(false)
+  const [leaveDecision, setLeaveDecision] = useState<{ id: string; status: string } | null>(null)
+  const [leaveNote, setLeaveNote] = useState('')
+  const [leaveBusy, setLeaveBusy] = useState(false)
   if (!data) return null
 
   const pendingLeaves = data.leaveRequests.filter((item) => item.status === 'Pending')
+  const saveLeaveDecision = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!leaveDecision || leaveBusy) return
+    setLeaveBusy(true)
+    try { await reviewLeave(leaveDecision.id, leaveDecision.status, leaveNote); setLeaveDecision(null); setLeaveNote('') }
+    catch { /* The shared error toast preserves the form for correction. */ }
+    finally { setLeaveBusy(false) }
+  }
   const requests = data.employeeRequests.filter((item) => openRequestStatuses.includes(item.status))
   const selected = data.employeeRequests.find((item) => item.id === selectedId)
   const comments = data.requestComments.filter((item) => item.requestId === selectedId)
@@ -56,11 +68,11 @@ export default function AdminApprovals() {
   }
 
   return <div className="page-stack">
-    <SectionHeading eyebrow="Explainable decisions" title="Unified Approvals" description="Review leave and HR requests with clear context, decision reasons, comments, and employee notifications." />
+    <SectionHeading eyebrow="Explainable decisions" title="Unified Approvals" description="Review leave and HR requests with clear context, decision reasons, comments, and employee notifications." actions={<LeavePolicies />} />
     <div className="stats-grid stats-grid-3"><StatCard icon={CalendarCheck} label="Leave decisions" value={pendingLeaves.length} tone="amber" /><StatCard icon={FileCheck2} label="HR request queue" value={requests.length} tone="blue" /><StatCard icon={MessageSquareText} label="Needs information" value={requests.filter((item) => item.status === 'More Information').length} tone="purple" /></div>
-    <section className="panel"><div className="panel-header"><div><h2>Leave requests</h2><p>Dates, duration, and reason before each decision</p></div></div>{pendingLeaves.length ? <TableShell><thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Reason</th><th>Decision</th></tr></thead><tbody>{pendingLeaves.map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong><small className="table-subtitle">{item.employeeId}</small></td><td>{item.type} · {item.days} day{item.days === 1 ? '' : 's'}</td><td>{formatDate(item.startDate)}–{formatDate(item.endDate)}</td><td>{item.reason}</td><td><div className="table-actions"><button className="mini-button approve" onClick={() => void reviewLeave(item.id, 'Approved')}><Check />Approve</button><button className="mini-button reject" onClick={() => void reviewLeave(item.id, 'Rejected')}><X />Reject</button></div></td></tr>)}</tbody></TableShell> : <EmptyState icon={CheckCircle2} title="No leave approvals" text="New leave requests will appear here." />}</section>
+    <section className="panel"><div className="panel-header"><div><h2>Leave requests</h2><p>Dates, duration, and reason before each decision</p></div></div>{pendingLeaves.length ? <TableShell><thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Reason</th><th>Decision</th></tr></thead><tbody>{pendingLeaves.map((item) => <tr key={item.id}><td><strong>{personName(data, item.employeeId)}</strong><small className="table-subtitle">{item.employeeId}</small></td><td>{item.type} · {item.days} day{item.days === 1 ? '' : 's'}</td><td>{formatDate(item.startDate)}–{formatDate(item.endDate)}</td><td>{item.reason}</td><td><div className="table-actions"><button className="mini-button approve" onClick={() => { setLeaveDecision({ id: item.id, status: 'Approved' }); setLeaveNote('') }}><Check />Approve</button><button className="mini-button reject" onClick={() => { setLeaveDecision({ id: item.id, status: 'Rejected' }); setLeaveNote('') }}><X />Reject</button></div></td></tr>)}</tbody></TableShell> : <EmptyState icon={CheckCircle2} title="No leave approvals" text="New leave requests will appear here." />}</section>
     <section className="panel"><div className="panel-header"><div><h2>HR request queue</h2><p>Cross-functional requests with a shared conversation history</p></div></div>{requests.length ? <TableShell><thead><tr><th>Request</th><th>Employee</th><th>Type</th><th>Priority</th><th>Status</th><th /></tr></thead><tbody>{requests.map((item) => <tr key={item.id}><td><strong>#{item.id} · {item.subject}</strong><small className="table-subtitle">{item.description}</small></td><td>{personName(data, item.employeeId)}</td><td>{item.type}</td><td><Badge tone={item.priority === 'Urgent' ? 'danger' : item.priority === 'High' ? 'warning' : 'neutral'}>{item.priority}</Badge></td><td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td><td><button className="text-button" onClick={() => { setSelectedId(item.id); setDecision(item.status === 'Submitted' ? 'Under Review' : item.status); setReason(item.decisionNote || ''); setComment(''); setInternal(false) }}>Review</button></td></tr>)}</tbody></TableShell> : <EmptyState icon={CheckCircle2} title="No HR request approvals" text="Employee requests will appear here." />}</section>
-    {selected && <Modal title={`Review request #${selected.id}`} onClose={closeReview} size="large">
+    {leaveDecision && <Modal title={`${leaveDecision.status === 'Approved' ? 'Approve' : 'Reject'} leave request`} onClose={() => !leaveBusy && setLeaveDecision(null)}><form className="rf-form rf-form--sm" onSubmit={saveLeaveDecision}><p>The employee will see your decision and note. Their allowance is checked again before approval.</p><label className="rf-field"><span className="rf-label">Note to employee {leaveDecision.status === 'Rejected' ? '(required)' : '(optional)'}</span><textarea rows={3} maxLength={500} required={leaveDecision.status === 'Rejected'} value={leaveNote} onChange={event => setLeaveNote(event.target.value)} /></label><div className="modal-actions"><button type="button" className="button button-secondary" disabled={leaveBusy} onClick={() => setLeaveDecision(null)}>Cancel</button><button className="button button-primary" disabled={leaveBusy}>{leaveBusy ? 'Saving…' : 'Confirm decision'}</button></div></form></Modal>}{selected && <Modal title={`Review request #${selected.id}`} onClose={closeReview} size="large">
       <div className="rf-form rf-form--lg">
         <div className="rf-record-head">
           <div className="inline-badges"><span className="rf-tag">{selected.type}</span><Badge tone={selected.priority === 'Urgent' ? 'danger' : selected.priority === 'High' ? 'warning' : 'neutral'}>{selected.priority} priority</Badge><Badge tone={statusTone(selected.status)}>{selected.status}</Badge></div>

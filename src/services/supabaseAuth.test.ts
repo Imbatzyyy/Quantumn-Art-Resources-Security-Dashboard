@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authenticate, getCurrentUser } from './supabaseAuth.js'
+import { authenticate, getCurrentUser, signOut } from './supabaseAuth.js'
 
 const mocks = vi.hoisted(() => ({ password: vi.fn(), assurance: vi.fn(), factors: vi.fn(), profile: vi.fn(), session: vi.fn(), prepare: vi.fn(), signOut: vi.fn() }))
 vi.mock('./supabaseClient.js', () => ({ requireSupabase: () => ({ auth: { signInWithPassword: mocks.password, signOut: mocks.signOut, mfa: { getAuthenticatorAssuranceLevel: mocks.assurance, listFactors: mocks.factors } } }) }))
@@ -14,6 +14,19 @@ beforeEach(() => {
   mocks.session.mockResolvedValue({ user: { id: 'auth-qa' } })
 })
 describe('optimized authentication routing', () => {
+  it('waits for an in-flight sign-out before starting another login', async () => {
+    mocks.session.mockResolvedValue(null)
+    let resolve!: (value: { error: null }) => void
+    mocks.signOut.mockReturnValue(new Promise(done => { resolve = done }))
+    const leaving = signOut()
+    await Promise.resolve()
+    const entering = authenticate({ email: 'local@example.test', password: 'fictional', portal: 'employee' })
+    expect(mocks.password).not.toHaveBeenCalled()
+    resolve({ error: null })
+    await leaving
+    await entering
+    expect(mocks.password).toHaveBeenCalledTimes(1)
+  })
   it('returns a setup identity, not a false MFA challenge, for a new employee', async () => {
     const result = await authenticate({ email: 'local@example.test', password: 'fictional', portal: 'employee' })
     expect(result).toMatchObject({ id: 'EMP-QA', mustChangePassword: true, portal: 'employee' })

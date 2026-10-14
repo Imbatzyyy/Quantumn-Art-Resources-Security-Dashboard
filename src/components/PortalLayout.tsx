@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   Bell,
   CalendarDays,
@@ -82,7 +82,7 @@ export default function PortalLayout({ active, onNavigate, items, title, childre
     return () => document.removeEventListener('keydown', focusPortalSearch)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mobileMoreOpen) return
     const previousOverflow = document.body.style.overflow
     const sheetKeys = (event: globalThis.KeyboardEvent) => {

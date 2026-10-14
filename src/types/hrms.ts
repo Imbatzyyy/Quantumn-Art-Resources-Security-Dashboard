@@ -48,6 +48,7 @@ export interface MfaLoginInput {
 }
 
 export interface MfaChallenge {
+  enrollmentRequired?: boolean
   mfaRequired: true
   factorId: string
   portal: PortalKind
@@ -109,6 +110,10 @@ export interface AttendanceRecord {
 }
 
 export interface PayrollRecord {
+  sssContribution?: number
+  philhealthContribution?: number
+  pagibigContribution?: number
+  withholdingTax?: number
   id: string
   employeeId: string
   period: string
@@ -124,6 +129,7 @@ export interface PayrollRecord {
 export type PayrollStage = 'Draft' | 'Validation' | 'Approved' | 'Released' | 'Paid' | 'Locked'
 
 export interface PayrollRunRecord {
+  calculationMethod?: string
   id: number
   period: string
   status: PayrollStage
@@ -136,6 +142,7 @@ export interface PayrollRunRecord {
 }
 
 export interface PayrollGenerationInput {
+  calculationMethod?: 'Flat rate' | 'Philippine statutory'
   period: string
   deductionRate: number
 }
@@ -213,6 +220,9 @@ export interface PerformanceReviewInput {
 export type GoalInput = Omit<GoalRecord, 'id'> & { id?: string }
 
 export interface DocumentRecord {
+  filePath?: string
+  fileSize?: number
+  mimeType?: string
   expiresOn?: string
   id: string
   employeeId?: string | null
@@ -228,6 +238,7 @@ export interface DocumentRecord {
 }
 
 export interface DocumentInput {
+  file?: File
   employeeId: string
   title: string
   type: string
@@ -269,6 +280,7 @@ export interface EmployeeRequestRecord {
 }
 
 export interface LeaveRequestRecord {
+  decisionNote?: string
   id: string
   employeeId: string
   status: string
@@ -574,9 +586,10 @@ export interface ActivityInput {
 }
 
 export interface HrmsDataProvider {
+  touchSession?: () => Promise<void>
   getSnapshot: () => Promise<HrmsSnapshot>
-  refresh?: () => Promise<HrmsSnapshot>
-  subscribeToChanges?: (onChange: () => void | Promise<void>) => (() => void) | undefined
+  refresh?: (changedTables?: string[]) => Promise<HrmsSnapshot>
+  subscribeToChanges?: (onChange: (changedTables?: string[]) => void | Promise<void>) => (() => void) | undefined
   getCurrentUser: () => Promise<PortalIdentity | null>
   authenticate: (credentials: LoginCredentials) => Promise<AuthenticationResult>
   completeEmailSignIn?: (portal: PortalKind) => Promise<AuthenticationResult>
@@ -595,7 +608,7 @@ export interface HrmsDataProvider {
   updateEmployee: (id: string, changes: Partial<EmployeeUpdateInput>) => Promise<HrmsSnapshot>
   updateProfilePhoto: (photo: Blob) => Promise<HrmsSnapshot>
   submitLeave: (input: LeaveRequestInput) => Promise<HrmsSnapshot>
-  reviewLeave: (id: string, status: string) => Promise<HrmsSnapshot>
+  reviewLeave: (id: string, status: string, note?: string) => Promise<HrmsSnapshot>
   submitRequest: (input: EmployeeRequestInput) => Promise<HrmsSnapshot>
   reviewRequest: (id: string, status: string, reason: string) => Promise<HrmsSnapshot>
   addRequestComment: (id: string, body: string, internal?: boolean) => Promise<HrmsSnapshot>
@@ -672,7 +685,7 @@ export interface HrmsContextValue {
   updateGoalProgress: (id: string, progress: number) => Promise<unknown>
   acknowledgeDocument: (id: string) => Promise<unknown>
   saveSchedule: (input: ScheduleInput) => Promise<unknown>
-  reviewLeave: (id: string, status: string) => Promise<unknown>
+  reviewLeave: (id: string, status: string, note?: string) => Promise<unknown>
   reviewRequest: (id: string, status: string, reason: string) => Promise<unknown>
   createLifecycleCase: (input: LifecycleCaseInput) => Promise<unknown>
   updateLifecycleTask: (id: string, status: string) => Promise<unknown>

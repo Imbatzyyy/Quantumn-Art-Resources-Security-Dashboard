@@ -3,6 +3,8 @@ import { SectionHeading, StatCard } from '../components/ui.js'
 import { useHrms } from '../state/useHrms.js'
 import { isOpenSecurityAlert } from '../utils/securityMetrics.js'
 import { downloadCsv } from '../utils/downloads.js'
+import { prepareReport } from '../services/auditedReports.js'
+import { useState } from 'react'
 
 const openRequestStatuses = ['Submitted', 'Under Review', 'More Information']
 const reports = [
@@ -15,10 +17,14 @@ const reports = [
 type ReportId = typeof reports[number]['id']
 
 export default function AdminAnalyticsReports() {
-  const { data, recordActivity, user } = useHrms()
+  const { data, notify, user } = useHrms()
+  const [exporting, setExporting] = useState(false)
   if (!data) return null
 
   const generate = async (id: ReportId, title: string) => {
+    if (exporting) return
+    setExporting(true)
+    try {
     let rows: object[]
     let columns: Array<{ label: string; key: string }>
     if (id === 'workforce') {
@@ -35,10 +41,12 @@ export default function AdminAnalyticsReports() {
       columns = [{ label: 'Period', key: 'period' }, { label: 'Stage', key: 'status' }, { label: 'Employee count', key: 'employeeCount' }, { label: 'Gross total', key: 'grossTotal' }, { label: 'Net total', key: 'netTotal' }, { label: 'Approved by', key: 'approvedBy' }, { label: 'Released at', key: 'releasedAt' }]
     } else {
       rows = data.auditLog
-      columns = [{ label: 'Actor', key: 'actor' }, { label: 'Action', key: 'action' }, { label: 'Target', key: 'target' }, { label: 'Time', key: 'time' }]
+      columns = [{ label: 'Actor', key: 'actor' }, { label: 'Action', key: 'action' }, { label: 'Target', key: 'target' }, { label: 'Time', key: 'time' }, { label: 'Evidence source', key: 'eventSource' }]
     }
+    rows = await prepareReport(id)
     downloadCsv(title.toLowerCase().replaceAll(' ', '-'), columns, rows)
-    try { await recordActivity({ action: 'Exported authorized HR report', target: title }) } catch { /* Download completed; shared toast reports audit failure. */ }
+    } catch (reason) { notify(reason instanceof Error ? reason.message : 'The report could not be prepared and audited. Nothing was downloaded.', 'error') }
+    finally { setExporting(false) }
   }
 
   const departments = [...new Set(data.employees.filter((item) => item.role === 'employee').map((item) => item.department))]
@@ -50,6 +58,6 @@ export default function AdminAnalyticsReports() {
     <SectionHeading eyebrow="Decision-ready evidence" title="Analytics & Reports" description="Export authorized records and review operational indicators. Every export is added to the audit trail." />
     <div className="stats-grid stats-grid-3"><StatCard icon={Users} label="Workforce records" value={data.employees.filter((employee) => employee.role === 'employee').length} tone="blue" /><StatCard icon={ClipboardCheck} label="Request decision rate" value={`${decisionRate}%`} tone="green" /><StatCard icon={ShieldCheck} label="Audit events" value={data.auditLog.length} tone="purple" /></div>
     <div className="content-grid dashboard-grid"><section className="panel"><div className="panel-header"><div><h2>Workforce distribution</h2><p>Active people by department</p></div></div><div className="bar-chart">{departments.map((department) => { const count = data.employees.filter((item) => item.role === 'employee' && item.department === department && item.status === 'Active').length; return <div key={department}><span>{department}</span><progress value={count} max={maxDepartment}>{count}</progress><strong>{count}</strong></div> })}</div></section><section className="panel"><div className="panel-header"><div><h2>Governance snapshot</h2><p>Controls that require administrator attention</p></div></div><div className="governance-list"><article><span><FileCheck2 /></span><div><strong>{data.employeeRequests.filter((item) => openRequestStatuses.includes(item.status)).length} open HR requests</strong><p>Awaiting review, information, or completion</p></div></article><article><span><FolderLock /></span><div><strong>{data.documents.filter((item) => item.requiresAck).length} acknowledgement policies</strong><p>Tracked per employee in Supabase</p></div></article><article><span><ShieldCheck /></span><div><strong>{data.securityAlerts.filter((item) => isOpenSecurityAlert(item.status)).length} open security alerts</strong><p>Prioritized by plain-language impact</p></div></article></div></section></div>
-    <section className="report-grid premium-report-grid">{reports.filter((report) => ({ admin: ['workforce','attendance','requests','payroll','audit'], hr_admin: ['workforce','attendance','requests','audit'], payroll_admin: ['workforce','payroll','audit'], security_admin: ['audit'], auditor: ['workforce','attendance','requests','payroll','audit'] }[user?.role || ''] || []).includes(report.id)).map(({ id, title, text, icon: Icon }) => <article className="panel report-card" key={id}><span><Icon /></span><h2>{title}</h2><p>{text}</p><button className="button button-secondary" onClick={() => void generate(id, title)}><Download size={17} />Download CSV</button></article>)}</section>
+    <section className="report-grid premium-report-grid">{reports.filter((report) => ({ admin: ['workforce','attendance','requests','payroll','audit'], hr_admin: ['workforce','attendance','requests','audit'], payroll_admin: ['workforce','payroll'], security_admin: ['audit'], auditor: ['workforce','attendance','requests','payroll','audit'] }[user?.role || ''] || []).includes(report.id)).map(({ id, title, text, icon: Icon }) => <article className="panel report-card" key={id}><span><Icon /></span><h2>{title}</h2><p>{text}</p><button className="button button-secondary" disabled={exporting} onClick={() => void generate(id, title)}><Download size={17} />Download CSV</button></article>)}</section>
   </div>
 }

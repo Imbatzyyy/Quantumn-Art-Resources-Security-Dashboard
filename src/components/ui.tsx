@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { X } from 'lucide-react'
 
@@ -135,5 +135,14 @@ export function SectionHeading({ eyebrow, title, description, actions }: Section
 }
 
 export function TableShell({ children }: { children: ReactNode }) {
-  return <div className="table-shell"><table>{children}</table></div>
+  const [page, setPage] = useState(0)
+  const sections = Children.toArray(children)
+  const body = sections.find(child => isValidElement<{ children: ReactNode }>(child) && child.type === 'tbody')
+  const rows = isValidElement<{ children: ReactNode }>(body) ? Children.toArray(body.props.children) : []
+  const pages = Math.max(1, Math.ceil(rows.length / 25))
+  const current = Math.min(page, pages - 1)
+  const visible = rows.length > 25 && isValidElement<{ children: ReactNode }>(body)
+    ? sections.map(child => child === body ? cloneElement(body, {}, rows.slice(current * 25, (current + 1) * 25)) : child)
+    : children
+  return <><div className="table-shell"><table>{visible}</table></div>{pages > 1 && <nav className="table-pagination" aria-label="Table pagination"><span aria-live="polite">{current * 25 + 1}–{Math.min((current + 1) * 25, rows.length)} of {rows.length}</span><div className="table-actions"><button className="button button-secondary" disabled={current === 0} onClick={() => setPage(current - 1)}>Previous</button><button className="button button-secondary" disabled={current === pages - 1} onClick={() => setPage(current + 1)}>Next</button></div></nav>}</>
 }

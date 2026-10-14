@@ -512,3 +512,5 @@ button.rf-choice:focus-visible { outline: 3px solid color-mix(in srgb, var(--rf-
   .rf-feature-list { padding: 1rem 1.1rem 1.2rem; }
   .rf-sync { flex-wrap: wrap; }
 }
+.table-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem; }
+.table-pagination > span { color: var(--text-muted); font-size: .875rem; }

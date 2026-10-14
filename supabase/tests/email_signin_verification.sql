@@ -5,6 +5,8 @@ insert into auth.users(id,email,raw_app_meta_data) values
 insert into auth.sessions(id,user_id) values
  ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001'),
  ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001');
+-- Match real GoTrue sessions; NULL creation times fail closed.
+update auth.sessions set created_at=now() where created_at is null;
 insert into public.profiles(employee_code,auth_user_id,first_name,last_name,email,role,department,position)
  values('OTP-ADMIN','10000000-0000-4000-8000-000000000001','Email','QA','code-admin@example.test','admin','QA','QA');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","session_id":"20000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1","amr":[{"method":"password"}]}',true);
